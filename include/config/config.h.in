@@ -4,24 +4,29 @@
 #include <winpr/config.h>
 
 /* Include files */
-#cmakedefine HAVE_SYSLOG_H
-#cmakedefine HAVE_JOURNALD_H
-#cmakedefine HAVE_VALGRIND_MEMCHECK_H
+#cmakedefine FREERDP_HAVE_VALGRIND_MEMCHECK_H
 
 /* Features */
 #cmakedefine SWRESAMPLE_FOUND
 #cmakedefine AVRESAMPLE_FOUND
 
 /* Options */
+/** If set the rdpSettings struct is opaque and internals can only be accessed
+ *  through getters/setters
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine WITH_OPAQUE_SETTINGS
+
 #cmakedefine WITH_ADD_PLUGIN_TO_RPATH
 #cmakedefine WITH_PROFILER
 #cmakedefine WITH_GPROF
-#cmakedefine WITH_SSE2
-#cmakedefine WITH_NEON
-#cmakedefine WITH_IPP
+#cmakedefine WITH_SIMD
+#cmakedefine WITH_AVX2
 #cmakedefine WITH_CUPS
 #cmakedefine WITH_JPEG
 #cmakedefine WITH_WIN8
+#cmakedefine WITH_AAD
 #cmakedefine WITH_CAIRO
 #cmakedefine WITH_SWSCALE
 #cmakedefine WITH_RDPSND_DSOUND
@@ -35,6 +40,11 @@
 #cmakedefine WITH_OPENSLES
 #cmakedefine WITH_GSM
 #cmakedefine WITH_LAME
+/** If defined Opus codec support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine WITH_OPUS
 #cmakedefine WITH_FAAD2
 #cmakedefine WITH_FAAC
 #cmakedefine WITH_SOXR
@@ -91,6 +101,21 @@
 #cmakedefine CHANNEL_GFXREDIR
 #cmakedefine CHANNEL_GFXREDIR_CLIENT
 #cmakedefine CHANNEL_GFXREDIR_SERVER
+/** If defined location channel support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine CHANNEL_LOCATION
+/** If defined location client side channel support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine CHANNEL_LOCATION_CLIENT
+/** If defined location server side channel support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine CHANNEL_LOCATION_SERVER
 #cmakedefine CHANNEL_PARALLEL
 #cmakedefine CHANNEL_PARALLEL_CLIENT
 #cmakedefine CHANNEL_PARALLEL_SERVER
@@ -115,6 +140,23 @@
 #cmakedefine CHANNEL_RDPGFX
 #cmakedefine CHANNEL_RDPGFX_CLIENT
 #cmakedefine CHANNEL_RDPGFX_SERVER
+/** If defined mouse cursor channel support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine CHANNEL_RDPEMSC
+
+/** If defined mouse cursor channel support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine CHANNEL_RDPEMSC_CLIENT
+
+/** If defined mouse cursor channel support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine CHANNEL_RDPEMSC_SERVER
 #cmakedefine CHANNEL_RDPSND
 #cmakedefine CHANNEL_RDPSND_CLIENT
 #cmakedefine CHANNEL_RDPSND_SERVER
@@ -148,6 +190,7 @@
 #cmakedefine WITH_DEBUG_CAPABILITIES
 #cmakedefine WITH_DEBUG_CHANNELS
 #cmakedefine WITH_DEBUG_CLIPRDR
+#cmakedefine WITH_DEBUG_CODECS
 #cmakedefine WITH_DEBUG_RDPGFX
 #cmakedefine WITH_DEBUG_DVC
 #cmakedefine WITH_DEBUG_TSMF
@@ -170,7 +213,6 @@
 #cmakedefine WITH_DEBUG_TRANSPORT
 #cmakedefine WITH_DEBUG_WND
 #cmakedefine WITH_DEBUG_X11
-#cmakedefine WITH_DEBUG_X11_CLIPRDR
 #cmakedefine WITH_DEBUG_X11_LOCAL_MOVESIZE
 #cmakedefine WITH_DEBUG_XV
 #cmakedefine WITH_DEBUG_RINGBUFFER
@@ -178,5 +220,11 @@
 /* Proxy */
 #cmakedefine WITH_PROXY_MODULES
 #cmakedefine WITH_PROXY_EMULATE_SMARTCARD
+
+/** If defined linux/vm_sockets.h support is available.
+ *
+ *  \since version 3.0.0
+ */
+#cmakedefine HAVE_AF_VSOCK_H
 
 #endif /* FREERDP_CONFIG_H */

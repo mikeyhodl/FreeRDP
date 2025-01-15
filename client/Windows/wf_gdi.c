@@ -126,25 +126,18 @@ static void wf_glyph_free(wfBitmap* glyph)
 	wf_image_free(glyph);
 }
 
-static BYTE* wf_glyph_convert(wfContext* wfc, int width, int height, BYTE* data)
+static BYTE* wf_glyph_convert(wfContext* wfc, int width, int height, const BYTE* data)
 {
-	int indexx;
-	int indexy;
-	BYTE* src;
-	BYTE* dst;
-	BYTE* cdata;
-	int src_bytes_per_row;
-	int dst_bytes_per_row;
-	src_bytes_per_row = (width + 7) / 8;
-	dst_bytes_per_row = src_bytes_per_row + (src_bytes_per_row % 2);
-	cdata = (BYTE*)malloc(dst_bytes_per_row * height);
-	src = data;
+	const int src_bytes_per_row = (width + 7) / 8;
+	const int dst_bytes_per_row = src_bytes_per_row + (src_bytes_per_row % 2);
+	BYTE* cdata = (BYTE*)malloc(dst_bytes_per_row * height);
+	const BYTE* src = data;
 
-	for (indexy = 0; indexy < height; indexy++)
+	for (int indexy = 0; indexy < height; indexy++)
 	{
-		dst = cdata + indexy * dst_bytes_per_row;
+		BYTE* dst = &cdata[1ull * indexy * dst_bytes_per_row];
 
-		for (indexx = 0; indexx < dst_bytes_per_row; indexx++)
+		for (int indexx = 0; indexx < dst_bytes_per_row; indexx++)
 		{
 			if (indexx < src_bytes_per_row)
 				*dst++ = *src++;
@@ -158,7 +151,6 @@ static BYTE* wf_glyph_convert(wfContext* wfc, int width, int height, BYTE* data)
 
 static HBRUSH wf_create_brush(wfContext* wfc, rdpBrush* brush, UINT32 color, UINT32 bpp)
 {
-	UINT32 i;
 	HBRUSH br;
 	LOGBRUSH lbr;
 	BYTE* cdata;
@@ -182,7 +174,7 @@ static HBRUSH wf_create_brush(wfContext* wfc, rdpBrush* brush, UINT32 color, UIN
 		}
 		else
 		{
-			for (i = 0; i != 8; i++)
+			for (UINT32 i = 0; i != 8; i++)
 				ipattern[7 - i] = brush->data[i];
 
 			cdata = wf_glyph_convert(wfc, 8, 8, ipattern);
@@ -222,8 +214,8 @@ BOOL wf_scale_rect(wfContext* wfc, RECT* source)
 	if (!settings)
 		return FALSE;
 
-	dw = settings->DesktopWidth;
-	dh = settings->DesktopHeight;
+	dw = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+	dh = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
 	if (!wfc->client_width)
 		wfc->client_width = dw;
@@ -240,7 +232,8 @@ BOOL wf_scale_rect(wfContext* wfc, RECT* source)
 	if (!wh)
 		wh = dh;
 
-	if (wfc->common.context.settings->SmartSizing && (ww != dw || wh != dh))
+	if (freerdp_settings_get_bool(wfc->common.context.settings, FreeRDP_SmartSizing) &&
+	    (ww != dw || wh != dh))
 	{
 		source->bottom = source->bottom * wh / dh + 20;
 		source->top = source->top * wh / dh - 20;
@@ -280,30 +273,34 @@ void wf_update_offset(wfContext* wfc)
 
 	if (wfc->fullscreen)
 	{
-		if (wfc->common.context.settings->UseMultimon)
+		if (freerdp_settings_get_bool(wfc->common.context.settings, FreeRDP_UseMultimon))
 		{
 			int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
 			int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
 			int w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
 			int h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-			wfc->offset_x = (w - settings->DesktopWidth) / 2;
+			wfc->offset_x = (w - freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth)) / 2;
 
 			if (wfc->offset_x < x)
 				wfc->offset_x = x;
 
-			wfc->offset_y = (h - settings->DesktopHeight) / 2;
+			wfc->offset_y = (h - freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight)) / 2;
 
 			if (wfc->offset_y < y)
 				wfc->offset_y = y;
 		}
 		else
 		{
-			wfc->offset_x = (GetSystemMetrics(SM_CXSCREEN) - settings->DesktopWidth) / 2;
+			wfc->offset_x = (GetSystemMetrics(SM_CXSCREEN) -
+			                 freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth)) /
+			                2;
 
 			if (wfc->offset_x < 0)
 				wfc->offset_x = 0;
 
-			wfc->offset_y = (GetSystemMetrics(SM_CYSCREEN) - settings->DesktopHeight) / 2;
+			wfc->offset_y = (GetSystemMetrics(SM_CYSCREEN) -
+			                 freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight)) /
+			                2;
 
 			if (wfc->offset_y < 0)
 				wfc->offset_y = 0;
@@ -323,7 +320,7 @@ void wf_resize_window(wfContext* wfc)
 
 	if (wfc->fullscreen)
 	{
-		if (wfc->common.context.settings->UseMultimon)
+		if (freerdp_settings_get_bool(wfc->common.context.settings, FreeRDP_UseMultimon))
 		{
 			int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
 			int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
@@ -339,17 +336,17 @@ void wf_resize_window(wfContext* wfc)
 			             GetSystemMetrics(SM_CYSCREEN), SWP_FRAMECHANGED);
 		}
 	}
-	else if (!wfc->common.context.settings->Decorations)
+	else if (!freerdp_settings_get_bool(wfc->common.context.settings, FreeRDP_Decorations))
 	{
 		SetWindowLongPtr(wfc->hwnd, GWL_STYLE, WS_CHILD);
 
-		if (settings->EmbeddedWindow)
+		if (freerdp_settings_get_bool(settings, FreeRDP_EmbeddedWindow))
 		{
 			if (!wfc->client_height)
-				wfc->client_height = settings->DesktopHeight;
+				wfc->client_height = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
 			if (!wfc->client_width)
-				wfc->client_width = settings->DesktopWidth;
+				wfc->client_width = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 
 			wf_update_canvas_diff(wfc);
 			/* Now resize to get full canvas size and room for caption and borders */
@@ -360,11 +357,15 @@ void wf_resize_window(wfContext* wfc)
 		else
 		{
 			/* Now resize to get full canvas size and room for caption and borders */
-			SetWindowPos(wfc->hwnd, HWND_TOP, 0, 0, settings->DesktopWidth, settings->DesktopHeight,
+			SetWindowPos(wfc->hwnd, HWND_TOP, 0, 0,
+			             freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+			             freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight),
 			             SWP_FRAMECHANGED);
 			wf_update_canvas_diff(wfc);
-			SetWindowPos(wfc->hwnd, HWND_TOP, -1, -1, settings->DesktopWidth + wfc->diff.x,
-			             settings->DesktopHeight + wfc->diff.y, SWP_NOMOVE | SWP_FRAMECHANGED);
+			SetWindowPos(wfc->hwnd, HWND_TOP, -1, -1,
+			             freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) + wfc->diff.x,
+			             freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) + wfc->diff.y,
+			             SWP_NOMOVE | SWP_FRAMECHANGED);
 		}
 	}
 	else
@@ -374,10 +375,10 @@ void wf_resize_window(wfContext* wfc)
 		                     WS_MAXIMIZEBOX);
 
 		if (!wfc->client_height)
-			wfc->client_height = settings->DesktopHeight;
+			wfc->client_height = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
 		if (!wfc->client_width)
-			wfc->client_width = settings->DesktopWidth;
+			wfc->client_width = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 
 		if (!wfc->client_x)
 			wfc->client_x = 10;
@@ -388,10 +389,12 @@ void wf_resize_window(wfContext* wfc)
 		wf_update_canvas_diff(wfc);
 		/* Now resize to get full canvas size and room for caption and borders */
 		int width, height;
-		if (settings->SmartSizing && settings->SmartSizingWidth && settings->SmartSizingHeight)
+		if (freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) &&
+		    freerdp_settings_get_uint32(settings, FreeRDP_SmartSizingWidth) &&
+		    freerdp_settings_get_uint32(settings, FreeRDP_SmartSizingHeight))
 		{
-			width = settings->SmartSizingWidth;
-			height = settings->SmartSizingHeight;
+			width = freerdp_settings_get_uint32(settings, FreeRDP_SmartSizingWidth);
+			height = freerdp_settings_get_uint32(settings, FreeRDP_SmartSizingHeight);
 		}
 		else
 		{
@@ -400,10 +403,11 @@ void wf_resize_window(wfContext* wfc)
 		}
 
 		int xpos, ypos;
-		if ((settings->DesktopPosX != UINT32_MAX) && (settings->DesktopPosY != UINT32_MAX))
+		if ((freerdp_settings_get_uint32(settings, FreeRDP_DesktopPosX) != UINT32_MAX) &&
+		    (freerdp_settings_get_uint32(settings, FreeRDP_DesktopPosY) != UINT32_MAX))
 		{
-			xpos = settings->DesktopPosX;
-			ypos = settings->DesktopPosY;
+			xpos = freerdp_settings_get_uint32(settings, FreeRDP_DesktopPosX);
+			ypos = freerdp_settings_get_uint32(settings, FreeRDP_DesktopPosY);
 		}
 		else
 		{
@@ -435,7 +439,7 @@ void wf_toggle_fullscreen(wfContext* wfc)
 
 	if (!wfc->fullscreen)
 	{
-		// Reenable window tracking AFTER resizing it back, otherwise it can lean to repositioning
+		// Re-enable window tracking AFTER resizing it back, otherwise it can lean to repositioning
 		// errors.
 		wfc->disablewindowtracking = FALSE;
 	}
@@ -583,7 +587,6 @@ static BOOL wf_gdi_opaque_rect(rdpContext* context, const OPAQUE_RECT_ORDER* opa
 static BOOL wf_gdi_multi_opaque_rect(rdpContext* context,
                                      const MULTI_OPAQUE_RECT_ORDER* multi_opaque_rect)
 {
-	UINT32 i;
 	RECT rect;
 	HBRUSH brush;
 	COLORREF brush_color;
@@ -595,7 +598,7 @@ static BOOL wf_gdi_multi_opaque_rect(rdpContext* context,
 	if (!wf_decode_color(wfc, multi_opaque_rect->color, &brush_color, NULL))
 		return FALSE;
 
-	for (i = 0; i < multi_opaque_rect->numRectangles; i++)
+	for (UINT32 i = 0; i < multi_opaque_rect->numRectangles; i++)
 	{
 		const DELTA_RECT* rectangle = &multi_opaque_rect->rectangles[i];
 		rect.left = rectangle->left;
@@ -672,13 +675,12 @@ static BOOL wf_gdi_polyline(rdpContext* context, const POLYLINE_ORDER* polyline)
 		POINT* pts;
 		POINT temp;
 		int numPoints;
-		int i;
 		numPoints = polyline->numDeltaEntries + 1;
 		pts = (POINT*)malloc(sizeof(POINT) * numPoints);
 		pts[0].x = temp.x = polyline->xStart;
 		pts[0].y = temp.y = polyline->yStart;
 
-		for (i = 0; i < (int)polyline->numDeltaEntries; i++)
+		for (UINT32 i = 0; i < polyline->numDeltaEntries; i++)
 		{
 			temp.x += polyline->points[i].x;
 			temp.y += polyline->points[i].y;
@@ -804,7 +806,7 @@ static BOOL wf_gdi_surface_frame_marker(rdpContext* context,
 		return FALSE;
 
 	if (surface_frame_marker->frameAction == SURFACECMD_FRAMEACTION_END &&
-	    settings->FrameAcknowledge > 0)
+	    freerdp_settings_get_uint32(settings, FreeRDP_FrameAcknowledge) > 0)
 	{
 		IFCALL(context->update->SurfaceFrameAcknowledge, context, surface_frame_marker->frameId);
 	}

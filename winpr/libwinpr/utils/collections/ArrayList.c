@@ -202,12 +202,12 @@ static BOOL ArrayList_EnsureCapacity(wArrayList* arrayList, size_t count)
 
 	if (arrayList->size + count > arrayList->capacity)
 	{
-		void** newArray;
+		void** newArray = NULL;
 		size_t newCapacity = arrayList->capacity * arrayList->growthFactor;
 		if (newCapacity < arrayList->size + count)
 			newCapacity = arrayList->size + count;
 
-		newArray = (void**)realloc(arrayList->array, sizeof(void*) * newCapacity);
+		newArray = (void**)realloc((void*)arrayList->array, sizeof(void*) * newCapacity);
 
 		if (!newArray)
 			return FALSE;
@@ -227,22 +227,25 @@ static BOOL ArrayList_Shift(wArrayList* arrayList, size_t index, SSIZE_T count)
 	WINPR_ASSERT(arrayList);
 	if (count > 0)
 	{
-		if (!ArrayList_EnsureCapacity(arrayList, count))
+		if (!ArrayList_EnsureCapacity(arrayList, (size_t)count))
 			return FALSE;
 
-		MoveMemory(&arrayList->array[index + count], &arrayList->array[index],
+		MoveMemory((void*)&arrayList->array[index + (size_t)count], (void*)&arrayList->array[index],
 		           (arrayList->size - index) * sizeof(void*));
-		arrayList->size += count;
+		arrayList->size += (size_t)count;
 	}
 	else if (count < 0)
 	{
-		INT64 chunk = arrayList->size - index + count;
-
-		if (chunk > 0)
-			MoveMemory(&arrayList->array[index], &arrayList->array[index - count],
+		const size_t scount = WINPR_ASSERTING_INT_CAST(size_t, -count);
+		const size_t off = index + scount;
+		if (off < arrayList->size)
+		{
+			const size_t chunk = arrayList->size - off;
+			MoveMemory((void*)&arrayList->array[index], (void*)&arrayList->array[off],
 			           chunk * sizeof(void*));
+		}
 
-		arrayList->size += count;
+		arrayList->size -= scount;
 	}
 
 	return TRUE;
@@ -254,12 +257,10 @@ static BOOL ArrayList_Shift(wArrayList* arrayList, size_t index, SSIZE_T count)
 
 void ArrayList_Clear(wArrayList* arrayList)
 {
-	size_t index;
-
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	for (index = 0; index < arrayList->size; index++)
+	for (size_t index = 0; index < arrayList->size; index++)
 	{
 		if (arrayList->object.fnObjectFree)
 			arrayList->object.fnObjectFree(arrayList->array[index]);
@@ -278,13 +279,12 @@ void ArrayList_Clear(wArrayList* arrayList)
 
 BOOL ArrayList_Contains(wArrayList* arrayList, const void* obj)
 {
-	size_t index;
 	BOOL rc = FALSE;
 
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	for (index = 0; index < arrayList->size; index++)
+	for (size_t index = 0; index < arrayList->size; index++)
 	{
 		rc = arrayList->object.fnObjectEquals(arrayList->array[index], obj);
 
@@ -313,7 +313,7 @@ int ArrayList_Add(wArrayList* arrayList, const void* obj)
 
 BOOL ArrayList_Append(wArrayList* arrayList, const void* obj)
 {
-	size_t index;
+	size_t index = 0;
 	BOOL rc = FALSE;
 
 	WINPR_ASSERT(arrayList);
@@ -365,14 +365,14 @@ BOOL ArrayList_Insert(wArrayList* arrayList, size_t index, const void* obj)
 
 BOOL ArrayList_Remove(wArrayList* arrayList, const void* obj)
 {
-	size_t index;
 	BOOL found = FALSE;
 	BOOL ret = TRUE;
 
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	for (index = 0; index < arrayList->size; index++)
+	size_t index = 0;
+	for (; index < arrayList->size; index++)
 	{
 		if (arrayList->object.fnObjectEquals(arrayList->array[index], obj))
 		{
@@ -433,21 +433,25 @@ BOOL ArrayList_RemoveAt(wArrayList* arrayList, size_t index)
 
 SSIZE_T ArrayList_IndexOf(wArrayList* arrayList, const void* obj, SSIZE_T startIndex, SSIZE_T count)
 {
-	SSIZE_T index, sindex, cindex;
 	BOOL found = FALSE;
 
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	sindex = (size_t)startIndex;
+	SSIZE_T sindex = startIndex;
 	if (startIndex < 0)
 		sindex = 0;
 
-	cindex = (size_t)count;
+	SSIZE_T index = sindex;
+	SSIZE_T cindex = count;
 	if (count < 0)
-		cindex = arrayList->size;
+	{
+		if (arrayList->size > SSIZE_MAX)
+			goto fail;
+		cindex = (SSIZE_T)arrayList->size;
+	}
 
-	for (index = sindex; index < sindex + cindex; index++)
+	for (; index < sindex + cindex; index++)
 	{
 		if (arrayList->object.fnObjectEquals(arrayList->array[index], obj))
 		{
@@ -456,6 +460,7 @@ SSIZE_T ArrayList_IndexOf(wArrayList* arrayList, const void* obj, SSIZE_T startI
 		}
 	}
 
+fail:
 	if (!found)
 		index = -1;
 
@@ -480,21 +485,26 @@ SSIZE_T ArrayList_IndexOf(wArrayList* arrayList, const void* obj, SSIZE_T startI
 SSIZE_T ArrayList_LastIndexOf(wArrayList* arrayList, const void* obj, SSIZE_T startIndex,
                               SSIZE_T count)
 {
-	SSIZE_T index, sindex, cindex;
+	SSIZE_T sindex = 0;
+	SSIZE_T cindex = 0;
 	BOOL found = FALSE;
 
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	sindex = (size_t)startIndex;
+	sindex = startIndex;
 	if (startIndex < 0)
 		sindex = 0;
 
-	cindex = (size_t)count;
+	cindex = count;
 	if (count < 0)
-		cindex = arrayList->size;
+	{
+		WINPR_ASSERT(arrayList->size <= SSIZE_MAX);
+		cindex = (SSIZE_T)arrayList->size;
+	}
 
-	for (index = sindex + cindex; index > sindex; index--)
+	SSIZE_T index = sindex + cindex;
+	for (; index > sindex; index--)
 	{
 		if (arrayList->object.fnObjectEquals(arrayList->array[index - 1], obj))
 		{
@@ -524,8 +534,8 @@ wObject* ArrayList_Object(wArrayList* arrayList)
 
 BOOL ArrayList_ForEach(wArrayList* arrayList, ArrayList_ForEachFkt fkt, ...)
 {
-	BOOL rc;
-	va_list ap;
+	BOOL rc = 0;
+	va_list ap = { 0 };
 	va_start(ap, fkt);
 	rc = ArrayList_ForEachAP(arrayList, fkt, ap);
 	va_end(ap);
@@ -535,7 +545,6 @@ BOOL ArrayList_ForEach(wArrayList* arrayList, ArrayList_ForEachFkt fkt, ...)
 
 BOOL ArrayList_ForEachAP(wArrayList* arrayList, ArrayList_ForEachFkt fkt, va_list ap)
 {
-	size_t index, count;
 	BOOL rc = FALSE;
 	va_list cap;
 
@@ -543,10 +552,10 @@ BOOL ArrayList_ForEachAP(wArrayList* arrayList, ArrayList_ForEachFkt fkt, va_lis
 	WINPR_ASSERT(fkt);
 
 	ArrayList_Lock_Conditional(arrayList);
-	count = ArrayList_Count(arrayList);
-	for (index = 0; index < count; index++)
+	size_t count = ArrayList_Count(arrayList);
+	for (size_t index = 0; index < count; index++)
 	{
-		BOOL rs;
+		BOOL rs = 0;
 		void* obj = ArrayList_GetItem(arrayList, index);
 		va_copy(cap, ap);
 		rs = fkt(obj, index, cap);
@@ -566,7 +575,7 @@ fail:
 
 wArrayList* ArrayList_New(BOOL synchronized)
 {
-	wObject* obj;
+	wObject* obj = NULL;
 	wArrayList* arrayList = NULL;
 	arrayList = (wArrayList*)calloc(1, sizeof(wArrayList));
 
@@ -585,7 +594,10 @@ wArrayList* ArrayList_New(BOOL synchronized)
 	InitializeCriticalSectionAndSpinCount(&arrayList->lock, 4000);
 	return arrayList;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	ArrayList_Free(arrayList);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -596,6 +608,6 @@ void ArrayList_Free(wArrayList* arrayList)
 
 	ArrayList_Clear(arrayList);
 	DeleteCriticalSection(&arrayList->lock);
-	free(arrayList->array);
+	free((void*)arrayList->array);
 	free(arrayList);
 }

@@ -18,16 +18,21 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
+import android.text.InputType;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 
 import com.freerdp.freerdpcore.application.SessionState;
+import com.freerdp.freerdpcore.services.LibFreeRDP;
 import com.freerdp.freerdpcore.utils.DoubleGestureDetector;
 import com.freerdp.freerdpcore.utils.GestureDetector;
+import com.freerdp.freerdpcore.utils.Mouse;
 
 import java.util.Stack;
 
@@ -87,6 +92,23 @@ public class SessionView extends View
 
 		setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
 		                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+	}
+
+	/* External Mouse Hover */
+	@Override public boolean onHoverEvent(MotionEvent event)
+	{
+		if (event.getAction() == MotionEvent.ACTION_HOVER_MOVE)
+		{
+			// Handle hover move event
+			float x = event.getX();
+			float y = event.getY();
+			// Perform actions based on the hover position (x, y)
+			MotionEvent mappedEvent = mapTouchEvent(event);
+			LibFreeRDP.sendCursorEvent(currentSession.getInstance(), (int)mappedEvent.getX(),
+			                           (int)mappedEvent.getY(), Mouse.getMoveEvent());
+		}
+		// Return true to indicate that you've handled the event
+		return true;
 	}
 
 	public void setScaleGestureDetector(ScaleGestureDetector scaleGestureDetector)
@@ -182,9 +204,9 @@ public class SessionView extends View
 		return res;
 	}
 
-	public void setTouchPointerPadding(int widht, int height)
+	public void setTouchPointerPadding(int width, int height)
 	{
-		touchPointerPaddingWidth = widht;
+		touchPointerPaddingWidth = width;
 		touchPointerPaddingHeight = height;
 		requestLayout();
 	}
@@ -407,5 +429,12 @@ public class SessionView extends View
 			                                            (int)mappedEvent.getY(), false);
 			return true;
 		}
+	}
+
+	@Override public InputConnection onCreateInputConnection(EditorInfo outAttrs)
+	{
+		super.onCreateInputConnection(outAttrs);
+		outAttrs.inputType = InputType.TYPE_CLASS_TEXT;
+		return null;
 	}
 }

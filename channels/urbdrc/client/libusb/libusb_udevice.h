@@ -51,7 +51,7 @@ typedef struct
 	BYTE bus_number;
 	BYTE dev_number;
 	char path[17];
-	int port_number;
+	UINT8 port_number;
 	int isCompositeDevice;
 
 	LIBUSB_DEVICE_HANDLE* libusb_handle;
@@ -69,7 +69,7 @@ typedef UDEVICE* PUDEVICE;
 
 size_t udev_new_by_id(URBDRC_PLUGIN* urbdrc, libusb_context* ctx, UINT16 idVendor, UINT16 idProduct,
                       IUDEVICE*** devArray);
-IUDEVICE* udev_new_by_addr(URBDRC_PLUGIN* urbdrc, libusb_context* ctx, BYTE bus_number,
+IUDEVICE* udev_new_by_addr(URBDRC_PLUGIN* urbdrc, libusb_context* context, BYTE bus_number,
                            BYTE dev_number);
 const char* usb_interface_class_to_string(uint8_t class);
 

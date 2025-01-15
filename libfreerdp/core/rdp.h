@@ -21,9 +21,11 @@
 #ifndef FREERDP_LIB_CORE_RDP_H
 #define FREERDP_LIB_CORE_RDP_H
 
+#include <winpr/json.h>
 #include <freerdp/config.h>
 
 #include "nla.h"
+#include "aad.h"
 #include "mcs.h"
 #include "tpkt.h"
 #include "../codec/bulk.h"
@@ -105,14 +107,6 @@ typedef enum
 	FINALIZE_DEACTIVATE_REACTIVATE = 0x200
 } rdpFinalizePduType;
 
-#define FINALIZE_SC_COMPLETE                                           \
-	(FINALIZE_SC_SYNCHRONIZE_PDU | FINALIZE_SC_CONTROL_COOPERATE_PDU | \
-	 FINALIZE_SC_CONTROL_GRANTED_PDU | FINALIZE_SC_FONT_MAP_PDU)
-#define FINALIZE_CS_COMPLETE                                                 \
-	(FINALIZE_CS_SYNCHRONIZE_PDU | FINALIZE_CS_CONTROL_COOPERATE_PDU |       \
-	 FINALIZE_CS_CONTROL_REQUEST_PDU | FINALIZE_CS_PERSISTENT_KEY_LIST_PDU | \
-	 FINALIZE_CS_FONT_LIST_PDU)
-
 /* Data PDU Types */
 typedef enum
 {
@@ -154,6 +148,7 @@ struct rdp_rdp
 	CONNECTION_STATE state;
 	rdpContext* context;
 	rdpNla* nla;
+	rdpAad* aad;
 	rdpMcs* mcs;
 	rdpNego* nego;
 	rdpBulk* bulk;
@@ -164,16 +159,17 @@ struct rdp_rdp
 	rdpRedirection* redirection;
 	rdpSettings* settings;
 	rdpSettings* originalSettings;
+	rdpSettings* remoteSettings;
 	rdpTransport* transport;
 	rdpAutoDetect* autodetect;
 	rdpHeartbeat* heartbeat;
 	rdpMultitransport* multitransport;
 	WINPR_RC4_CTX* rc4_decrypt_key;
-	int decrypt_use_count;
-	int decrypt_checksum_use_count;
+	UINT32 decrypt_use_count;
+	UINT32 decrypt_checksum_use_count;
 	WINPR_RC4_CTX* rc4_encrypt_key;
-	int encrypt_use_count;
-	int encrypt_checksum_use_count;
+	UINT32 encrypt_use_count;
+	UINT32 encrypt_checksum_use_count;
 	WINPR_CIPHER_CTX* fips_encrypt;
 	WINPR_CIPHER_CTX* fips_decrypt;
 	UINT32 sec_flags;
@@ -192,7 +188,7 @@ struct rdp_rdp
 	UINT32 errorInfo;
 	UINT32 finalize_sc_pdus;
 	BOOL resendFocus;
-	BOOL AwaitCapabilities;
+
 	UINT64 inBytes;
 	UINT64 inPackets;
 	UINT64 outBytes;
@@ -204,19 +200,24 @@ struct rdp_rdp
 
 	wPubSub* pubSub;
 
+	BOOL monitor_layout_pdu;
 	BOOL was_deactivated;
 	UINT32 deactivated_width;
 	UINT32 deactivated_height;
+
+	wLog* log;
+	char log_context[64];
+	WINPR_JSON* wellknown;
 };
 
-FREERDP_LOCAL BOOL rdp_read_security_header(wStream* s, UINT16* flags, UINT16* length);
-FREERDP_LOCAL BOOL rdp_write_security_header(wStream* s, UINT16 flags);
+FREERDP_LOCAL BOOL rdp_read_security_header(rdpRdp* rdp, wStream* s, UINT16* flags, UINT16* length);
+FREERDP_LOCAL BOOL rdp_write_security_header(rdpRdp* rdp, wStream* s, UINT16 flags);
 
-FREERDP_LOCAL BOOL rdp_read_share_control_header(wStream* s, UINT16* tpktLength,
+FREERDP_LOCAL BOOL rdp_read_share_control_header(rdpRdp* rdp, wStream* s, UINT16* tpktLength,
                                                  UINT16* remainingLength, UINT16* type,
                                                  UINT16* channel_id);
 
-FREERDP_LOCAL BOOL rdp_read_share_data_header(wStream* s, UINT16* length, BYTE* type,
+FREERDP_LOCAL BOOL rdp_read_share_data_header(rdpRdp* rdp, wStream* s, UINT16* length, BYTE* type,
                                               UINT32* share_id, BYTE* compressed_type,
                                               UINT16* compressed_len);
 
@@ -224,13 +225,13 @@ FREERDP_LOCAL wStream* rdp_send_stream_init(rdpRdp* rdp);
 FREERDP_LOCAL wStream* rdp_send_stream_pdu_init(rdpRdp* rdp);
 
 FREERDP_LOCAL BOOL rdp_read_header(rdpRdp* rdp, wStream* s, UINT16* length, UINT16* channel_id);
-FREERDP_LOCAL BOOL rdp_write_header(rdpRdp* rdp, wStream* s, UINT16 length, UINT16 channel_id);
+FREERDP_LOCAL BOOL rdp_write_header(rdpRdp* rdp, wStream* s, size_t length, UINT16 channel_id);
 
 FREERDP_LOCAL BOOL rdp_send_pdu(rdpRdp* rdp, wStream* s, UINT16 type, UINT16 channel_id);
 
 FREERDP_LOCAL wStream* rdp_data_pdu_init(rdpRdp* rdp);
 FREERDP_LOCAL BOOL rdp_send_data_pdu(rdpRdp* rdp, wStream* s, BYTE type, UINT16 channel_id);
-FREERDP_LOCAL int rdp_recv_data_pdu(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL state_run_t rdp_recv_data_pdu(rdpRdp* rdp, wStream* s);
 
 FREERDP_LOCAL BOOL rdp_send(rdpRdp* rdp, wStream* s, UINT16 channelId);
 
@@ -241,17 +242,23 @@ FREERDP_LOCAL BOOL rdp_channel_send_packet(rdpRdp* rdp, UINT16 channelId, size_t
 
 FREERDP_LOCAL wStream* rdp_message_channel_pdu_init(rdpRdp* rdp);
 FREERDP_LOCAL BOOL rdp_send_message_channel_pdu(rdpRdp* rdp, wStream* s, UINT16 sec_flags);
-FREERDP_LOCAL int rdp_recv_message_channel_pdu(rdpRdp* rdp, wStream* s, UINT16 securityFlags);
+FREERDP_LOCAL state_run_t rdp_recv_message_channel_pdu(rdpRdp* rdp, wStream* s,
+                                                       UINT16 securityFlags);
 
-FREERDP_LOCAL int rdp_recv_out_of_sequence_pdu(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL state_run_t rdp_recv_out_of_sequence_pdu(rdpRdp* rdp, wStream* s, UINT16 pduType,
+                                                       UINT16 length);
 
-FREERDP_LOCAL int rdp_recv_callback(rdpTransport* transport, wStream* s, void* extra);
+FREERDP_LOCAL state_run_t rdp_recv_callback(rdpTransport* transport, wStream* s, void* extra);
 
 FREERDP_LOCAL int rdp_check_fds(rdpRdp* rdp);
 
+FREERDP_LOCAL void rdp_free(rdpRdp* rdp);
+
+WINPR_ATTR_MALLOC(rdp_free, 1)
 FREERDP_LOCAL rdpRdp* rdp_new(rdpContext* context);
 FREERDP_LOCAL BOOL rdp_reset(rdpRdp* rdp);
-FREERDP_LOCAL void rdp_free(rdpRdp* rdp);
+
+FREERDP_LOCAL BOOL rdp_io_callback_set_event(rdpRdp* rdp, BOOL reset);
 
 FREERDP_LOCAL const rdpTransportIo* rdp_get_io_callbacks(rdpRdp* rdp);
 FREERDP_LOCAL BOOL rdp_set_io_callbacks(rdpRdp* rdp, const rdpTransportIo* io_callbacks);
@@ -261,16 +268,16 @@ FREERDP_LOCAL void* rdp_get_io_callback_context(rdpRdp* rdp);
 
 #define RDP_TAG FREERDP_TAG("core.rdp")
 #ifdef WITH_DEBUG_RDP
-#define DEBUG_RDP(...) WLog_DBG(RDP_TAG, __VA_ARGS__)
+#define DEBUG_RDP(rdp, ...) WLog_Print(rdp->log, WLOG_DEBUG, __VA_ARGS__)
 #else
-#define DEBUG_RDP(...) \
-	do                 \
-	{                  \
+#define DEBUG_RDP(rdp, ...) \
+	do                      \
+	{                       \
 	} while (0)
 #endif
 
 const char* data_pdu_type_to_string(UINT8 type);
-const char* pdu_type_to_str(UINT16 pduType);
+const char* pdu_type_to_str(UINT16 pduType, char* buffer, size_t length);
 
 BOOL rdp_finalize_reset_flags(rdpRdp* rdp, BOOL clearAll);
 BOOL rdp_finalize_set_flag(rdpRdp* rdp, UINT32 flag);
@@ -281,5 +288,18 @@ BOOL rdp_decrypt(rdpRdp* rdp, wStream* s, UINT16* pLength, UINT16 securityFlags)
 
 BOOL rdp_set_error_info(rdpRdp* rdp, UINT32 errorInfo);
 BOOL rdp_send_error_info(rdpRdp* rdp);
+
+void rdp_free_rc4_encrypt_keys(rdpRdp* rdp);
+BOOL rdp_reset_rc4_encrypt_keys(rdpRdp* rdp);
+
+void rdp_free_rc4_decrypt_keys(rdpRdp* rdp);
+BOOL rdp_reset_rc4_decrypt_keys(rdpRdp* rdp);
+
+const char* rdp_security_flag_string(UINT32 securityFlags, char* buffer, size_t size);
+
+BOOL rdp_set_backup_settings(rdpRdp* rdp);
+BOOL rdp_reset_runtime_settings(rdpRdp* rdp);
+
+void rdp_log_build_warnings(rdpRdp* rdp);
 
 #endif /* FREERDP_LIB_CORE_RDP_H */

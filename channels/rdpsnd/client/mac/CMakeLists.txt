@@ -20,30 +20,24 @@
 define_channel_client_subsystem("rdpsnd" "mac" "")
 
 find_library(COCOA_LIBRARY Cocoa REQUIRED)
-FIND_LIBRARY(CORE_FOUNDATION CoreFoundation)
-FIND_LIBRARY(CORE_AUDIO CoreAudio REQUIRED)
-FIND_LIBRARY(AUDIO_TOOL AudioToolbox REQUIRED)
-FIND_LIBRARY(AV_FOUNDATION AVFoundation REQUIRED)
+find_library(CORE_FOUNDATION CoreFoundation)
+find_library(CORE_AUDIO CoreAudio REQUIRED)
+find_library(AUDIO_TOOL AudioToolbox REQUIRED)
+find_library(AV_FOUNDATION AVFoundation REQUIRED)
 
-set(${MODULE_PREFIX}_SRCS
-	rdpsnd_mac.m)
+set(${MODULE_PREFIX}_SRCS rdpsnd_mac.m)
 
-include_directories(..)
-include_directories(${MACAUDIO_INCLUDE_DIRS})
-
-add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")
-
-
-
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} 
+set(${MODULE_PREFIX}_LIBS
+    winpr
+    freerdp
     ${AUDIO_TOOL}
     ${AV_FOUNDATION}
     ${CORE_AUDIO}
     ${COCOA_LIBRARY}
-    ${CORE_FOUNDATION})
+    ${CORE_FOUNDATION}
+)
 
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} freerdp winpr)
+include_directories(..)
+include_directories(SYSTEM ${MACAUDIO_INCLUDE_DIRS})
 
-target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Channels/${CHANNEL_NAME}/Client/Mac")
+add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")

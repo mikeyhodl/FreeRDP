@@ -7,14 +7,13 @@
 
 int TestStreamPool(int argc, char* argv[])
 {
-	wStream* s[5];
-	wStreamPool* pool;
-	char buffer[8192];
+	wStream* s[5] = { 0 };
+	char buffer[8192] = { 0 };
 
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
 
-	pool = StreamPool_New(TRUE, BUFFER_SIZE);
+	wStreamPool* pool = StreamPool_New(TRUE, BUFFER_SIZE);
 
 	s[0] = StreamPool_Take(pool, 0);
 	s[1] = StreamPool_Take(pool, 0);
@@ -72,6 +71,10 @@ int TestStreamPool(int argc, char* argv[])
 	s[4] = StreamPool_Take(pool, 0);
 
 	printf("%s\n", StreamPool_GetStatistics(pool, buffer, sizeof(buffer)));
+
+	Stream_Release(s[2]);
+	Stream_Release(s[3]);
+	Stream_Release(s[4]);
 
 	StreamPool_Free(pool);
 

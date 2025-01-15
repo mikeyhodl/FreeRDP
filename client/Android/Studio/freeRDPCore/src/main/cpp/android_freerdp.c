@@ -56,8 +56,7 @@
 #define TAG CLIENT_TAG("android")
 
 /* Defines the JNI version supported by this library. */
-#define FREERDP_JNI_VERSION "3.0.0-dev"
-
+#define FREERDP_JNI_VERSION FREERDP_VERSION_FULL
 static void android_OnChannelConnectedEventHandler(void* context,
                                                    const ChannelConnectedEventArgs* e)
 {
@@ -66,7 +65,7 @@ static void android_OnChannelConnectedEventHandler(void* context,
 
 	if (!context || !e)
 	{
-		WLog_FATAL(TAG, "%s(context=%p, EventArgs=%p", __FUNCTION__, context, (void*)e);
+		WLog_FATAL(TAG, "(context=%p, EventArgs=%p", context, (void*)e);
 		return;
 	}
 
@@ -89,7 +88,7 @@ static void android_OnChannelDisconnectedEventHandler(void* context,
 
 	if (!context || !e)
 	{
-		WLog_FATAL(TAG, "%s(context=%p, EventArgs=%p", __FUNCTION__, context, (void*)e);
+		WLog_FATAL(TAG, "(context=%p, EventArgs=%p", context, (void*)e);
 		return;
 	}
 
@@ -111,7 +110,6 @@ static BOOL android_begin_paint(rdpContext* context)
 
 static BOOL android_end_paint(rdpContext* context)
 {
-	int i;
 	HGDI_WND hwnd;
 	int ninvalid;
 	rdpGdi* gdi;
@@ -153,7 +151,7 @@ static BOOL android_end_paint(rdpContext* context)
 	x2 = cinvalid[0].x + cinvalid[0].w;
 	y2 = cinvalid[0].y + cinvalid[0].h;
 
-	for (i = 0; i < ninvalid; i++)
+	for (int i = 0; i < ninvalid; i++)
 	{
 		x1 = MIN(x1, cinvalid[i].x);
 		y1 = MIN(y1, cinvalid[i].y);
@@ -176,7 +174,8 @@ static BOOL android_desktop_resize(rdpContext* context)
 	WINPR_ASSERT(context->instance);
 
 	freerdp_callback("OnGraphicsResize", "(JIII)V", (jlong)context->instance,
-	                 context->settings->DesktopWidth, context->settings->DesktopHeight,
+	                 freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopWidth),
+	                 freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopHeight),
 	                 freerdp_settings_get_uint32(context->settings, FreeRDP_ColorDepth));
 	return TRUE;
 }
@@ -300,8 +299,9 @@ static BOOL android_post_connect(freerdp* instance)
 	update->BeginPaint = android_begin_paint;
 	update->EndPaint = android_end_paint;
 	update->DesktopResize = android_desktop_resize;
-	freerdp_callback("OnSettingsChanged", "(JIII)V", (jlong)instance, settings->DesktopWidth,
-	                 settings->DesktopHeight,
+	freerdp_callback("OnSettingsChanged", "(JIII)V", (jlong)instance,
+	                 freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+	                 freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight),
 	                 freerdp_settings_get_uint32(settings, FreeRDP_ColorDepth));
 	freerdp_callback("OnConnectionSuccess", "(J)V", (jlong)instance);
 	return TRUE;
@@ -500,7 +500,7 @@ static DWORD WINAPI android_thread_func(LPVOID param)
 	else
 	{
 		status = android_freerdp_run(instance);
-		WLog_DBG(TAG, "Disonnect...");
+		WLog_DBG(TAG, "Disconnect...");
 
 		if (!freerdp_disconnect(instance))
 			status = GetLastError();
@@ -649,7 +649,9 @@ JNIEXPORT jlong JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp
 
 	if (setenv("HOME", _strdup(envStr), 1) != 0)
 	{
-		WLog_FATAL(TAG, "Failed to set environemnt HOME=%s %s [%d]", env, strerror(errno), errno);
+		char ebuffer[256] = { 0 };
+		WLog_FATAL(TAG, "Failed to set environment HOME=%s %s [%d]", env,
+		           winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
 		return (jlong)NULL;
 	}
 
@@ -695,7 +697,7 @@ Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1parse_1arguments(JNIEn
                                                                            jobjectArray arguments)
 {
 	freerdp* inst = (freerdp*)instance;
-	int i, count;
+	int count;
 	char** argv;
 	DWORD status;
 
@@ -708,7 +710,7 @@ Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1parse_1arguments(JNIEn
 	if (!argv)
 		return JNI_TRUE;
 
-	for (i = 0; i < count; i++)
+	for (int i = 0; i < count; i++)
 	{
 		jstring str = (jstring)(*env)->GetObjectArrayElement(env, arguments, i);
 		const char* raw = (*env)->GetStringUTFChars(env, str, 0);
@@ -719,7 +721,7 @@ Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1parse_1arguments(JNIEn
 	status =
 	    freerdp_client_settings_parse_command_line(inst->context->settings, count, argv, FALSE);
 
-	for (i = 0; i < count; i++)
+	for (int i = 0; i < count; i++)
 		free(argv[i]);
 
 	free(argv);
@@ -734,8 +736,7 @@ JNIEXPORT jboolean JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_free
 
 	if (!inst || !inst->context)
 	{
-		WLog_FATAL(TAG, "%s(env=%p, cls=%p, instance=%d", __FUNCTION__, (void*)env, (void*)cls,
-		           instance);
+		WLog_FATAL(TAG, "(env=%p, cls=%p, instance=%d", (void*)env, (void*)cls, instance);
 		return JNI_FALSE;
 	}
 
@@ -758,8 +759,7 @@ JNIEXPORT jboolean JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_free
 
 	if (!inst || !inst->context || !cls || !env)
 	{
-		WLog_FATAL(TAG, "%s(env=%p, cls=%p, instance=%d", __FUNCTION__, (void*)env, (void*)cls,
-		           instance);
+		WLog_FATAL(TAG, "(env=%p, cls=%p, instance=%d", (void*)env, (void*)cls, instance);
 		return JNI_FALSE;
 	}
 
@@ -798,8 +798,7 @@ Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1update_1graphics(JNIEn
 
 	if (!env || !cls || !inst)
 	{
-		WLog_FATAL(TAG, "%s(env=%p, cls=%p, instance=%d", __FUNCTION__, (void*)env, (void*)cls,
-		           instance);
+		WLog_FATAL(TAG, "(env=%p, cls=%p, instance=%d", (void*)env, (void*)cls, instance);
 		return JNI_FALSE;
 	}
 
@@ -997,7 +996,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
 	JNIEnv* env;
 	setlocale(LC_ALL, "");
-	WLog_DBG(TAG, "Setting up JNI environement...");
+	WLog_DBG(TAG, "Setting up JNI environment...");
 
 	/*
 	    if (freerdp_handle_signals() != 0)
@@ -1030,7 +1029,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved)
 {
 	JNIEnv* env;
-	WLog_DBG(TAG, "Tearing down JNI environement...");
+	WLog_DBG(TAG, "Tearing down JNI environment...");
 
 	if ((*vm)->GetEnv(vm, (void**)&env, JNI_VERSION_1_6) != JNI_OK)
 	{

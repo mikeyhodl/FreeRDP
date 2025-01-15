@@ -9,11 +9,11 @@
 
 int TestPipeCreatePipe(int argc, char* argv[])
 {
-	BOOL status;
-	DWORD dwRead;
-	DWORD dwWrite;
-	HANDLE hReadPipe;
-	HANDLE hWritePipe;
+	BOOL status = 0;
+	DWORD dwRead = 0;
+	DWORD dwWrite = 0;
+	HANDLE hReadPipe = NULL;
+	HANDLE hWritePipe = NULL;
 	BYTE readBuffer[BUFFER_SIZE] = { 0 };
 	BYTE writeBuffer[BUFFER_SIZE] = { 0 };
 	WINPR_UNUSED(argc);
@@ -65,8 +65,8 @@ int TestPipeCreatePipe(int argc, char* argv[])
 		return -1;
 	}
 
-	CloseHandle(hReadPipe);
-	CloseHandle(hWritePipe);
+	(void)CloseHandle(hReadPipe);
+	(void)CloseHandle(hWritePipe);
 
 	return 0;
 }

@@ -20,6 +20,8 @@
 
 #include <freerdp/config.h>
 
+#include "settings.h"
+
 #include <winpr/crt.h>
 #include <winpr/assert.h>
 
@@ -33,8 +35,8 @@ static void update_free_window_icon_info(ICON_INFO* iconInfo);
 
 BOOL rail_read_unicode_string(wStream* s, RAIL_UNICODE_STRING* unicode_string)
 {
-	UINT16 new_len;
-	BYTE* new_str;
+	UINT16 new_len = 0;
+	BYTE* new_str = NULL;
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 		return FALSE;
@@ -70,7 +72,7 @@ BOOL rail_read_unicode_string(wStream* s, RAIL_UNICODE_STRING* unicode_string)
 BOOL utf8_string_to_rail_string(const char* string, RAIL_UNICODE_STRING* unicode_string)
 {
 	WCHAR* buffer = NULL;
-	int length = 0;
+	size_t len = 0;
 	free(unicode_string->string);
 	unicode_string->string = NULL;
 	unicode_string->length = 0;
@@ -78,17 +80,26 @@ BOOL utf8_string_to_rail_string(const char* string, RAIL_UNICODE_STRING* unicode
 	if (!string || strlen(string) < 1)
 		return TRUE;
 
-	length = ConvertToUnicode(CP_UTF8, 0, string, -1, &buffer, 0);
+	buffer = ConvertUtf8ToWCharAlloc(string, &len);
 
-	if ((length < 0) || ((size_t)length * sizeof(WCHAR) > UINT16_MAX))
+	if (!buffer || (len * sizeof(WCHAR) > UINT16_MAX))
 	{
 		free(buffer);
 		return FALSE;
 	}
 
 	unicode_string->string = (BYTE*)buffer;
-	unicode_string->length = (UINT16)length * sizeof(WCHAR);
+	unicode_string->length = (UINT16)len * sizeof(WCHAR);
 	return TRUE;
+}
+
+static char* rail_string_to_utf8_string(const RAIL_UNICODE_STRING* unicode_string)
+{
+	WINPR_ASSERT(unicode_string);
+
+	size_t outLen = 0;
+	size_t inLen = unicode_string->length / sizeof(WCHAR);
+	return ConvertWCharNToUtf8Alloc((const WCHAR*)unicode_string->string, inLen, &outLen);
 }
 
 /* See [MS-RDPERP] 2.2.1.2.3 Icon Info (TS_ICON_INFO) */
@@ -162,7 +173,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 	/* colorTable */
 	if (iconInfo->cbColorTable > 0)
 	{
-		BYTE* new_tab;
+		BYTE* new_tab = NULL;
 		new_tab = (BYTE*)realloc(iconInfo->colorTable, iconInfo->cbColorTable);
 
 		if (!new_tab)
@@ -237,9 +248,8 @@ static BOOL update_read_notify_icon_infotip(wStream* s, NOTIFY_ICON_INFOTIP* not
 static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderInfo,
                                            WINDOW_STATE_ORDER* windowState)
 {
-	UINT32 i;
-	size_t size;
-	RECTANGLE_16* newRect;
+	size_t size = 0;
+	RECTANGLE_16* newRect = NULL;
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_OWNER)
 	{
@@ -372,11 +382,11 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 			windowState->windowRects = newRect;
 
-			if (!Stream_CheckAndLogRequiredLength(TAG, s, 8ull * windowState->numWindowRects))
+			if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, windowState->numWindowRects, 8ull))
 				return FALSE;
 
 			/* windowRects */
-			for (i = 0; i < windowState->numWindowRects; i++)
+			for (UINT32 i = 0; i < windowState->numWindowRects; i++)
 			{
 				Stream_Read_UINT16(s, windowState->windowRects[i].left);   /* left (2 bytes) */
 				Stream_Read_UINT16(s, windowState->windowRects[i].top);    /* top (2 bytes) */
@@ -391,8 +401,8 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
-		Stream_Read_UINT32(s, windowState->visibleOffsetX); /* visibleOffsetX (4 bytes) */
-		Stream_Read_UINT32(s, windowState->visibleOffsetY); /* visibleOffsetY (4 bytes) */
+		Stream_Read_INT32(s, windowState->visibleOffsetX); /* visibleOffsetX (4 bytes) */
+		Stream_Read_INT32(s, windowState->visibleOffsetY); /* visibleOffsetY (4 bytes) */
 	}
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_VISIBILITY)
@@ -416,11 +426,12 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 			windowState->visibilityRects = newRect;
 
-			if (!Stream_CheckAndLogRequiredLength(TAG, s, 8ull * windowState->numVisibilityRects))
+			if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, windowState->numVisibilityRects,
+			                                            8ull))
 				return FALSE;
 
 			/* visibilityRects */
-			for (i = 0; i < windowState->numVisibilityRects; i++)
+			for (UINT32 i = 0; i < windowState->numVisibilityRects; i++)
 			{
 				Stream_Read_UINT16(s, windowState->visibilityRects[i].left);  /* left (2 bytes) */
 				Stream_Read_UINT16(s, windowState->visibilityRects[i].top);   /* top (2 bytes) */
@@ -506,7 +517,7 @@ static BOOL window_order_supported(const rdpSettings* settings, UINT32 fieldFlag
 {
 	const UINT32 mask = (WINDOW_ORDER_FIELD_CLIENT_AREA_SIZE | WINDOW_ORDER_FIELD_RP_CONTENT |
 	                     WINDOW_ORDER_FIELD_ROOT_PARENT);
-	BOOL dresult;
+	BOOL dresult = 0;
 
 	if (!settings)
 		return FALSE;
@@ -530,14 +541,120 @@ static BOOL window_order_supported(const rdpSettings* settings, UINT32 fieldFlag
 	}
 }
 
-#define DUMP_APPEND(buffer, size, ...)            \
-	do                                            \
-	{                                             \
-		char* b = (buffer);                       \
-		size_t s = (size);                        \
-		size_t pos = strnlen(b, s);               \
-		_snprintf(&b[pos], s - pos, __VA_ARGS__); \
+#define DUMP_APPEND(buffer, size, ...)                  \
+	do                                                  \
+	{                                                   \
+		char* b = (buffer);                             \
+		size_t s = (size);                              \
+		size_t pos = strnlen(b, s);                     \
+		(void)_snprintf(&b[pos], s - pos, __VA_ARGS__); \
 	} while (0)
+
+static void dump_window_style(char* buffer, size_t bufferSize, UINT32 style)
+{
+	DUMP_APPEND(buffer, bufferSize, " style=<0x%" PRIx32 ": ", style);
+	if (style & WS_BORDER)
+		DUMP_APPEND(buffer, bufferSize, " border");
+	if (style & WS_CAPTION)
+		DUMP_APPEND(buffer, bufferSize, " caption");
+	if (style & WS_CHILD)
+		DUMP_APPEND(buffer, bufferSize, " child");
+	if (style & WS_CHILDWINDOW)
+		DUMP_APPEND(buffer, bufferSize, " childwindow");
+	if (style & WS_CLIPCHILDREN)
+		DUMP_APPEND(buffer, bufferSize, " clipchildren");
+	if (style & WS_CLIPSIBLINGS)
+		DUMP_APPEND(buffer, bufferSize, " clipsiblings");
+	if (style & WS_DISABLED)
+		DUMP_APPEND(buffer, bufferSize, " disabled");
+	if (style & WS_DLGFRAME)
+		DUMP_APPEND(buffer, bufferSize, " dlgframe");
+	if (style & WS_GROUP)
+		DUMP_APPEND(buffer, bufferSize, " group");
+	if (style & WS_HSCROLL)
+		DUMP_APPEND(buffer, bufferSize, " hscroll");
+	if (style & WS_ICONIC)
+		DUMP_APPEND(buffer, bufferSize, " iconic");
+	if (style & WS_MAXIMIZE)
+		DUMP_APPEND(buffer, bufferSize, " maximize");
+	if (style & WS_MAXIMIZEBOX)
+		DUMP_APPEND(buffer, bufferSize, " maximizebox");
+	if (style & WS_MINIMIZE)
+		DUMP_APPEND(buffer, bufferSize, " minimize");
+	if (style & WS_MINIMIZEBOX)
+		DUMP_APPEND(buffer, bufferSize, " minimizebox");
+	if (style & WS_POPUP)
+		DUMP_APPEND(buffer, bufferSize, " popup");
+	if (style & WS_SIZEBOX)
+		DUMP_APPEND(buffer, bufferSize, " sizebox");
+	if (style & WS_SYSMENU)
+		DUMP_APPEND(buffer, bufferSize, " sysmenu");
+	if (style & WS_TABSTOP)
+		DUMP_APPEND(buffer, bufferSize, " tabstop");
+	if (style & WS_THICKFRAME)
+		DUMP_APPEND(buffer, bufferSize, " thickframe");
+	if (style & WS_VISIBLE)
+		DUMP_APPEND(buffer, bufferSize, " visible");
+	if (style & WS_VSCROLL)
+		DUMP_APPEND(buffer, bufferSize, " vscroll");
+	DUMP_APPEND(buffer, bufferSize, ">");
+}
+
+static void dump_window_style_ex(char* buffer, size_t bufferSize, UINT32 extendedStyle)
+{
+	DUMP_APPEND(buffer, bufferSize, " styleEx=<0x%" PRIx32 ": ", extendedStyle);
+	if (extendedStyle & WS_EX_ACCEPTFILES)
+		DUMP_APPEND(buffer, bufferSize, " acceptfiles");
+	if (extendedStyle & WS_EX_APPWINDOW)
+		DUMP_APPEND(buffer, bufferSize, " appwindow");
+	if (extendedStyle & WS_EX_CLIENTEDGE)
+		DUMP_APPEND(buffer, bufferSize, " clientedge");
+	if (extendedStyle & WS_EX_COMPOSITED)
+		DUMP_APPEND(buffer, bufferSize, " composited");
+	if (extendedStyle & WS_EX_CONTEXTHELP)
+		DUMP_APPEND(buffer, bufferSize, " contexthelp");
+	if (extendedStyle & WS_EX_CONTROLPARENT)
+		DUMP_APPEND(buffer, bufferSize, " controlparent");
+	if (extendedStyle & WS_EX_DLGMODALFRAME)
+		DUMP_APPEND(buffer, bufferSize, " dlgmodalframe");
+	if (extendedStyle & WS_EX_LAYERED)
+		DUMP_APPEND(buffer, bufferSize, " layered");
+	if (extendedStyle & WS_EX_LAYOUTRTL)
+		DUMP_APPEND(buffer, bufferSize, " layoutrtl");
+	if (extendedStyle & WS_EX_LEFT)
+		DUMP_APPEND(buffer, bufferSize, " left");
+	if (extendedStyle & WS_EX_LEFTSCROLLBAR)
+		DUMP_APPEND(buffer, bufferSize, " leftscrollbar");
+	if (extendedStyle & WS_EX_LTRREADING)
+		DUMP_APPEND(buffer, bufferSize, " ltrreading");
+	if (extendedStyle & WS_EX_MDICHILD)
+		DUMP_APPEND(buffer, bufferSize, " mdichild");
+	if (extendedStyle & WS_EX_NOACTIVATE)
+		DUMP_APPEND(buffer, bufferSize, " noactivate");
+	if (extendedStyle & WS_EX_NOINHERITLAYOUT)
+		DUMP_APPEND(buffer, bufferSize, " noinheritlayout");
+#if defined(WS_EX_NOREDIRECTIONBITMAP)
+	if (extendedStyle & WS_EX_NOREDIRECTIONBITMAP)
+		DUMP_APPEND(buffer, bufferSize, " noredirectionbitmap");
+#endif
+	if (extendedStyle & WS_EX_RIGHT)
+		DUMP_APPEND(buffer, bufferSize, " right");
+	if (extendedStyle & WS_EX_RIGHTSCROLLBAR)
+		DUMP_APPEND(buffer, bufferSize, " rightscrollbar");
+	if (extendedStyle & WS_EX_RTLREADING)
+		DUMP_APPEND(buffer, bufferSize, " rtlreading");
+	if (extendedStyle & WS_EX_STATICEDGE)
+		DUMP_APPEND(buffer, bufferSize, " staticedge");
+	if (extendedStyle & WS_EX_TOOLWINDOW)
+		DUMP_APPEND(buffer, bufferSize, " toolWindow");
+	if (extendedStyle & WS_EX_TOPMOST)
+		DUMP_APPEND(buffer, bufferSize, " topMost");
+	if (extendedStyle & WS_EX_TRANSPARENT)
+		DUMP_APPEND(buffer, bufferSize, " transparent");
+	if (extendedStyle & WS_EX_WINDOWEDGE)
+		DUMP_APPEND(buffer, bufferSize, " windowedge");
+	DUMP_APPEND(buffer, bufferSize, ">");
+}
 
 static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORDER_INFO* order,
                                     const WINDOW_STATE_ORDER* state)
@@ -545,38 +662,19 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 	char buffer[3000] = { 0 };
 	const size_t bufferSize = sizeof(buffer) - 1;
 
-	_snprintf(buffer, bufferSize, "%s windowId=0x%" PRIu32 "", msg, order->windowId);
+	(void)_snprintf(buffer, bufferSize, "%s windowId=%" PRIu32 "", msg, order->windowId);
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_OWNER)
-		DUMP_APPEND(buffer, bufferSize, " owner=0x%" PRIx32 "", state->ownerWindowId);
+		DUMP_APPEND(buffer, bufferSize, " owner=%" PRIu32 "", state->ownerWindowId);
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_STYLE)
 	{
-		DUMP_APPEND(buffer, bufferSize, " [ex]style=<0x%" PRIx32 ", 0x%" PRIx32 "", state->style,
-		            state->extendedStyle);
-		if (state->style & WS_POPUP)
-			DUMP_APPEND(buffer, bufferSize, " popup");
-		if (state->style & WS_VISIBLE)
-			DUMP_APPEND(buffer, bufferSize, " visible");
-		if (state->style & WS_THICKFRAME)
-			DUMP_APPEND(buffer, bufferSize, " thickframe");
-		if (state->style & WS_BORDER)
-			DUMP_APPEND(buffer, bufferSize, " border");
-		if (state->style & WS_CAPTION)
-			DUMP_APPEND(buffer, bufferSize, " caption");
-
-		if (state->extendedStyle & WS_EX_NOACTIVATE)
-			DUMP_APPEND(buffer, bufferSize, " noactivate");
-		if (state->extendedStyle & WS_EX_TOOLWINDOW)
-			DUMP_APPEND(buffer, bufferSize, " toolWindow");
-		if (state->extendedStyle & WS_EX_TOPMOST)
-			DUMP_APPEND(buffer, bufferSize, " topMost");
-
-		DUMP_APPEND(buffer, bufferSize, ">");
+		dump_window_style(buffer, bufferSize, state->style);
+		dump_window_style_ex(buffer, bufferSize, state->extendedStyle);
 	}
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_SHOW)
 	{
-		const char* showStr;
+		const char* showStr = NULL;
 		switch (state->showState)
 		{
 			case 0:
@@ -589,7 +687,7 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 				showStr = "maximized";
 				break;
 			case 5:
-				showStr = "current";
+				showStr = "show";
 				break;
 			default:
 				showStr = "<unknown>";
@@ -599,7 +697,16 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 	}
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_TITLE)
-		DUMP_APPEND(buffer, bufferSize, " title");
+	{
+		char* title = rail_string_to_utf8_string(&state->titleInfo);
+		if (title)
+		{
+			DUMP_APPEND(buffer, bufferSize, " title=\"%s\"", title);
+			free(title);
+		}
+		else
+			DUMP_APPEND(buffer, bufferSize, " title=<decode failed>");
+	}
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_CLIENT_AREA_OFFSET)
 		DUMP_APPEND(buffer, bufferSize, " clientOffset=(%" PRId32 ",%" PRId32 ")",
 		            state->clientOffsetX, state->clientOffsetY);
@@ -630,9 +737,8 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_WND_RECTS)
 	{
-		UINT32 i;
 		DUMP_APPEND(buffer, bufferSize, " windowRects=(");
-		for (i = 0; i < state->numWindowRects; i++)
+		for (UINT32 i = 0; i < state->numWindowRects; i++)
 		{
 			DUMP_APPEND(buffer, bufferSize, "(%" PRIu16 ",%" PRIu16 ",%" PRIu16 ",%" PRIu16 ")",
 			            state->windowRects[i].left, state->windowRects[i].top,
@@ -647,9 +753,8 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_VISIBILITY)
 	{
-		UINT32 i;
 		DUMP_APPEND(buffer, bufferSize, " visibilityRects=(");
-		for (i = 0; i < state->numVisibilityRects; i++)
+		for (UINT32 i = 0; i < state->numVisibilityRects; i++)
 		{
 			DUMP_APPEND(buffer, bufferSize, "(%" PRIu16 ",%" PRIu16 ",%" PRIu16 ",%" PRIu16 ")",
 			            state->visibilityRects[i].left, state->visibilityRects[i].top,
@@ -674,7 +779,7 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 		DUMP_APPEND(buffer, bufferSize, " appBarState=0x%" PRIx8 "", state->AppBarState);
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_APPBAR_EDGE)
 	{
-		const char* appBarEdgeStr;
+		const char* appBarEdgeStr = NULL;
 		switch (state->AppBarEdge)
 		{
 			case 0:
@@ -892,9 +997,6 @@ static BOOL update_recv_notification_icon_info_order(rdpUpdate* update, wStream*
 static BOOL update_read_desktop_actively_monitored_order(wStream* s, WINDOW_ORDER_INFO* orderInfo,
                                                          MONITORED_DESKTOP_ORDER* monitored_desktop)
 {
-	int i;
-	int size;
-
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_ACTIVE_WND)
 	{
 		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
@@ -905,20 +1007,18 @@ static BOOL update_read_desktop_actively_monitored_order(wStream* s, WINDOW_ORDE
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_ZORDER)
 	{
-		UINT32* newid;
-
 		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, monitored_desktop->numWindowIds); /* numWindowIds (1 byte) */
 
-		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4ull * monitored_desktop->numWindowIds))
+		if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, monitored_desktop->numWindowIds, 4ull))
 			return FALSE;
 
 		if (monitored_desktop->numWindowIds > 0)
 		{
-			size = sizeof(UINT32) * monitored_desktop->numWindowIds;
-			newid = (UINT32*)realloc(monitored_desktop->windowIds, size);
+			const size_t size = sizeof(UINT32) * monitored_desktop->numWindowIds;
+			UINT32* newid = (UINT32*)realloc(monitored_desktop->windowIds, size);
 
 			if (!newid)
 			{
@@ -930,7 +1030,7 @@ static BOOL update_read_desktop_actively_monitored_order(wStream* s, WINDOW_ORDE
 			monitored_desktop->windowIds = newid;
 
 			/* windowIds */
-			for (i = 0; i < (int)monitored_desktop->numWindowIds; i++)
+			for (UINT32 i = 0; i < monitored_desktop->numWindowIds; i++)
 			{
 				Stream_Read_UINT32(s, monitored_desktop->windowIds[i]);
 			}
@@ -958,10 +1058,8 @@ static void dump_monitored_desktop(wLog* log, const char* msg, const WINDOW_ORDE
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_ZORDER)
 	{
-		UINT32 i;
-
 		DUMP_APPEND(buffer, bufferSize, " windows=(");
-		for (i = 0; i < monitored->numWindowIds; i++)
+		for (UINT32 i = 0; i < monitored->numWindowIds; i++)
 		{
 			DUMP_APPEND(buffer, bufferSize, "0x%" PRIx32 ",", monitored->windowIds[i]);
 		}
@@ -1024,8 +1122,8 @@ void update_free_window_icon_info(ICON_INFO* iconInfo)
 BOOL update_recv_altsec_window_order(rdpUpdate* update, wStream* s)
 {
 	BOOL rc = TRUE;
-	size_t remaining;
-	UINT16 orderSize;
+	size_t remaining = 0;
+	UINT16 orderSize = 0;
 	WINDOW_ORDER_INFO orderInfo = { 0 };
 	rdp_update_internal* up = update_cast(update);
 

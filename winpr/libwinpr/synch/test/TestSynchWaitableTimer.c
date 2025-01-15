@@ -4,10 +4,10 @@
 
 int TestSynchWaitableTimer(int argc, char* argv[])
 {
-	DWORD status;
-	HANDLE timer;
-	LONG period;
-	LARGE_INTEGER due;
+	DWORD status = 0;
+	HANDLE timer = NULL;
+	LONG period = 0;
+	LARGE_INTEGER due = { 0 };
 	int result = -1;
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
@@ -78,6 +78,6 @@ int TestSynchWaitableTimer(int argc, char* argv[])
 	printf("Timer Signaled\n");
 	result = 0;
 out:
-	CloseHandle(timer);
+	(void)CloseHandle(timer);
 	return result;
 }

@@ -59,13 +59,13 @@ LONG RegCloseKey(HKEY hKey)
 
 LONG RegCopyTreeW(HKEY hKeySrc, LPCWSTR lpSubKey, HKEY hKeyDest)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegCopyTreeA(HKEY hKeySrc, LPCSTR lpSubKey, HKEY hKeyDest)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
@@ -73,7 +73,7 @@ LONG RegCreateKeyExW(HKEY hKey, LPCWSTR lpSubKey, DWORD Reserved, LPWSTR lpClass
                      REGSAM samDesired, LPSECURITY_ATTRIBUTES lpSecurityAttributes, PHKEY phkResult,
                      LPDWORD lpdwDisposition)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
@@ -81,166 +81,165 @@ LONG RegCreateKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD Reserved, LPSTR lpClass, 
                      REGSAM samDesired, LPSECURITY_ATTRIBUTES lpSecurityAttributes, PHKEY phkResult,
                      LPDWORD lpdwDisposition)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDeleteKeyExW(HKEY hKey, LPCWSTR lpSubKey, REGSAM samDesired, DWORD Reserved)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDeleteKeyExA(HKEY hKey, LPCSTR lpSubKey, REGSAM samDesired, DWORD Reserved)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDeleteTreeW(HKEY hKey, LPCWSTR lpSubKey)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDeleteTreeA(HKEY hKey, LPCSTR lpSubKey)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDeleteValueW(HKEY hKey, LPCWSTR lpValueName)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDeleteValueA(HKEY hKey, LPCSTR lpValueName)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegDisablePredefinedCacheEx(void)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegEnumKeyExW(HKEY hKey, DWORD dwIndex, LPWSTR lpName, LPDWORD lpcName, LPDWORD lpReserved,
                    LPWSTR lpClass, LPDWORD lpcClass, PFILETIME lpftLastWriteTime)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegEnumKeyExA(HKEY hKey, DWORD dwIndex, LPSTR lpName, LPDWORD lpcName, LPDWORD lpReserved,
                    LPSTR lpClass, LPDWORD lpcClass, PFILETIME lpftLastWriteTime)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegEnumValueW(HKEY hKey, DWORD dwIndex, LPWSTR lpValueName, LPDWORD lpcchValueName,
                    LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegEnumValueA(HKEY hKey, DWORD dwIndex, LPSTR lpValueName, LPDWORD lpcchValueName,
                    LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegFlushKey(HKEY hKey)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegGetKeySecurity(HKEY hKey, SECURITY_INFORMATION SecurityInformation,
                        PSECURITY_DESCRIPTOR pSecurityDescriptor, LPDWORD lpcbSecurityDescriptor)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegGetValueW(HKEY hkey, LPCWSTR lpSubKey, LPCWSTR lpValue, DWORD dwFlags, LPDWORD pdwType,
                   PVOID pvData, LPDWORD pcbData)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegGetValueA(HKEY hkey, LPCSTR lpSubKey, LPCSTR lpValue, DWORD dwFlags, LPDWORD pdwType,
                   PVOID pvData, LPDWORD pcbData)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegLoadAppKeyW(LPCWSTR lpFile, PHKEY phkResult, REGSAM samDesired, DWORD dwOptions,
                     DWORD Reserved)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegLoadAppKeyA(LPCSTR lpFile, PHKEY phkResult, REGSAM samDesired, DWORD dwOptions,
                     DWORD Reserved)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegLoadKeyW(HKEY hKey, LPCWSTR lpSubKey, LPCWSTR lpFile)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegLoadKeyA(HKEY hKey, LPCSTR lpSubKey, LPCSTR lpFile)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegLoadMUIStringW(HKEY hKey, LPCWSTR pszValue, LPWSTR pszOutBuf, DWORD cbOutBuf,
                        LPDWORD pcbData, DWORD Flags, LPCWSTR pszDirectory)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegLoadMUIStringA(HKEY hKey, LPCSTR pszValue, LPSTR pszOutBuf, DWORD cbOutBuf, LPDWORD pcbData,
                        DWORD Flags, LPCSTR pszDirectory)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegNotifyChangeKeyValue(HKEY hKey, BOOL bWatchSubtree, DWORD dwNotifyFilter, HANDLE hEvent,
                              BOOL fAsynchronous)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegOpenCurrentUser(REGSAM samDesired, PHKEY phkResult)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegOpenKeyExW(HKEY hKey, LPCWSTR lpSubKey, DWORD ulOptions, REGSAM samDesired, PHKEY phkResult)
 {
-	LONG rc;
-	char* str = NULL;
-	int res = ConvertFromUnicode(CP_UTF8, 0, lpSubKey, -1, &str, 0, NULL, NULL);
-	if (res < 0)
+	LONG rc = 0;
+	char* str = ConvertWCharToUtf8Alloc(lpSubKey, NULL);
+	if (!str)
 		return ERROR_FILE_NOT_FOUND;
 
 	rc = RegOpenKeyExA(hKey, str, ulOptions, samDesired, phkResult);
@@ -250,7 +249,6 @@ LONG RegOpenKeyExW(HKEY hKey, LPCWSTR lpSubKey, DWORD ulOptions, REGSAM samDesir
 
 LONG RegOpenKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD ulOptions, REGSAM samDesired, PHKEY phkResult)
 {
-	RegKey* pKey;
 	Reg* reg = RegGetInstance();
 
 	if (!reg)
@@ -263,7 +261,7 @@ LONG RegOpenKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD ulOptions, REGSAM samDesire
 	}
 
 	WINPR_ASSERT(reg->root_key);
-	pKey = reg->root_key->subkeys;
+	RegKey* pKey = reg->root_key->subkeys;
 
 	while (pKey != NULL)
 	{
@@ -285,7 +283,7 @@ LONG RegOpenKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD ulOptions, REGSAM samDesire
 
 LONG RegOpenUserClassesRoot(HANDLE hToken, DWORD dwOptions, REGSAM samDesired, PHKEY phkResult)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
@@ -294,7 +292,7 @@ LONG RegQueryInfoKeyW(HKEY hKey, LPWSTR lpClass, LPDWORD lpcClass, LPDWORD lpRes
                       LPDWORD lpcValues, LPDWORD lpcMaxValueNameLen, LPDWORD lpcMaxValueLen,
                       LPDWORD lpcbSecurityDescriptor, PFILETIME lpftLastWriteTime)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
@@ -303,14 +301,14 @@ LONG RegQueryInfoKeyA(HKEY hKey, LPSTR lpClass, LPDWORD lpcClass, LPDWORD lpRese
                       LPDWORD lpcValues, LPDWORD lpcMaxValueNameLen, LPDWORD lpcMaxValueLen,
                       LPDWORD lpcbSecurityDescriptor, PFILETIME lpftLastWriteTime)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 static LONG reg_read_int(const RegVal* pValue, LPBYTE lpData, LPDWORD lpcbData)
 {
 	const BYTE* ptr = NULL;
-	DWORD required;
+	DWORD required = 0;
 
 	WINPR_ASSERT(pValue);
 
@@ -342,7 +340,7 @@ static LONG reg_read_int(const RegVal* pValue, LPBYTE lpData, LPDWORD lpcbData)
 
 	if (lpData != NULL)
 	{
-		DWORD size;
+		DWORD size = 0;
 		WINPR_ASSERT(lpcbData);
 
 		size = *lpcbData;
@@ -356,12 +354,14 @@ static LONG reg_read_int(const RegVal* pValue, LPBYTE lpData, LPDWORD lpcbData)
 	return ERROR_SUCCESS;
 }
 
+// NOLINTBEGIN(readability-non-const-parameter)
 LONG RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType,
                       LPBYTE lpData, LPDWORD lpcbData)
+// NOLINTEND(readability-non-const-parameter)
 {
 	LONG status = ERROR_FILE_NOT_FOUND;
-	RegKey* key;
-	RegVal* pValue;
+	RegKey* key = NULL;
+	RegVal* pValue = NULL;
 	char* valueName = NULL;
 
 	WINPR_UNUSED(lpReserved);
@@ -369,7 +369,8 @@ LONG RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWOR
 	key = (RegKey*)hKey;
 	WINPR_ASSERT(key);
 
-	if (ConvertFromUnicode(CP_UTF8, 0, lpValueName, -1, &valueName, 0, NULL, NULL) <= 0)
+	valueName = ConvertWCharToUtf8Alloc(lpValueName, NULL);
+	if (!valueName)
 		goto end;
 
 	pValue = key->values;
@@ -386,27 +387,34 @@ LONG RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWOR
 				case REG_DWORD_BIG_ENDIAN:
 				case REG_QWORD:
 				case REG_DWORD:
-					return reg_read_int(pValue, lpData, lpcbData);
+					status = reg_read_int(pValue, lpData, lpcbData);
+					goto end;
 				case REG_SZ:
 				{
 					const size_t length = strnlen(pValue->data.string, UINT32_MAX) * sizeof(WCHAR);
 
+					status = ERROR_SUCCESS;
 					if (lpData != NULL)
 					{
-						DWORD size;
+						DWORD size = 0;
+						union
+						{
+							WCHAR* wc;
+							BYTE* b;
+						} cnv;
 						WINPR_ASSERT(lpcbData);
 
+						cnv.b = lpData;
 						size = *lpcbData;
 						*lpcbData = (DWORD)length;
 						if (size < length)
-							return ERROR_MORE_DATA;
-						ConvertToUnicode(CP_UTF8, 0, pValue->data.string, length, (WCHAR**)&lpData,
-						                 length);
+							status = ERROR_MORE_DATA;
+						if (ConvertUtf8NToWChar(pValue->data.string, length, cnv.wc, length) < 0)
+							status = ERROR_OUTOFMEMORY;
 					}
 					else if (lpcbData)
 						*lpcbData = (UINT32)length;
 
-					status = ERROR_SUCCESS;
 					goto end;
 				}
 				default:
@@ -425,11 +433,13 @@ end:
 	return status;
 }
 
+// NOLINTBEGIN(readability-non-const-parameter)
 LONG RegQueryValueExA(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType,
                       LPBYTE lpData, LPDWORD lpcbData)
+// NOLINTEND(readability-non-const-parameter)
 {
-	RegKey* key;
-	RegVal* pValue;
+	RegKey* key = NULL;
+	RegVal* pValue = NULL;
 
 	WINPR_UNUSED(lpReserved);
 
@@ -458,7 +468,7 @@ LONG RegQueryValueExA(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD
 
 					if (pData != NULL)
 					{
-						DWORD size;
+						DWORD size = 0;
 						WINPR_ASSERT(lpcbData);
 
 						size = *lpcbData;
@@ -489,60 +499,60 @@ LONG RegQueryValueExA(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD
 
 LONG RegRestoreKeyW(HKEY hKey, LPCWSTR lpFile, DWORD dwFlags)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegRestoreKeyA(HKEY hKey, LPCSTR lpFile, DWORD dwFlags)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegSaveKeyExW(HKEY hKey, LPCWSTR lpFile, LPSECURITY_ATTRIBUTES lpSecurityAttributes,
                    DWORD Flags)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegSaveKeyExA(HKEY hKey, LPCSTR lpFile, LPSECURITY_ATTRIBUTES lpSecurityAttributes,
                    DWORD Flags)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegSetKeySecurity(HKEY hKey, SECURITY_INFORMATION SecurityInformation,
                        PSECURITY_DESCRIPTOR pSecurityDescriptor)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegSetValueExW(HKEY hKey, LPCWSTR lpValueName, DWORD Reserved, DWORD dwType,
                     const BYTE* lpData, DWORD cbData)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegSetValueExA(HKEY hKey, LPCSTR lpValueName, DWORD Reserved, DWORD dwType, const BYTE* lpData,
                     DWORD cbData)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegUnLoadKeyW(HKEY hKey, LPCWSTR lpSubKey)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 
 LONG RegUnLoadKeyA(HKEY hKey, LPCSTR lpSubKey)
 {
-	WLog_ERR(TAG, "TODO: Implement %s", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: Implement");
 	return -1;
 }
 

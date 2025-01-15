@@ -25,6 +25,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <winpr/assert.h>
+
 #include <freerdp/freerdp.h>
 #include <freerdp/gdi/gdi.h>
 #include <freerdp/gdi/pen.h>
@@ -35,18 +37,11 @@
 #include "clipping.h"
 #include "line.h"
 
-/**
- * Draw a line from the current position to the given position.\n
- * @msdn{dd145029}
- * @param hdc device context
- * @param nXEnd ending x position
- * @param nYEnd ending y position
- * @return nonzero if successful, 0 otherwise
- */
-static BOOL gdi_rop_color(UINT32 rop, BYTE* pixelPtr, UINT32 pen, UINT32 format)
+static BOOL gdi_rop_color(INT32 rop, BYTE* pixelPtr, UINT32 pen, UINT32 format)
 {
+	WINPR_ASSERT(pixelPtr);
 	const UINT32 srcPixel = FreeRDPReadColor(pixelPtr, format);
-	UINT32 dstPixel;
+	UINT32 dstPixel = 0;
 
 	switch (rop)
 	{
@@ -121,32 +116,31 @@ static BOOL gdi_rop_color(UINT32 rop, BYTE* pixelPtr, UINT32 pen, UINT32 format)
 	return FreeRDPWriteColor(pixelPtr, format, dstPixel);
 }
 
-BOOL gdi_LineTo(HGDI_DC hdc, UINT32 nXEnd, UINT32 nYEnd)
+BOOL gdi_LineTo(HGDI_DC hdc, INT32 nXEnd, INT32 nYEnd)
 {
-	INT32 x, y;
-	INT32 x1, y1;
-	INT32 x2, y2;
-	INT32 e, e2;
-	INT32 dx, dy;
-	INT32 sx, sy;
-	INT32 bx1, by1;
-	INT32 bx2, by2;
-	HGDI_BITMAP bmp;
-	UINT32 pen;
-	INT32 rop2 = gdi_GetROP2(hdc);
-	x1 = hdc->pen->posX;
-	y1 = hdc->pen->posY;
-	x2 = nXEnd;
-	y2 = nYEnd;
-	dx = (x1 > x2) ? x1 - x2 : x2 - x1;
-	dy = (y1 > y2) ? y1 - y2 : y2 - y1;
-	sx = (x1 < x2) ? 1 : -1;
-	sy = (y1 < y2) ? 1 : -1;
-	e = dx - dy;
-	x = x1;
-	y = y1;
-	bmp = (HGDI_BITMAP)hdc->selectedObject;
+	INT32 e2 = 0;
+	UINT32 pen = 0;
 
+	WINPR_ASSERT(hdc);
+	const INT32 rop2 = gdi_GetROP2(hdc);
+
+	const INT32 x1 = hdc->pen->posX;
+	const INT32 y1 = hdc->pen->posY;
+	const INT32 x2 = WINPR_ASSERTING_INT_CAST(int32_t, nXEnd);
+	const INT32 y2 = WINPR_ASSERTING_INT_CAST(int32_t, nYEnd);
+	const INT32 dx = (x1 > x2) ? x1 - x2 : x2 - x1;
+	const INT32 dy = (y1 > y2) ? y1 - y2 : y2 - y1;
+	const INT32 sx = (x1 < x2) ? 1 : -1;
+	const INT32 sy = (y1 < y2) ? 1 : -1;
+	INT32 e = dx - dy;
+	INT32 x = x1;
+	INT32 y = y1;
+
+	WINPR_ASSERT(hdc->clip);
+	INT32 bx1 = 0;
+	INT32 by1 = 0;
+	INT32 bx2 = 0;
+	INT32 by2 = 0;
 	if (hdc->clip->null)
 	{
 		bx1 = (x1 < x2) ? x1 : x2;
@@ -161,6 +155,9 @@ BOOL gdi_LineTo(HGDI_DC hdc, UINT32 nXEnd, UINT32 nYEnd)
 		bx2 = bx1 + hdc->clip->w - 1;
 		by2 = by1 + hdc->clip->h - 1;
 	}
+
+	HGDI_BITMAP bmp = (HGDI_BITMAP)hdc->selectedObject;
+	WINPR_ASSERT(bmp);
 
 	bx1 = MAX(bx1, 0);
 	by1 = MAX(by1, 0);
@@ -178,7 +175,9 @@ BOOL gdi_LineTo(HGDI_DC hdc, UINT32 nXEnd, UINT32 nYEnd)
 		{
 			if ((x >= bx1 && x <= bx2) && (y >= by1 && y <= by2))
 			{
-				BYTE* pixel = gdi_GetPointer(bmp, x, y);
+				BYTE* pixel = gdi_GetPointer(bmp, WINPR_ASSERTING_INT_CAST(uint32_t, x),
+				                             WINPR_ASSERTING_INT_CAST(uint32_t, y));
+				WINPR_ASSERT(pixel);
 				gdi_rop_color(rop2, pixel, pen, bmp->format);
 			}
 		}
@@ -214,9 +213,10 @@ BOOL gdi_LineTo(HGDI_DC hdc, UINT32 nXEnd, UINT32 nYEnd)
  */
 BOOL gdi_PolylineTo(HGDI_DC hdc, GDI_POINT* lppt, DWORD cCount)
 {
-	DWORD i;
+	WINPR_ASSERT(hdc);
+	WINPR_ASSERT(lppt || (cCount == 0));
 
-	for (i = 0; i < cCount; i++)
+	for (DWORD i = 0; i < cCount; i++)
 	{
 		if (!gdi_LineTo(hdc, lppt[i].x, lppt[i].y))
 			return FALSE;
@@ -237,15 +237,17 @@ BOOL gdi_PolylineTo(HGDI_DC hdc, GDI_POINT* lppt, DWORD cCount)
  */
 BOOL gdi_Polyline(HGDI_DC hdc, GDI_POINT* lppt, UINT32 cPoints)
 {
+	WINPR_ASSERT(hdc);
+	WINPR_ASSERT(lppt || (cPoints == 0));
+
 	if (cPoints > 0)
 	{
-		UINT32 i;
-		GDI_POINT pt;
+		GDI_POINT pt = { 0 };
 
 		if (!gdi_MoveToEx(hdc, lppt[0].x, lppt[0].y, &pt))
 			return FALSE;
 
-		for (i = 0; i < cPoints; i++)
+		for (UINT32 i = 0; i < cPoints; i++)
 		{
 			if (!gdi_LineTo(hdc, lppt[i].x, lppt[i].y))
 				return FALSE;
@@ -269,14 +271,17 @@ BOOL gdi_Polyline(HGDI_DC hdc, GDI_POINT* lppt, UINT32 cPoints)
  * @param cCount count of entries in lpdwPolyPoints
  * @return nonzero on success, 0 otherwise
  */
-BOOL gdi_PolyPolyline(HGDI_DC hdc, GDI_POINT* lppt, UINT32* lpdwPolyPoints, DWORD cCount)
+BOOL gdi_PolyPolyline(HGDI_DC hdc, GDI_POINT* lppt, const UINT32* lpdwPolyPoints, DWORD cCount)
 {
-	UINT32 cPoints;
-	DWORD i, j = 0;
+	DWORD j = 0;
 
-	for (i = 0; i < cCount; i++)
+	WINPR_ASSERT(hdc);
+	WINPR_ASSERT(lppt || (cCount == 0));
+	WINPR_ASSERT(lpdwPolyPoints || (cCount == 0));
+
+	for (DWORD i = 0; i < cCount; i++)
 	{
-		cPoints = lpdwPolyPoints[i];
+		const UINT32 cPoints = lpdwPolyPoints[i];
 
 		if (!gdi_Polyline(hdc, &lppt[j], cPoints))
 			return FALSE;
@@ -295,8 +300,10 @@ BOOL gdi_PolyPolyline(HGDI_DC hdc, GDI_POINT* lppt, UINT32* lpdwPolyPoints, DWOR
  * @return nonzero on success, 0 otherwise
  */
 
-BOOL gdi_MoveToEx(HGDI_DC hdc, UINT32 X, UINT32 Y, HGDI_POINT lpPoint)
+BOOL gdi_MoveToEx(HGDI_DC hdc, INT32 X, INT32 Y, HGDI_POINT lpPoint)
 {
+	WINPR_ASSERT(hdc);
+
 	if (lpPoint != NULL)
 	{
 		lpPoint->x = hdc->pen->posX;

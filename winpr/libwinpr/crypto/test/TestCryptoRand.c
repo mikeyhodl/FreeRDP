@@ -5,7 +5,7 @@
 
 int TestCryptoRand(int argc, char* argv[])
 {
-	char* str;
+	char* str = NULL;
 	BYTE rnd[16] = { 0 };
 
 	WINPR_UNUSED(argc);
@@ -14,7 +14,7 @@ int TestCryptoRand(int argc, char* argv[])
 	winpr_RAND(rnd, sizeof(rnd));
 
 	str = winpr_BinToHexString(rnd, sizeof(rnd), FALSE);
-	// fprintf(stderr, "Rand: %s\n", str);
+	// (void)fprintf(stderr, "Rand: %s\n", str);
 	free(str);
 
 	if (memcmp(rnd, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 16) == 0)

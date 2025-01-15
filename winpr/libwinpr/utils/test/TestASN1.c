@@ -1,48 +1,61 @@
 #include <winpr/asn1.h>
 #include <winpr/print.h>
 
-const BYTE boolContent[] = { 0x01, 0x01, 0xFF };
-const BYTE badBoolContent[] = { 0x01, 0x04, 0xFF };
+static const BYTE boolContent[] = { 0x01, 0x01, 0xFF };
+static const BYTE badBoolContent[] = { 0x01, 0x04, 0xFF };
 
-const BYTE integerContent[] = { 0x02, 0x01, 0x02 };
-const BYTE badIntegerContent[] = { 0x02, 0x04, 0x02 };
+static const BYTE integerContent[] = { 0x02, 0x01, 0x02 };
+static const BYTE badIntegerContent[] = { 0x02, 0x04, 0x02 };
+static const BYTE positiveIntegerContent[] = { 0x02, 0x02, 0x00, 0xff };
+static const BYTE negativeIntegerContent[] = { 0x02, 0x01, 0xff };
 
-const BYTE seqContent[] = { 0x30, 0x22, 0x06, 0x03, 0x55, 0x04, 0x0A, 0x13, 0x1B, 0x44,
-	                        0x69, 0x67, 0x69, 0x74, 0x61, 0x6C, 0x20, 0x53, 0x69, 0x67,
-	                        0x6E, 0x61, 0x74, 0x75, 0x72, 0x65, 0x20, 0x54, 0x72, 0x75,
-	                        0x73, 0x74, 0x20, 0x43, 0x6F, 0x2E, 0x31 };
+static const BYTE seqContent[] = { 0x30, 0x22, 0x06, 0x03, 0x55, 0x04, 0x0A, 0x13, 0x1B, 0x44,
+	                               0x69, 0x67, 0x69, 0x74, 0x61, 0x6C, 0x20, 0x53, 0x69, 0x67,
+	                               0x6E, 0x61, 0x74, 0x75, 0x72, 0x65, 0x20, 0x54, 0x72, 0x75,
+	                               0x73, 0x74, 0x20, 0x43, 0x6F, 0x2E, 0x31 };
 
-const BYTE contextualInteger[] = { 0xA0, 0x03, 0x02, 0x01, 0x02 };
+static const BYTE contextualInteger[] = { 0xA0, 0x03, 0x02, 0x01, 0x02 };
 
-const BYTE oidContent[] = { 0x06, 0x03, 0x55, 0x04, 0x0A };
-const BYTE badOidContent[] = { 0x06, 0x89, 0x55, 0x04, 0x0A };
-const BYTE oidValue[] = { 0x55, 0x04, 0x0A };
+static const BYTE oidContent[] = { 0x06, 0x03, 0x55, 0x04, 0x0A };
+static const BYTE badOidContent[] = { 0x06, 0x89, 0x55, 0x04, 0x0A };
+static const BYTE oidValue[] = { 0x55, 0x04, 0x0A };
 
-const BYTE ia5stringContent[] = { 0x16, 0x22, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F,
-	                              0x63, 0x70, 0x73, 0x2E, 0x72, 0x6F, 0x6F, 0x74, 0x2D,
-	                              0x78, 0x31, 0x2E, 0x6C, 0x65, 0x74, 0x73, 0x65, 0x6E,
-	                              0x63, 0x72, 0x79, 0x70, 0x74, 0x2E, 0x6F, 0x72, 0x67 };
+static const BYTE ia5stringContent[] = { 0x16, 0x22, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F,
+	                                     0x63, 0x70, 0x73, 0x2E, 0x72, 0x6F, 0x6F, 0x74, 0x2D,
+	                                     0x78, 0x31, 0x2E, 0x6C, 0x65, 0x74, 0x73, 0x65, 0x6E,
+	                                     0x63, 0x72, 0x79, 0x70, 0x74, 0x2E, 0x6F, 0x72, 0x67 };
 
-const BYTE utctimeContent[] = { 0x17, 0x0D, 0x32, 0x31, 0x30, 0x33, 0x31, 0x37,
-	                            0x31, 0x36, 0x34, 0x30, 0x34, 0x36, 0x5A };
+static const BYTE utctimeContent[] = { 0x17, 0x0D, 0x32, 0x31, 0x30, 0x33, 0x31, 0x37,
+	                                   0x31, 0x36, 0x34, 0x30, 0x34, 0x36, 0x5A };
 
 int TestASN1Read(int argc, char* argv[])
 {
-	WinPrAsn1Decoder decoder, seqDecoder;
+	WinPrAsn1Decoder decoder;
+	WinPrAsn1Decoder seqDecoder;
 	wStream staticS;
-	WinPrAsn1_BOOL boolV;
-	WinPrAsn1_INTEGER integerV;
+	WinPrAsn1_BOOL boolV = 0;
+	WinPrAsn1_INTEGER integerV = 0;
 	WinPrAsn1_OID oidV;
-	WinPrAsn1_IA5STRING ia5stringV;
+	WinPrAsn1_IA5STRING ia5stringV = NULL;
 	WinPrAsn1_UTCTIME utctimeV;
-	WinPrAsn1_tag tag;
-	size_t len;
-	BOOL error;
+	WinPrAsn1_tag tag = 0;
+	size_t len = 0;
+	BOOL error = 0;
 
 	/* ============== Test INTEGERs ================ */
 	Stream_StaticConstInit(&staticS, integerContent, sizeof(integerContent));
 	WinPrAsn1Decoder_Init(&decoder, WINPR_ASN1_DER, &staticS);
 	if (!WinPrAsn1DecReadInteger(&decoder, &integerV))
+		return -1;
+
+	Stream_StaticConstInit(&staticS, positiveIntegerContent, sizeof(positiveIntegerContent));
+	WinPrAsn1Decoder_Init(&decoder, WINPR_ASN1_DER, &staticS);
+	if (!WinPrAsn1DecReadInteger(&decoder, &integerV) && integerV != 0xff)
+		return -1;
+
+	Stream_StaticConstInit(&staticS, negativeIntegerContent, sizeof(negativeIntegerContent));
+	WinPrAsn1Decoder_Init(&decoder, WINPR_ASN1_DER, &staticS);
+	if (!WinPrAsn1DecReadInteger(&decoder, &integerV) && integerV != -1)
 		return -1;
 
 	Stream_StaticConstInit(&staticS, badIntegerContent, sizeof(badIntegerContent));
@@ -65,7 +78,7 @@ int TestASN1Read(int argc, char* argv[])
 	Stream_StaticConstInit(&staticS, oidContent, sizeof(oidContent));
 	WinPrAsn1Decoder_Init(&decoder, WINPR_ASN1_DER, &staticS);
 	if (!WinPrAsn1DecReadOID(&decoder, &oidV, TRUE) || oidV.len != 3 ||
-	    memcmp(oidV.data, oidValue, oidV.len))
+	    (memcmp(oidV.data, oidValue, oidV.len) != 0))
 		return -15;
 	WinPrAsn1FreeOID(&oidV);
 
@@ -78,7 +91,7 @@ int TestASN1Read(int argc, char* argv[])
 	Stream_StaticConstInit(&staticS, ia5stringContent, sizeof(ia5stringContent));
 	WinPrAsn1Decoder_Init(&decoder, WINPR_ASN1_DER, &staticS);
 	if (!WinPrAsn1DecReadIA5String(&decoder, &ia5stringV) ||
-	    strcmp(ia5stringV, "http://cps.root-x1.letsencrypt.org"))
+	    (strcmp(ia5stringV, "http://cps.root-x1.letsencrypt.org") != 0))
 		return -16;
 	free(ia5stringV);
 
@@ -129,8 +142,8 @@ int TestASN1Read(int argc, char* argv[])
 	return 0;
 }
 
-static const BYTE oid1_val[] = { 1 };
-static const WinPrAsn1_OID oid1 = { sizeof(oid1_val), (BYTE*)oid1_val };
+static BYTE oid1_val[] = { 1 };
+static const WinPrAsn1_OID oid1 = { sizeof(oid1_val), oid1_val };
 static BYTE oid2_val[] = { 2, 2 };
 static WinPrAsn1_OID oid2 = { sizeof(oid2_val), oid2_val };
 static BYTE oid3_val[] = { 3, 3, 3 };
@@ -140,12 +153,11 @@ static WinPrAsn1_OID oid4 = { sizeof(oid4_val), oid4_val };
 
 int TestASN1Write(int argc, char* argv[])
 {
-	size_t i;
 	wStream* s = NULL;
-	size_t expectedOuputSz;
+	size_t expectedOuputSz = 0;
 	int retCode = 100;
 	WinPrAsn1_UTCTIME utcTime;
-	WinPrAsn1_IA5STRING ia5string;
+	WinPrAsn1_IA5STRING ia5string = NULL;
 	WinPrAsn1Encoder* enc = WinPrAsn1Encoder_New(WINPR_ASN1_DER);
 	if (!enc)
 		goto out;
@@ -299,7 +311,7 @@ int TestASN1Write(int argc, char* argv[])
 	WinPrAsn1Encoder_Reset(enc);
 
 	retCode = 203;
-	for (i = 0; i < 1000; i++)
+	for (size_t i = 0; i < 1000; i++)
 	{
 		if (!WinPrAsn1EncSeqContainer(enc))
 			goto out;
@@ -310,7 +322,7 @@ int TestASN1Write(int argc, char* argv[])
 		goto out;
 
 	retCode = 205;
-	for (i = 0; i < 1000; i++)
+	for (size_t i = 0; i < 1000; i++)
 	{
 		if (!WinPrAsn1EncEndContainer(enc))
 			goto out;

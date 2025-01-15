@@ -27,8 +27,6 @@
 #include <freerdp/gdi/video.h>
 #include <freerdp/gdi/region.h>
 
-#define TAG FREERDP_TAG("video")
-
 void gdi_video_geometry_init(rdpGdi* gdi, GeometryClientContext* geom)
 {
 	WINPR_ASSERT(gdi);
@@ -64,8 +62,8 @@ static BOOL gdiVideoShowSurface(VideoClientContext* video, const VideoSurface* s
                                 UINT32 destinationWidth, UINT32 destinationHeight)
 {
 	BOOL rc = FALSE;
-	rdpGdi* gdi;
-	rdpUpdate* update;
+	rdpGdi* gdi = NULL;
+	rdpUpdate* update = NULL;
 
 	WINPR_ASSERT(video);
 	WINPR_ASSERT(surface);
@@ -150,7 +148,7 @@ void gdi_video_control_uninit(rdpGdi* gdi, VideoClientContext* video)
 static void gdi_video_timer(void* context, const TimerEventArgs* timer)
 {
 	rdpContext* ctx = (rdpContext*)context;
-	rdpGdi* gdi;
+	rdpGdi* gdi = NULL;
 
 	WINPR_ASSERT(ctx);
 	WINPR_ASSERT(timer);
@@ -177,7 +175,7 @@ void gdi_video_data_uninit(rdpGdi* gdi, VideoClientContext* context)
 
 VideoSurface* VideoClient_CreateCommonContext(size_t size, UINT32 x, UINT32 y, UINT32 w, UINT32 h)
 {
-	VideoSurface* ret;
+	VideoSurface* ret = NULL;
 
 	WINPR_ASSERT(size >= sizeof(VideoSurface));
 
@@ -194,7 +192,7 @@ VideoSurface* VideoClient_CreateCommonContext(size_t size, UINT32 x, UINT32 y, U
 	ret->alignedHeight = ret->h + 32 - ret->h % 16;
 
 	ret->scanline = ret->alignedWidth * FreeRDPGetBytesPerPixel(ret->format);
-	ret->data = winpr_aligned_malloc(ret->scanline * ret->alignedHeight * 1ULL, 64);
+	ret->data = winpr_aligned_malloc(1ull * ret->scanline * ret->alignedHeight, 64);
 	if (!ret->data)
 		goto fail;
 	return ret;

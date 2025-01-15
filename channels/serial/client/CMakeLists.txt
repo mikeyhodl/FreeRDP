@@ -17,11 +17,11 @@
 
 define_channel_client("serial")
 
-set(${MODULE_PREFIX}_SRCS
-	serial_main.c)
+set(${MODULE_PREFIX}_SRCS serial_main.c)
 
-add_channel_client_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} TRUE "DeviceServiceEntry")
+set(${MODULE_PREFIX}_LIBS winpr freerdp)
 
-target_link_libraries(${MODULE_NAME} winpr freerdp)
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Channels/${CHANNEL_NAME}/Client")
+# Serial implementation is currently linux only. BSD* might also work but untested
+if(UNIX AND NOT APPLE AND NOT ANDROID)
+  add_channel_client_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} TRUE "DeviceServiceEntry")
+endif()

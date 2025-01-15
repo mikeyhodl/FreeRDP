@@ -19,31 +19,41 @@ set(MODULE_NAME "freerdp-utils")
 set(MODULE_PREFIX "FREERDP_UTILS")
 
 set(${MODULE_PREFIX}_SRCS
-	passphrase.c
-	cliprdr_utils.c
-	rdpdr_utils.c
-	pcap.c
-	profiler.c
-	ringbuffer.c
-	signal.c
+    encoded_types.c
+    helpers.c
+    passphrase.c
+    cliprdr_utils.c
+    rdpdr_utils.c
+    pcap.c
+    profiler.c
+    ringbuffer.c
+    signal.c
     string.c
-	smartcard_operations.c
-	smartcard_pack.c
-	smartcard_call.c
-	stopwatch.c)
+    gfx.c
+    drdynvc.c
+    smartcard_operations.c
+    smartcard_pack.c
+    smartcard_call.c
+    stopwatch.c
+    http.c
+)
 
 freerdp_module_add(${${MODULE_PREFIX}_SRCS})
 
 freerdp_library_add(${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	freerdp_library_add(ws2_32)
+  freerdp_library_add(ws2_32)
+  freerdp_library_add(credui)
+  freerdp_library_add(cfgmgr32)
 endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES SunOS)
-	freerdp_library_add(rt)
+check_library_exists(m pow "" HAVE_LIB_M)
+
+if(HAVE_LIB_M)
+  freerdp_library_add(m)
 endif()
 
-if(BUILD_TESTING)
-	add_subdirectory(test)
+if(BUILD_TESTING_INTERNAL OR BUILD_TESTING)
+  add_subdirectory(test)
 endif()

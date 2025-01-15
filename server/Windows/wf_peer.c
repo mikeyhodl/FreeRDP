@@ -28,6 +28,7 @@
 #include <freerdp/listener.h>
 #include <freerdp/codec/rfx.h>
 #include <freerdp/build-config.h>
+#include <freerdp/crypto/certificate.h>
 
 #include "wf_info.h"
 #include "wf_input.h"
@@ -122,17 +123,18 @@ static BOOL wf_peer_post_connect(freerdp_peer* client)
 		return FALSE;
 	}
 
-	if ((settings->DesktopWidth != wfi->servscreen_width) ||
-	    (settings->DesktopHeight != wfi->servscreen_height))
+	if ((freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) != wfi->servscreen_width) ||
+	    (freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) != wfi->servscreen_height))
 	{
 		/*
 		WLog_DBG(TAG, "Client requested resolution %"PRIu32"x%"PRIu32", but will resize to %dx%d",
-		    settings->DesktopWidth, settings->DesktopHeight, wfi->servscreen_width,
+		    freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+		freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight), wfi->servscreen_width,
 		wfi->servscreen_height);
 		    */
-		settings->DesktopWidth = wfi->servscreen_width;
-		settings->DesktopHeight = wfi->servscreen_height;
-		if (!freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, wfi->bitsPerPixel))
+		if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth, wfi->servscreen_width) ||
+		    !freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, wfi->servscreen_height) ||
+		    !freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, wfi->bitsPerPixel))
 			return FALSE;
 
 		WINPR_ASSERT(client->context->update);
@@ -180,7 +182,7 @@ BOOL wf_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
 	if (!(hThread = CreateThread(NULL, 0, wf_peer_main_loop, client, 0, NULL)))
 		return FALSE;
 
-	CloseHandle(hThread);
+	(void)CloseHandle(hThread);
 	return TRUE;
 }
 
@@ -215,8 +217,8 @@ static DWORD WINAPI wf_peer_socket_listener(LPVOID lpParam)
 			break;
 		}
 
-		SetEvent(context->socketEvent);
-		WaitForSingleObject(context->socketSemaphore, INFINITE);
+		(void)SetEvent(context->socketEvent);
+		(void)WaitForSingleObject(context->socketSemaphore, INFINITE);
 
 		if (context->socketClose)
 			break;
@@ -235,19 +237,32 @@ static BOOL wf_peer_read_settings(freerdp_peer* client)
 	settings = client->context->settings;
 	WINPR_ASSERT(settings);
 
+	char* CertificateFile = NULL;
 	if (!wf_settings_read_string_ascii(HKEY_LOCAL_MACHINE, SERVER_KEY, _T("CertificateFile"),
-	                                   &(settings->CertificateFile)))
-	{
-		if (!freerdp_settings_set_string(settings, FreeRDP_CertificateFile, "server.crt"))
-			return FALSE;
-	}
+	                                   &(CertificateFile)))
+		CertificateFile = _strdup("server.crt");
 
+	rdpCertificate* cert = freerdp_certificate_new_from_file(CertificateFile);
+	free(CertificateFile);
+	if (!cert)
+		return FALSE;
+
+	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_RdpServerCertificate, cert, 1))
+		return FALSE;
+
+	char* PrivateKeyFile = NULL;
 	if (!wf_settings_read_string_ascii(HKEY_LOCAL_MACHINE, SERVER_KEY, _T("PrivateKeyFile"),
-	                                   &(settings->PrivateKeyFile)))
-	{
-		if (!freerdp_settings_set_string(settings, FreeRDP_PrivateKeyFile, "server.key"))
-			return FALSE;
-	}
+	                                   &(PrivateKeyFile)))
+		PrivateKeyFile = _strdup("server.key");
+
+	rdpPrivateKey* key = freerdp_key_new_from_file(PrivateKeyFile);
+	free(PrivateKeyFile);
+
+	if (!key)
+		return FALSE;
+
+	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_RdpServerRsaKey, key, 1))
+		return FALSE;
 
 	return TRUE;
 }
@@ -270,11 +285,14 @@ DWORD WINAPI wf_peer_main_loop(LPVOID lpParam)
 	settings = client->context->settings;
 	WINPR_ASSERT(settings);
 
-	settings->RemoteFxCodec = TRUE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteFxCodec, TRUE))
+		goto fail_peer_init;
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, 32))
 		goto fail_peer_init;
-	settings->NSCodec = FALSE;
-	settings->JpegCodec = FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec, FALSE))
+		goto fail_peer_init;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_JpegCodec, FALSE))
+		goto fail_peer_init;
 
 	if (!wf_peer_read_settings(client))
 		goto fail_peer_init;
@@ -339,7 +357,7 @@ DWORD WINAPI wf_peer_main_loop(LPVOID lpParam)
 			if (client->activated)
 				wf_update_peer_send(wfi, context);
 
-			ResetEvent(context->updateEvent);
+			(void)ResetEvent(context->updateEvent);
 			ReleaseSemaphore(wfi->updateSemaphore, 1, NULL);
 		}
 
@@ -351,7 +369,7 @@ DWORD WINAPI wf_peer_main_loop(LPVOID lpParam)
 				context->socketClose = TRUE;
 			}
 
-			ResetEvent(context->socketEvent);
+			(void)ResetEvent(context->socketEvent);
 			ReleaseSemaphore(context->socketSemaphore, 1, NULL);
 
 			if (context->socketClose)
@@ -374,17 +392,17 @@ DWORD WINAPI wf_peer_main_loop(LPVOID lpParam)
 
 	if (WaitForSingleObject(context->updateEvent, 0) == 0)
 	{
-		ResetEvent(context->updateEvent);
+		(void)ResetEvent(context->updateEvent);
 		ReleaseSemaphore(wfi->updateSemaphore, 1, NULL);
 	}
 
 	wf_update_peer_deactivate(wfi, context);
 	client->Disconnect(client);
 fail_socket_thread:
-	CloseHandle(context->socketSemaphore);
+	(void)CloseHandle(context->socketSemaphore);
 	context->socketSemaphore = NULL;
 fail_socket_semaphore:
-	CloseHandle(context->socketEvent);
+	(void)CloseHandle(context->socketEvent);
 	context->socketEvent = NULL;
 fail_socket_event:
 fail_socked_closed:

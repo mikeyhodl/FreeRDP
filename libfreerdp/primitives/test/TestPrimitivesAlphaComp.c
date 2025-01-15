@@ -29,7 +29,7 @@
 #define TOLERANCE 1
 static inline const UINT32* PIXEL(const BYTE* _addr_, UINT32 _bytes_, UINT32 _x_, UINT32 _y_)
 {
-	const BYTE* addr = _addr_ + _x_ * sizeof(UINT32) + _y_ * _bytes_;
+	const BYTE* addr = _addr_ + 1ULL * _x_ * sizeof(UINT32) + 1ULL * _y_ * _bytes_;
 	return (const UINT32*)addr;
 }
 
@@ -63,7 +63,8 @@ static UINT32 alpha_add(UINT32 c1, UINT32 c2)
 /* ------------------------------------------------------------------------- */
 static UINT32 colordist(UINT32 c1, UINT32 c2)
 {
-	int d, maxd = 0;
+	int d = 0;
+	int maxd = 0;
 	d = ABS((INT32)(ALF(c1) - ALF(c2)));
 
 	if (d > maxd)
@@ -91,11 +92,9 @@ static UINT32 colordist(UINT32 c1, UINT32 c2)
 static BOOL check(const BYTE* pSrc1, UINT32 src1Step, const BYTE* pSrc2, UINT32 src2Step,
                   BYTE* pDst, UINT32 dstStep, UINT32 width, UINT32 height)
 {
-	UINT32 x, y;
-
-	for (y = 0; y < height; ++y)
+	for (UINT32 y = 0; y < height; ++y)
 	{
-		for (x = 0; x < width; ++x)
+		for (UINT32 x = 0; x < width; ++x)
 		{
 			UINT32 s1 = *PIXEL(pSrc1, src1Step, x, y);
 			UINT32 s2 = *PIXEL(pSrc2, src2Step, x, y);
@@ -117,21 +116,20 @@ static BOOL check(const BYTE* pSrc1, UINT32 src1Step, const BYTE* pSrc2, UINT32 
 
 static BOOL test_alphaComp_func(void)
 {
-	pstatus_t status;
+	pstatus_t status = 0;
 	BYTE ALIGN(src1[SRC1_WIDTH * SRC1_HEIGHT * 4]) = { 0 };
 	BYTE ALIGN(src2[SRC2_WIDTH * SRC2_HEIGHT * 4]) = { 0 };
 	BYTE ALIGN(dst1[DST_WIDTH * DST_HEIGHT * 4]) = { 0 };
-	UINT32* ptr;
-	UINT32 i;
-	winpr_RAND((BYTE*)src1, sizeof(src1));
+	UINT32* ptr = NULL;
+	winpr_RAND(src1, sizeof(src1));
 	/* Special-case the first two values */
 	src1[0] &= 0x00FFFFFFU;
 	src1[1] |= 0xFF000000U;
-	winpr_RAND((BYTE*)src2, sizeof(src2));
+	winpr_RAND(src2, sizeof(src2));
 	/* Set the second operand to fully-opaque. */
 	ptr = (UINT32*)src2;
 
-	for (i = 0; i < sizeof(src2) / 4; ++i)
+	for (UINT32 i = 0; i < sizeof(src2) / 4; ++i)
 		*ptr++ |= 0xFF000000U;
 
 	status = generic->alphaComp_argb(src1, 4 * SRC1_WIDTH, src2, 4 * SRC2_WIDTH, dst1,
@@ -163,19 +161,17 @@ static int test_alphaComp_speed(void)
 	BYTE ALIGN(src1[SRC1_WIDTH * SRC1_HEIGHT]) = { 0 };
 	BYTE ALIGN(src2[SRC2_WIDTH * SRC2_HEIGHT]) = { 0 };
 	BYTE ALIGN(dst1[DST_WIDTH * DST_HEIGHT]) = { 0 };
-	char testStr[256] = { 0 };
-	UINT32* ptr;
-	UINT32 i;
-	testStr[0] = '\0';
-	winpr_RAND((BYTE*)src1, sizeof(src1));
+	UINT32* ptr = NULL;
+
+	winpr_RAND(src1, sizeof(src1));
 	/* Special-case the first two values */
 	src1[0] &= 0x00FFFFFFU;
 	src1[1] |= 0xFF000000U;
-	winpr_RAND((BYTE*)src2, sizeof(src2));
+	winpr_RAND(src2, sizeof(src2));
 	/* Set the second operand to fully-opaque. */
 	ptr = (UINT32*)src2;
 
-	for (i = 0; i < sizeof(src2) / 4; ++i)
+	for (UINT32 i = 0; i < sizeof(src2) / 4; ++i)
 		*ptr++ |= 0xFF000000U;
 
 	if (!speed_test("add16s", "aligned", g_Iterations, (speed_test_fkt)generic->alphaComp_argb,

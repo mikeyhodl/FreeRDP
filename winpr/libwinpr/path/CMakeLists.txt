@@ -17,10 +17,14 @@
 
 winpr_module_add(path.c shell.c)
 
-if (IOS)
-	winpr_module_add(shell_ios.m)
-endif (IOS)
+if(MSVC OR MINGW)
+  winpr_library_add_public(shlwapi)
+endif()
 
-if(BUILD_TESTING)
-	add_subdirectory(test)
+if(IOS)
+  winpr_module_add(shell_ios.m)
+endif(IOS)
+
+if(BUILD_TESTING_INTERNAL OR BUILD_TESTING)
+  add_subdirectory(test)
 endif()

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-SCM_URL=https://www.openssl.org/source
-SCM_TAG=OpenSSL_1_1_1q
-SCM_HASH=d7939ce614029cdff0b6c20f0e2e5703158a489a72b2507b8bd51bf8c8fd10ca
+SCM_URL=https://github.com/openssl/openssl/releases/download/
+SCM_TAG=openssl-3.3.1
+SCM_HASH=777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e
 
 COMPILER=4.9
 
@@ -43,8 +43,7 @@ function build {
 
 # Run the main program.
 common_parse_arguments $@
-common_check_requirements
-common_update $SCM_URL $SCM_TAG $BUILD_SRC $SCM_HASH
+common_update "$SCM_URL/$SCM_TAG" $SCM_TAG $BUILD_SRC $SCM_HASH
 
 ORG_PATH=$PATH
 for ARCH in $BUILD_ARCH

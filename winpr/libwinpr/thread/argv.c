@@ -24,7 +24,7 @@
 
 #include <winpr/thread.h>
 
-#ifdef HAVE_UNISTD_H
+#ifdef WINPR_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -88,19 +88,19 @@
 
 LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 {
-	const char* p;
-	size_t length;
-	const char* pBeg;
-	const char* pEnd;
-	char* buffer;
-	char* pOutput;
+	const char* p = NULL;
+	size_t length = 0;
+	const char* pBeg = NULL;
+	const char* pEnd = NULL;
+	char* buffer = NULL;
+	char* pOutput = NULL;
 	int numArgs = 0;
-	LPSTR* pArgs;
-	size_t maxNumArgs;
-	size_t maxBufferSize;
-	size_t cmdLineLength;
-	BOOL* lpEscapedChars;
-	LPSTR lpEscapedCmdLine;
+	LPSTR* pArgs = NULL;
+	size_t maxNumArgs = 0;
+	size_t maxBufferSize = 0;
+	size_t cmdLineLength = 0;
+	BOOL* lpEscapedChars = NULL;
+	LPSTR lpEscapedCmdLine = NULL;
 
 	if (!lpCmdLine)
 		return NULL;
@@ -118,8 +118,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 
 	if (strstr(lpCmdLine, "\\\""))
 	{
-		size_t i;
-		size_t n;
+		size_t n = 0;
 		const char* pLastEnd = NULL;
 		lpEscapedCmdLine = (char*)calloc(cmdLineLength + 1, sizeof(char));
 
@@ -158,13 +157,13 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 				pBeg--;
 			}
 
-			n = ((pEnd - pBeg) - 1);
-			length = (pBeg - pLastEnd);
+			n = WINPR_ASSERTING_INT_CAST(size_t, ((pEnd - pBeg) - 1));
+			length = WINPR_ASSERTING_INT_CAST(size_t, (pBeg - pLastEnd));
 			CopyMemory(pOutput, p, length);
 			pOutput += length;
 			p += length;
 
-			for (i = 0; i < (n / 2); i++)
+			for (size_t i = 0; i < (n / 2); i++)
 				*pOutput++ = '\\';
 
 			p += n + 1;
@@ -202,7 +201,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 	}
 
 	pArgs = (LPSTR*)buffer;
-	pOutput = (char*)&buffer[maxNumArgs * (sizeof(char*))];
+	pOutput = &buffer[maxNumArgs * (sizeof(char*))];
 	p = (const char*)lpCmdLine;
 
 	while (p < lpCmdLine + cmdLineLength)
@@ -222,7 +221,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 		if (*p != '"')
 		{
 			/* no whitespace escaped with double quotes */
-			length = (p - pBeg);
+			length = WINPR_ASSERTING_INT_CAST(size_t, (p - pBeg));
 			CopyMemory(pOutput, pBeg, length);
 			pOutput[length] = '\0';
 			pArgs[numArgs++] = pOutput;
@@ -245,8 +244,8 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 			if (*p != '"')
 				WLog_ERR(TAG, "parsing error: uneven number of unescaped double quotes!");
 
-			if (*p && *(++p))
-				p += strcspn(p, " \t\0");
+			if (p[0] && p[1])
+				p += 1 + strcspn(&p[1], " \t\0");
 
 			pArgs[numArgs++] = pOutput;
 

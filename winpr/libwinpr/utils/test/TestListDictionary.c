@@ -13,9 +13,9 @@ static char* val3 = "val3";
 
 int TestListDictionary(int argc, char* argv[])
 {
-	int count;
-	char* value;
-	wListDictionary* list;
+	size_t count = 0;
+	char* value = NULL;
+	wListDictionary* list = NULL;
 
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
@@ -32,7 +32,7 @@ int TestListDictionary(int argc, char* argv[])
 
 	if (count != 3)
 	{
-		printf("ListDictionary_Count: Expected : 3, Actual: %d\n", count);
+		printf("ListDictionary_Count: Expected : 3, Actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -42,7 +42,7 @@ int TestListDictionary(int argc, char* argv[])
 
 	if (count != 2)
 	{
-		printf("ListDictionary_Count: Expected : 2, Actual: %d\n", count);
+		printf("ListDictionary_Count: Expected : 2, Actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -52,7 +52,7 @@ int TestListDictionary(int argc, char* argv[])
 
 	if (count != 1)
 	{
-		printf("ListDictionary_Count: Expected : 1, Actual: %d\n", count);
+		printf("ListDictionary_Count: Expected : 1, Actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -62,7 +62,7 @@ int TestListDictionary(int argc, char* argv[])
 
 	if (count != 0)
 	{
-		printf("ListDictionary_Count: Expected : 0, Actual: %d\n", count);
+		printf("ListDictionary_Count: Expected : 0, Actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -74,7 +74,7 @@ int TestListDictionary(int argc, char* argv[])
 
 	if (count != 3)
 	{
-		printf("ListDictionary_Count: Expected : 3, Actual: %d\n", count);
+		printf("ListDictionary_Count: Expected : 3, Actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -121,37 +121,37 @@ int TestListDictionary(int argc, char* argv[])
 		return -1;
 	}
 
-	if (!ListDictionary_Remove(list, key2))
+	if (!ListDictionary_Take(list, key2))
 	{
 		printf("ListDictionary_Remove: Expected : TRUE, Actual: FALSE\n");
 		return -1;
 	}
 
-	if (ListDictionary_Remove(list, key2))
+	if (ListDictionary_Take(list, key2))
 	{
 		printf("ListDictionary_Remove: Expected : FALSE, Actual: TRUE\n");
 		return -1;
 	}
 
-	value = ListDictionary_Remove_Head(list);
+	value = ListDictionary_Take_Head(list);
 	count = ListDictionary_Count(list);
-	if (strncmp(value, val1, 4) || count != 1)
+	if ((strncmp(value, val1, 4) != 0) || (count != 1))
 	{
-		printf("ListDictionary_Remove_Head: Expected : %s, Actual: %s Count: %d\n", val1, value,
-		       count);
+		printf("ListDictionary_Remove_Head: Expected : %s, Actual: %s Count: %" PRIuz "\n", val1,
+		       value, count);
 		return -1;
 	}
 
-	value = ListDictionary_Remove_Head(list);
+	value = ListDictionary_Take_Head(list);
 	count = ListDictionary_Count(list);
-	if (strncmp(value, val3, 4) || count != 0)
+	if ((strncmp(value, val3, 4) != 0) || (count != 0))
 	{
-		printf("ListDictionary_Remove_Head: Expected : %s, Actual: %s Count: %d\n", val3, value,
-		       count);
+		printf("ListDictionary_Remove_Head: Expected : %s, Actual: %s Count: %" PRIuz "\n", val3,
+		       value, count);
 		return -1;
 	}
 
-	value = ListDictionary_Remove_Head(list);
+	value = ListDictionary_Take_Head(list);
 	if (value)
 	{
 		printf("ListDictionary_Remove_Head: Expected : (null), Actual: %s\n", value);
@@ -168,7 +168,7 @@ int TestListDictionary(int argc, char* argv[])
 
 	if (count != 0)
 	{
-		printf("ListDictionary_Count: Expected : 0, Actual: %d\n", count);
+		printf("ListDictionary_Count: Expected : 0, Actual: %" PRIuz "\n", count);
 		return -1;
 	}
 

@@ -19,8 +19,11 @@
 
 #include <freerdp/config.h>
 
+#include "../settings.h"
+
 #include <winpr/crt.h>
 #include <winpr/assert.h>
+#include <winpr/cast.h>
 
 #include <freerdp/log.h>
 
@@ -108,21 +111,17 @@ const p_uuid_t BTFN_UUID = {
 
 static int rpc_bind_setup(rdpRpc* rpc)
 {
-	int rc = -1;
-	rdpContext* context;
-	rdpSettings* settings;
-	freerdp* instance;
 	SEC_WINNT_AUTH_IDENTITY identity = { 0 };
 
 	WINPR_ASSERT(rpc);
 
-	context = transport_get_context(rpc->transport);
+	rdpContext* context = transport_get_context(rpc->transport);
 	WINPR_ASSERT(context);
 
-	settings = context->settings;
+	rdpSettings* settings = context->settings;
 	WINPR_ASSERT(settings);
 
-	instance = context->instance;
+	freerdp* instance = context->instance;
 	WINPR_ASSERT(instance);
 
 	credssp_auth_free(rpc->auth);
@@ -130,15 +129,18 @@ static int rpc_bind_setup(rdpRpc* rpc)
 	if (!rpc->auth)
 		return -1;
 
-	rc = utils_authenticate_gateway(instance, GW_AUTH_RPC);
+	auth_status rc = utils_authenticate_gateway(instance, GW_AUTH_RPC);
 	switch (rc)
 	{
 		case AUTH_SUCCESS:
 		case AUTH_SKIP:
 			break;
+		case AUTH_CANCELLED:
+			freerdp_set_last_error_log(instance->context, FREERDP_ERROR_CONNECT_CANCELLED);
+			return -1;
 		case AUTH_NO_CREDENTIALS:
-			freerdp_set_last_error_log(context, FREERDP_ERROR_CONNECT_NO_OR_MISSING_CREDENTIALS);
-			return 0;
+			WLog_INFO(TAG, "No credentials provided - using NULL identity");
+			break;
 		case AUTH_FAILED:
 		default:
 			return -1;
@@ -147,11 +149,12 @@ static int rpc_bind_setup(rdpRpc* rpc)
 	if (!credssp_auth_init(rpc->auth, AUTH_PKG, NULL))
 		return -1;
 
-	if (sspi_SetAuthIdentityA(&identity, settings->GatewayUsername, settings->GatewayDomain,
-	                          settings->GatewayPassword) < 0)
+	if (!identity_set_from_settings(&identity, settings, FreeRDP_GatewayUsername,
+	                                FreeRDP_GatewayDomain, FreeRDP_GatewayPassword))
 		return -1;
 
-	if (!credssp_auth_setup_client(rpc->auth, NULL, settings->GatewayHostname, &identity, NULL))
+	SEC_WINNT_AUTH_IDENTITY* identityArg = (settings->GatewayUsername ? &identity : NULL);
+	if (!credssp_auth_setup_client(rpc->auth, NULL, settings->GatewayHostname, identityArg, NULL))
 	{
 		sspi_FreeAuthIdentity(&identity);
 		return -1;
@@ -171,12 +174,12 @@ int rpc_send_bind_pdu(rdpRpc* rpc, BOOL initial)
 {
 	int status = -1;
 	wStream* buffer = NULL;
-	UINT32 offset;
-	RpcClientCall* clientCall;
-	p_cont_elem_t* p_cont_elem;
+	UINT32 offset = 0;
+	RpcClientCall* clientCall = NULL;
+	p_cont_elem_t* p_cont_elem = NULL;
 	rpcconn_bind_hdr_t bind_pdu = { 0 };
-	RpcVirtualConnection* connection;
-	RpcInChannel* inChannel;
+	RpcVirtualConnection* connection = NULL;
+	RpcInChannel* inChannel = NULL;
 	const SecBuffer* sbuffer = NULL;
 
 	WINPR_ASSERT(rpc);
@@ -250,7 +253,9 @@ int rpc_send_bind_pdu(rdpRpc* rpc, BOOL initial)
 	bind_pdu.auth_verifier.auth_reserved = 0x00;
 	bind_pdu.auth_verifier.auth_context_id = 0x00000000;
 	offset += (8 + bind_pdu.header.auth_length);
-	bind_pdu.header.frag_length = offset;
+
+	WINPR_ASSERT(offset <= UINT16_MAX);
+	bind_pdu.header.frag_length = (UINT16)offset;
 
 	buffer = Stream_New(NULL, bind_pdu.header.frag_length);
 
@@ -282,6 +287,7 @@ fail:
 	}
 
 	free(bind_pdu.p_context_elem.p_cont_elem);
+	bind_pdu.p_context_elem.p_cont_elem = NULL;
 
 	Stream_Free(buffer, TRUE);
 	return (status > 0) ? 1 : -1;
@@ -316,8 +322,9 @@ fail:
 BOOL rpc_recv_bind_ack_pdu(rdpRpc* rpc, wStream* s)
 {
 	BOOL rc = FALSE;
-	BYTE* auth_data;
-	size_t pos, end;
+	const BYTE* auth_data = NULL;
+	size_t pos = 0;
+	size_t end = 0;
 	rpcconn_hdr_t header = { 0 };
 	SecBuffer buffer = { 0 };
 
@@ -339,11 +346,14 @@ BOOL rpc_recv_bind_ack_pdu(rdpRpc* rpc, wStream* s)
 	 * rts_read_pdu_header did already do consistency checks */
 	end = Stream_GetPosition(s);
 	Stream_SetPosition(s, pos + header.common.frag_length - header.common.auth_length);
-	auth_data = Stream_Pointer(s);
+	auth_data = Stream_ConstPointer(s);
 	Stream_SetPosition(s, end);
 
-	buffer.pvBuffer = auth_data;
 	buffer.cbBuffer = header.common.auth_length;
+	buffer.pvBuffer = malloc(buffer.cbBuffer);
+	if (!buffer.pvBuffer)
+		goto fail;
+	memcpy(buffer.pvBuffer, auth_data, buffer.cbBuffer);
 	credssp_auth_take_input_buffer(rpc->auth, &buffer);
 
 	if (credssp_auth_authenticate(rpc->auth) < 0)
@@ -365,13 +375,13 @@ fail:
 int rpc_send_rpc_auth_3_pdu(rdpRpc* rpc)
 {
 	int status = -1;
-	wStream* buffer;
-	size_t offset;
-	const SecBuffer* sbuffer;
-	RpcClientCall* clientCall;
+	wStream* buffer = NULL;
+	size_t offset = 0;
+	const SecBuffer* sbuffer = NULL;
+	RpcClientCall* clientCall = NULL;
 	rpcconn_rpc_auth_3_hdr_t auth_3_pdu = { 0 };
-	RpcVirtualConnection* connection;
-	RpcInChannel* inChannel;
+	RpcVirtualConnection* connection = NULL;
+	RpcInChannel* inChannel = NULL;
 
 	WINPR_ASSERT(rpc);
 
@@ -397,14 +407,19 @@ int rpc_send_rpc_auth_3_pdu(rdpRpc* rpc)
 	auth_3_pdu.max_xmit_frag = rpc->max_xmit_frag;
 	auth_3_pdu.max_recv_frag = rpc->max_recv_frag;
 	offset = 20;
-	auth_3_pdu.auth_verifier.auth_pad_length = rpc_offset_align(&offset, 4);
+
+	const size_t align = rpc_offset_align(&offset, 4);
+	WINPR_ASSERT(align <= UINT8_MAX);
+	auth_3_pdu.auth_verifier.auth_pad_length = (BYTE)align;
 	auth_3_pdu.auth_verifier.auth_type =
 	    rpc_auth_pkg_to_security_provider(credssp_auth_pkg_name(rpc->auth));
 	auth_3_pdu.auth_verifier.auth_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY;
 	auth_3_pdu.auth_verifier.auth_reserved = 0x00;
 	auth_3_pdu.auth_verifier.auth_context_id = 0x00000000;
 	offset += (8 + auth_3_pdu.header.auth_length);
-	auth_3_pdu.header.frag_length = offset;
+
+	WINPR_ASSERT(offset <= UINT16_MAX);
+	auth_3_pdu.header.frag_length = (UINT16)offset;
 
 	buffer = Stream_New(NULL, auth_3_pdu.header.frag_length);
 
@@ -429,7 +444,8 @@ fail:
 
 enum RPC_BIND_STATE rpc_bind_state(rdpRpc* rpc)
 {
-	BOOL complete, have_token;
+	BOOL complete = 0;
+	BOOL have_token = 0;
 	WINPR_ASSERT(rpc);
 
 	complete = credssp_auth_is_complete(rpc->auth);

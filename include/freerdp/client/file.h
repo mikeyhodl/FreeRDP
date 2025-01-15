@@ -21,18 +21,20 @@
 #define FREERDP_CLIENT_RDP_FILE_H
 
 #include <freerdp/api.h>
-#include <freerdp/freerdp.h>
+#include <freerdp/types.h>
+#include <freerdp/settings.h>
 
 /* Ignore invalid integer values */
 #define RDP_FILE_FLAG_PARSE_INT_RELAXED 1
-
-typedef struct rdp_file rdpFile;
-typedef BOOL (*rdp_file_fkt_parse)(void* context, const char* key, char type, const char* value);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+	typedef struct rdp_file rdpFile;
+	typedef BOOL (*rdp_file_fkt_parse)(void* context, const char* key, char type,
+	                                   const char* value);
 
 	/* When using freerdp_client_parse_rdp_file_ex or freerdp_client_parse_rdp_file_buffer_ex
 	 * set the context for the callback with this function. */
@@ -45,7 +47,7 @@ extern "C"
 	                                                      size_t size);
 	FREERDP_API BOOL freerdp_client_parse_rdp_file_buffer_ex(rdpFile* file, const BYTE* buffer,
 	                                                         size_t size, rdp_file_fkt_parse parse);
-	FREERDP_API BOOL freerdp_client_populate_settings_from_rdp_file(rdpFile* file,
+	FREERDP_API BOOL freerdp_client_populate_settings_from_rdp_file(const rdpFile* file,
 	                                                                rdpSettings* settings);
 
 	FREERDP_API BOOL freerdp_client_populate_rdp_file_from_settings(rdpFile* file,
@@ -57,16 +59,21 @@ extern "C"
 
 	FREERDP_API int freerdp_client_rdp_file_set_string_option(rdpFile* file, const char* name,
 	                                                          const char* value);
-	FREERDP_API const char* freerdp_client_rdp_file_get_string_option(rdpFile* file,
+	FREERDP_API const char* freerdp_client_rdp_file_get_string_option(const rdpFile* file,
 	                                                                  const char* name);
 
 	FREERDP_API int freerdp_client_rdp_file_set_integer_option(rdpFile* file, const char* name,
 	                                                           int value);
-	FREERDP_API int freerdp_client_rdp_file_get_integer_option(rdpFile* file, const char* name);
+	FREERDP_API int freerdp_client_rdp_file_get_integer_option(const rdpFile* file,
+	                                                           const char* name);
 
-	FREERDP_API rdpFile* freerdp_client_rdp_file_new(void);
-	FREERDP_API rdpFile* freerdp_client_rdp_file_new_ex(DWORD flags);
 	FREERDP_API void freerdp_client_rdp_file_free(rdpFile* file);
+
+	WINPR_ATTR_MALLOC(freerdp_client_rdp_file_free, 1)
+	FREERDP_API rdpFile* freerdp_client_rdp_file_new(void);
+
+	WINPR_ATTR_MALLOC(freerdp_client_rdp_file_free, 1)
+	FREERDP_API rdpFile* freerdp_client_rdp_file_new_ex(DWORD flags);
 
 #ifdef __cplusplus
 }

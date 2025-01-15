@@ -32,17 +32,20 @@
 
 static ITSMFDecoder* tsmf_load_decoder_by_name(const char* name)
 {
-	ITSMFDecoder* decoder;
-	TSMF_DECODER_ENTRY entry;
+	ITSMFDecoder* decoder = NULL;
+	union
+	{
+		PVIRTUALCHANNELENTRY pvce;
+		TSMF_DECODER_ENTRY entry;
+	} cnv;
+	cnv.pvce = freerdp_load_channel_addin_entry("tsmf", name, "decoder", 0);
 
-	entry = (TSMF_DECODER_ENTRY)(void*)freerdp_load_channel_addin_entry("tsmf", name, "decoder", 0);
-
-	if (!entry)
+	if (!cnv.entry)
 		return NULL;
 
-	decoder = entry();
+	const UINT rc = cnv.entry(&decoder);
 
-	if (!decoder)
+	if ((rc != CHANNEL_RC_OK) || !decoder)
 	{
 		WLog_ERR(TAG, "failed to call export function in %s", name);
 		return NULL;
@@ -64,11 +67,9 @@ ITSMFDecoder* tsmf_load_decoder(const char* name, TS_AM_MEDIA_TYPE* media_type)
 	ITSMFDecoder* decoder = NULL;
 
 	if (name)
-	{
 		decoder = tsmf_load_decoder_by_name(name);
-	}
 
-#if defined(WITH_GSTREAMER_1_0) || defined(WITH_GSTREAMER_0_10)
+#if defined(WITH_GSTREAMER_1_0)
 	if (!decoder)
 		decoder = tsmf_load_decoder_by_name("gstreamer");
 #endif
@@ -99,7 +100,7 @@ BOOL tsmf_check_decoder_available(const char* name)
 	{
 		decoder = tsmf_load_decoder_by_name(name);
 	}
-#if defined(WITH_GSTREAMER_1_0) || defined(WITH_GSTREAMER_0_10)
+#if defined(WITH_GSTREAMER_1_0)
 	if (!decoder)
 		decoder = tsmf_load_decoder_by_name("gstreamer");
 #endif

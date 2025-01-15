@@ -17,15 +17,13 @@
 
 define_channel_client_subsystem("audin" "pulse" "")
 
-set(${MODULE_PREFIX}_SRCS
-	audin_pulse.c)
+find_package(PulseAudio REQUIRED)
+
+set(${MODULE_PREFIX}_SRCS audin_pulse.c)
+
+set(${MODULE_PREFIX}_LIBS winpr freerdp ${PULSEAUDIO_LIBRARY} ${PULSEAUDIO_MAINLOOP_LIBRARY})
 
 include_directories(..)
-include_directories(${PULSE_INCLUDE_DIR})
+include_directories(SYSTEM ${PULSEAUDIO_INCLUDE_DIR})
 
 add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")
-
-
-set(${MODULE_PREFIX}_LIBS freerdp ${PULSE_LIBRARY} winpr)
-
-target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})

@@ -38,6 +38,7 @@
 #include <freerdp/constants.h>
 #include <freerdp/channels/wtsvc.h>
 #include <freerdp/channels/channels.h>
+#include <freerdp/server/server-common.h>
 
 #include "mfreerdp.h"
 #include "mf_peer.h"
@@ -81,6 +82,9 @@ static void mf_server_main_loop(freerdp_listener* instance)
 
 int main(int argc, char* argv[])
 {
+	freerdp_server_warn_unmaintained(argc, argv);
+	mf_server_info info = { .key = "server.key", .cert = "server.crt" };
+
 	freerdp_listener* instance;
 
 	signal(SIGPIPE, SIG_IGN);
@@ -90,6 +94,7 @@ int main(int argc, char* argv[])
 	if (!(instance = freerdp_listener_new()))
 		return 1;
 
+	instance->info = &info;
 	instance->PeerAccepted = mf_peer_accepted;
 
 	if (instance->Open(instance, NULL, 3389))

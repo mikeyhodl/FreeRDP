@@ -21,9 +21,9 @@ typedef struct apc_data APC_DATA;
 
 static VOID CALLBACK TimerRoutine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
-	UINT32 TimerTime;
-	APC_DATA* apcData;
-	UINT32 expectedTime;
+	UINT32 TimerTime = 0;
+	APC_DATA* apcData = NULL;
+	UINT32 expectedTime = 0;
 	UINT32 CurrentTime = GetTickCount();
 
 	WINPR_UNUSED(TimerOrWaitFired);
@@ -46,14 +46,13 @@ static VOID CALLBACK TimerRoutine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 
 	if (apcData->FireCount == apcData->MaxFireCount)
 	{
-		SetEvent(apcData->CompletionEvent);
+		(void)SetEvent(apcData->CompletionEvent);
 	}
 }
 
 int TestSynchTimerQueue(int argc, char* argv[])
 {
-	DWORD index;
-	HANDLE hTimerQueue;
+	HANDLE hTimerQueue = NULL;
 	HANDLE hTimers[TIMER_COUNT];
 	APC_DATA apcData[TIMER_COUNT];
 
@@ -68,7 +67,7 @@ int TestSynchTimerQueue(int argc, char* argv[])
 		return -1;
 	}
 
-	for (index = 0; index < TIMER_COUNT; index++)
+	for (DWORD index = 0; index < TIMER_COUNT; index++)
 	{
 		apcData[index].TimerId = index;
 		apcData[index].StartTime = GetTickCount();
@@ -92,7 +91,7 @@ int TestSynchTimerQueue(int argc, char* argv[])
 		}
 	}
 
-	for (index = 0; index < TIMER_COUNT; index++)
+	for (DWORD index = 0; index < TIMER_COUNT; index++)
 	{
 		if (WaitForSingleObject(apcData[index].CompletionEvent, 2000) != WAIT_OBJECT_0)
 		{
@@ -102,7 +101,7 @@ int TestSynchTimerQueue(int argc, char* argv[])
 		}
 	}
 
-	for (index = 0; index < TIMER_COUNT; index++)
+	for (DWORD index = 0; index < TIMER_COUNT; index++)
 	{
 		/**
 		 * Note: If the CompletionEvent parameter is INVALID_HANDLE_VALUE, the function waits
@@ -113,7 +112,7 @@ int TestSynchTimerQueue(int argc, char* argv[])
 			printf("DeleteTimerQueueTimer failed (%" PRIu32 ")\n", GetLastError());
 			return -1;
 		}
-		CloseHandle(apcData[index].CompletionEvent);
+		(void)CloseHandle(apcData[index].CompletionEvent);
 	}
 
 	if (!DeleteTimerQueue(hTimerQueue))

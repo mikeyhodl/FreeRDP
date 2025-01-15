@@ -198,7 +198,7 @@ static const XKB_VARIANT ca_variants[] = {
 	{ "multi", KBD_CANADIAN_MULTILINGUAL_STANDARD },     /* Multilingual, first part */
 	{ "multi-2gr", KBD_CANADIAN_MULTILINGUAL_STANDARD }, /* Multilingual, second part */
 	{ "ike", KBD_INUKTITUT_LATIN },                      /* Inuktitut */
-	{ "shs", 0 },                                        /* Secwepemctsin */
+	{ "shs" /* codespell:ignore shs */, 0 },             /* Secwepemctsin */
 	{ "kut", 0 },                                        /* Ktunaxa */
 	{ "", 0 },
 };
@@ -802,7 +802,7 @@ static const XKB_LAYOUT xkbLayouts[] = {
 	{ "sk", KBD_SLOVAK, sk_variants },                           /* Slovakia */
 	{ "es", KBD_SPANISH, es_variants },                          /* Spain */
 	{ "se", KBD_SWEDISH, se_variants },                          /* Sweden */
-	{ "ch", KBD_SWISS_FRENCH, ch_variants },                     /* Switzerland */
+	{ "ch", KBD_SWISS_GERMAN, ch_variants },                     /* Switzerland */
 	{ "sy", KBD_SYRIAC, sy_variants },                           /* Syria */
 	{ "tj", 0, tj_variants },                                    /* Tajikistan */
 	{ "lk", 0, lk_variants },                                    /* Sri Lanka */
@@ -826,31 +826,38 @@ static const XKB_LAYOUT xkbLayouts[] = {
 	{ "tm", KBD_TURKISH_Q, tm_variants },                        /* Turkmenistan */
 };
 
-UINT32 find_keyboard_layout_in_xorg_rules(char* layout, char* variant)
+static UINT32 find_keyboard_layout_variant(const XKB_LAYOUT* layout, const char* variant)
 {
-	size_t i, j;
+	WINPR_ASSERT(layout);
+	WINPR_ASSERT(variant);
 
+	const XKB_VARIANT* variants = layout->variants;
+	if (variants)
+	{
+		const XKB_VARIANT* var = variants;
+		while (var->variant && (strlen(var->variant) != 0))
+		{
+			if (strcmp(var->variant, variant) == 0)
+				return var->keyboardLayoutID;
+			var++;
+		}
+	}
+
+	return layout->keyboardLayoutID;
+}
+
+UINT32 find_keyboard_layout_in_xorg_rules(const char* layout, const char* variant)
+{
 	if ((layout == NULL) || (variant == NULL))
 		return 0;
 
 	DEBUG_KBD("xkbLayout: %s\txkbVariant: %s", layout, variant);
 
-	for (i = 0; i < ARRAYSIZE(xkbLayouts); i++)
+	for (size_t i = 0; i < ARRAYSIZE(xkbLayouts); i++)
 	{
-		if (strcmp(xkbLayouts[i].layout, layout) == 0)
-		{
-			const XKB_VARIANT* variants = xkbLayouts[i].variants;
-			if (variants)
-			{
-				for (j = 0; variants[j].variant != NULL && strlen(variants[j].variant) > 0; j++)
-				{
-					if (strcmp(variants[j].variant, variant) == 0)
-						return variants[j].keyboardLayoutID;
-				}
-			}
-
-			return xkbLayouts[i].keyboardLayoutID;
-		}
+		const XKB_LAYOUT* cur = &xkbLayouts[i];
+		if (strcmp(cur->layout, layout) == 0)
+			return find_keyboard_layout_variant(cur, variant);
 	}
 
 	return 0;

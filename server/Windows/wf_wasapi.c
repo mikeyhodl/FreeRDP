@@ -58,7 +58,7 @@ int wf_wasapi_activate(RdpsndServerContext* context)
 		WLog_ERR(TAG, "CreateThread failed");
 		return 1;
 	}
-	CloseHandle(hThread);
+	(void)CloseHandle(hThread);
 
 	return 0;
 }
@@ -71,7 +71,7 @@ int wf_wasapi_get_device_string(LPWSTR pattern, LPWSTR* deviceStr)
 	IMMDevice* pEndpoint = NULL;
 	IPropertyStore* pProps = NULL;
 	LPWSTR pwszID = NULL;
-	unsigned int count, i;
+	unsigned int count;
 
 	CoInitialize(NULL);
 	hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &IID_IMMDeviceEnumerator,
@@ -99,7 +99,7 @@ int wf_wasapi_get_device_string(LPWSTR pattern, LPWSTR* deviceStr)
 		exit(1);
 	}
 
-	for (i = 0; i < count; ++i)
+	for (unsigned int i = 0; i < count; ++i)
 	{
 		PROPVARIANT nameVar;
 		PropVariantInit(&nameVar);
@@ -136,7 +136,7 @@ int wf_wasapi_get_device_string(LPWSTR pattern, LPWSTR* deviceStr)
 		if (wcscmp(pattern, nameVar.pwszVal) < 0)
 		{
 			unsigned int devStrLen;
-			WLog_INFO(TAG, "Using sound ouput endpoint: [%s] (%s)", nameVar.pwszVal, pwszID);
+			WLog_INFO(TAG, "Using sound output endpoint: [%s] (%s)", nameVar.pwszVal, pwszID);
 			// WLog_INFO(TAG, "matched %d characters", wcscmp(pattern, nameVar.pwszVal);
 			devStrLen = wcslen(pwszID);
 			*deviceStr = (LPWSTR)calloc(devStrLen + 1, 2);

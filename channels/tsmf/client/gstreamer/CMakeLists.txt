@@ -17,49 +17,43 @@
 
 define_channel_client_subsystem("tsmf" "gstreamer" "decoder")
 
-if(NOT GSTREAMER_0_10_FOUND AND NOT GSTREAMER_1_0_FOUND)
-	message(FATAL_ERROR "GStreamer library not found, but required for TSMF module.")
-elseif (GSTREAMER_0_10_FOUND AND GSTREAMER_1_0_FOUND)
-	message(FATAL_ERROR "GStreamer 0.10 and GStreamer 1.0 support are mutually exclusive!")
+if(NOT gstreamer_FOUND)
+  message(FATAL_ERROR "GStreamer library not found, but required for TSMF module.")
 endif()
 
 set(SRC "tsmf_gstreamer.c")
 
-if (GSTREAMER_1_0_FOUND)
-	set(LIBS ${GSTREAMER_1_0_LIBRARIES})
-	include_directories(${GSTREAMER_1_0_INCLUDE_DIRS})
-elseif (GSTREAMER_0_10_FOUND)
-	set(LIBS ${GSTREAMER_0_10_LIBRARIES})
-	include_directories(${GSTREAMER_0_10_INCLUDE_DIRS})
-endif()
+pkg_check_modules(gstreamerbase gstreamer-base-1.0 REQUIRED)
+pkg_check_modules(gstreamervideo gstreamer-video-1.0 REQUIRED)
+pkg_check_modules(gstreamerapp gstreamer-app-1.0 REQUIRED)
+
+set(LIBS ${gstreamer_LIBRARIES} ${gstreamerbase_LIBRARIES} ${gstreamervideo_LIBRARIES} ${gstreamerapp_LIBRARIES})
+include_directories(
+  SYSTEM ${gstreamer_INCLUDE_DIRS} ${gstreamerbase_INCLUDE_DIRS} ${gstreamervideo_INCLUDE_DIRS}
+  ${gstreamerapp_INCLUDE_DIRS}
+)
 
 if(ANDROID)
-	set(SRC ${SRC}
-		tsmf_android.c)
-	set(LIBS ${LIBS})
+  set(SRC ${SRC} tsmf_android.c)
 else()
-	set(XEXT_FEATURE_TYPE "RECOMMENDED")
-	set(XEXT_FEATURE_PURPOSE "X11 extension")
-	set(XEXT_FEATURE_DESCRIPTION "X11 core extensions")
+  find_package(X11 REQUIRED)
 
-	find_feature(Xext ${XEXT_FEATURE_TYPE} ${XEXT_FEATURE_PURPOSE} ${XEXT_FEATURE_DESCRIPTION})
+  list(APPEND SRC tsmf_X11.c)
+  list(APPEND LIBS ${X11_LIBRARIES} ${X11_Xext_LIB})
+  if(NOT APPLE)
+    list(APPEND LIBS rt)
+  endif()
 
-	set(SRC ${SRC}
-		tsmf_X11.c)
-	set(LIBS ${LIBS} ${X11_LIBRARIES} ${XEXT_LIBRARIES})
-	if (NOT APPLE)
-		list(APPEND LIBS rt)
-	endif()
-
-	if(XEXT_FOUND)
-		add_definitions(-DWITH_XEXT=1)
-	endif()
+  if(X11_Xext_FOUND)
+    add_compile_definitions(WITH_XEXT=1)
+  endif()
 
 endif()
 
 set(${MODULE_PREFIX}_SRCS "${SRC}")
 
+set(${MODULE_PREFIX}_LIBS ${LIBS} winpr)
+
 include_directories(..)
 
 add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")
-target_link_libraries(${MODULE_NAME} ${LIBS} winpr)

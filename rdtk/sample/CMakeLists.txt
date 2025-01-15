@@ -18,18 +18,18 @@
 set(MODULE_NAME "rdtk-sample")
 set(MODULE_PREFIX "RDTK_SAMPLE")
 
-include_directories(${X11_INCLUDE_DIRS})
+find_package(X11 REQUIRED)
 
-set(${MODULE_PREFIX}_SRCS
-	rdtk_x11.c)
+include_directories(SYSTEM ${X11_INCLUDE_DIR})
 
-add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
+set(SRCS rdtk_x11.c)
 
-set(${MODULE_PREFIX}_LIBS rdtk)
+addtargetwithresourcefile(${MODULE_NAME} TRUE "${RDTK_VERSION}" SRCS)
 
-list(APPEND ${MODULE_PREFIX}_LIBS ${X11_LIBRARIES})
+set(LIBS rdtk)
 
-target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS} winpr)
+list(APPEND LIBS ${X11_LIBRARIES})
+
+target_link_libraries(${MODULE_NAME} PRIVATE ${LIBS} winpr)
 
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "RdTk")
-

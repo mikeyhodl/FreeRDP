@@ -84,7 +84,7 @@ struct x11_shadow_subsystem
 	UINT32 cursorHotY;
 	UINT32 cursorWidth;
 	UINT32 cursorHeight;
-	UINT32 cursorId;
+	UINT64 cursorId;
 	BYTE* cursorPixels;
 	UINT32 cursorMaxWidth;
 	UINT32 cursorMaxHeight;
@@ -100,6 +100,7 @@ struct x11_shadow_subsystem
 #ifdef WITH_XFIXES
 	int xfixes_cursor_notify_event;
 #endif
+	UINT32 format;
 };
 
 #ifdef __cplusplus

@@ -6,7 +6,7 @@
 static BOOL test_alloc(void)
 {
 	BOOL rc = FALSE;
-	int rng, x;
+	int rng = 0;
 	const char* param[] = { "foo:", "bar", "bla", "rdp", NULL };
 	ADDIN_ARGV* arg1 = NULL;
 	ADDIN_ARGV* arg2 = NULL;
@@ -19,13 +19,13 @@ static BOOL test_alloc(void)
 		goto fail;
 
 	/* Test allocation without initializing arguments of random size > 0 */
-	winpr_RAND((BYTE*)&rng, sizeof(rng));
+	winpr_RAND(&rng, sizeof(rng));
 	rng = abs(rng % 8192) + 1;
 
 	arg2 = freerdp_addin_argv_new(rng, NULL);
 	if (!arg2 || (arg2->argc != rng) || (!arg2->argv))
 		goto fail;
-	for (x = 0; x < arg2->argc; x++)
+	for (int x = 0; x < arg2->argc; x++)
 	{
 		if (arg2->argv[x])
 			goto fail;
@@ -36,7 +36,7 @@ static BOOL test_alloc(void)
 	if (!arg3 || (arg3->argc != ARRAYSIZE(param) - 1) || (!arg3->argv))
 		goto fail;
 
-	for (x = 0; x < arg3->argc; x++)
+	for (int x = 0; x < arg3->argc; x++)
 	{
 		if (strcmp(arg3->argv[x], param[x]) != 0)
 			goto fail;
@@ -52,13 +52,12 @@ fail:
 	freerdp_addin_argv_free(arg2);
 	freerdp_addin_argv_free(arg3);
 	freerdp_addin_argv_free(arg4);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 
 static BOOL test_clone(void)
 {
-	int x;
 	BOOL rc = FALSE;
 	const char* param[] = { "foo:", "bar", "bla", "rdp" };
 	ADDIN_ARGV* arg = NULL;
@@ -72,7 +71,7 @@ static BOOL test_clone(void)
 	if (!clone || (clone->argc != arg->argc))
 		goto fail;
 
-	for (x = 0; x < arg->argc; x++)
+	for (int x = 0; x < arg->argc; x++)
 	{
 		if (strcmp(param[x], arg->argv[x]) != 0)
 			goto fail;
@@ -88,21 +87,19 @@ fail:
 	freerdp_addin_argv_free(arg);
 	freerdp_addin_argv_free(clone);
 	freerdp_addin_argv_free(clone2);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 
 static BOOL test_add_remove(void)
 {
-	size_t x, y;
 	const char* args[] = { "foo", "bar", "bla", "gaga" };
 	BOOL rc = FALSE;
-	ADDIN_ARGV* arg = NULL;
+	ADDIN_ARGV* arg = freerdp_addin_argv_new(0, NULL);
 
-	arg = freerdp_addin_argv_new(0, NULL);
 	if (!arg || (arg->argc != 0) || arg->argv)
 		goto fail;
-	for (y = 0; y < ARRAYSIZE(args); y++)
+	for (size_t y = 0; y < ARRAYSIZE(args); y++)
 	{
 		const char* param = args[y];
 		if (!freerdp_addin_argv_add_argument(arg, param))
@@ -128,12 +125,12 @@ static BOOL test_add_remove(void)
 		goto fail;
 
 	/* Remove elements one by one to test argument index move */
-	for (y = 0; y < ARRAYSIZE(args); y++)
+	for (size_t y = 0; y < ARRAYSIZE(args); y++)
 	{
 		const char* param = args[y];
 		if (!freerdp_addin_argv_del_argument(arg, param))
 			goto fail;
-		for (x = y + 1; x < ARRAYSIZE(args); x++)
+		for (size_t x = y + 1; x < ARRAYSIZE(args); x++)
 		{
 			if (strcmp(arg->argv[x - y - 1], args[x]) != 0)
 				goto fail;
@@ -142,13 +139,13 @@ static BOOL test_add_remove(void)
 	rc = TRUE;
 fail:
 	freerdp_addin_argv_free(arg);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 
 static BOOL test_set_argument(void)
 {
-	int ret;
+	int ret = 0;
 	const char* newarg = "foobar";
 	const char* args[] = { "foo", "bar", "bla", "gaga" };
 	BOOL rc = FALSE;
@@ -180,13 +177,13 @@ static BOOL test_set_argument(void)
 	rc = TRUE;
 fail:
 	freerdp_addin_argv_free(arg);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 
 static BOOL test_replace_argument(void)
 {
-	int ret;
+	int ret = 0;
 	const char* newarg = "foobar";
 	const char* args[] = { "foo", "bar", "bla", "gaga" };
 	BOOL rc = FALSE;
@@ -221,13 +218,13 @@ static BOOL test_replace_argument(void)
 	rc = TRUE;
 fail:
 	freerdp_addin_argv_free(arg);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 
 static BOOL test_set_argument_value(void)
 {
-	int ret;
+	int ret = 0;
 	const char* newarg1 = "foobar";
 	const char* newarg2 = "lalala";
 	const char* fullnewarg1 = "foo:foobar";
@@ -269,13 +266,13 @@ static BOOL test_set_argument_value(void)
 	rc = TRUE;
 fail:
 	freerdp_addin_argv_free(arg);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 
 static BOOL test_replace_argument_value(void)
 {
-	int ret;
+	int ret = 0;
 	const char* newarg1 = "foobar";
 	const char* newarg2 = "lalala";
 	const char* fullnewarg1 = "foo:foobar";
@@ -320,7 +317,7 @@ static BOOL test_replace_argument_value(void)
 	rc = TRUE;
 fail:
 	freerdp_addin_argv_free(arg);
-	printf("%s: %d\n", __FUNCTION__, rc);
+	printf("%s: %d\n", __func__, rc);
 	return rc;
 }
 

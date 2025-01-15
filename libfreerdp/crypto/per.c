@@ -18,6 +18,7 @@
  */
 
 #include <winpr/assert.h>
+#include <winpr/cast.h>
 #include <winpr/print.h>
 
 #include <freerdp/config.h>
@@ -28,15 +29,18 @@
 
 /**
  * Read PER length.
- * @param s stream
- * @param length length
- * @return
+ *
+ * @param s stream to read from
+ * @param length A pointer to return the length read, must not be NULL
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_length(wStream* s, UINT16* length)
 {
-	BYTE byte;
+	BYTE byte = 0;
 
+	WINPR_ASSERT(length);
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 		return FALSE;
 
@@ -48,7 +52,7 @@ BOOL per_read_length(wStream* s, UINT16* length)
 			return FALSE;
 
 		byte &= ~(0x80);
-		*length = (byte << 8);
+		*length = WINPR_ASSERTING_INT_CAST(UINT16, byte << 8);
 		Stream_Read_UINT8(s, byte);
 		*length += byte;
 	}
@@ -64,6 +68,8 @@ BOOL per_read_length(wStream* s, UINT16* length)
  * Write PER length.
  * @param s stream
  * @param length length
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_length(wStream* s, UINT16 length)
@@ -87,7 +93,8 @@ BOOL per_write_length(wStream* s, UINT16 length)
  * Read PER choice.
  * @param s stream
  * @param choice choice
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_choice(wStream* s, BYTE* choice)
@@ -103,6 +110,8 @@ BOOL per_read_choice(wStream* s, BYTE* choice)
  * Write PER CHOICE.
  * @param s stream
  * @param choice index of chosen field
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_choice(wStream* s, BYTE choice)
@@ -117,7 +126,8 @@ BOOL per_write_choice(wStream* s, BYTE choice)
  * Read PER selection.
  * @param s stream
  * @param selection selection
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_selection(wStream* s, BYTE* selection)
@@ -134,6 +144,8 @@ BOOL per_read_selection(wStream* s, BYTE* selection)
  * Write PER selection for OPTIONAL fields.
  * @param s stream
  * @param selection bit map of selected fields
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_selection(wStream* s, BYTE selection)
@@ -148,7 +160,8 @@ BOOL per_write_selection(wStream* s, BYTE selection)
  * Read PER number of sets.
  * @param s stream
  * @param number number of sets
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_number_of_sets(wStream* s, BYTE* number)
@@ -163,8 +176,11 @@ BOOL per_read_number_of_sets(wStream* s, BYTE* number)
 
 /**
  * Write PER number of sets for SET OF.
+ *
  * @param s stream
  * @param number number of sets
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_number_of_sets(wStream* s, BYTE number)
@@ -177,8 +193,11 @@ BOOL per_write_number_of_sets(wStream* s, BYTE number)
 
 /**
  * Read PER padding with zeros.
- * @param s stream
- * @param length
+ *
+ * @param s A stream to read from
+ * @param length the data to write
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_padding(wStream* s, UINT16 length)
@@ -192,8 +211,10 @@ BOOL per_read_padding(wStream* s, UINT16 length)
 
 /**
  * Write PER padding with zeros.
- * @param s stream
- * @param length
+ * @param s A stream to write to
+ * @param length the data to write
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_padding(wStream* s, UINT16 length)
@@ -208,12 +229,13 @@ BOOL per_write_padding(wStream* s, UINT16 length)
  * Read PER INTEGER.
  * @param s stream
  * @param integer integer
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_integer(wStream* s, UINT32* integer)
 {
-	UINT16 length;
+	UINT16 length = 0;
 
 	WINPR_ASSERT(integer);
 
@@ -239,6 +261,8 @@ BOOL per_read_integer(wStream* s, UINT32* integer)
  * Write PER INTEGER.
  * @param s stream
  * @param integer integer
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_integer(wStream* s, UINT32 integer)
@@ -249,7 +273,7 @@ BOOL per_write_integer(wStream* s, UINT32 integer)
 			return FALSE;
 		if (!Stream_EnsureRemainingCapacity(s, 1))
 			return FALSE;
-		Stream_Write_UINT8(s, integer);
+		Stream_Write_UINT8(s, WINPR_ASSERTING_INT_CAST(UINT8, integer));
 	}
 	else if (integer <= UINT16_MAX)
 	{
@@ -257,7 +281,7 @@ BOOL per_write_integer(wStream* s, UINT32 integer)
 			return FALSE;
 		if (!Stream_EnsureRemainingCapacity(s, 2))
 			return FALSE;
-		Stream_Write_UINT16_BE(s, integer);
+		Stream_Write_UINT16_BE(s, WINPR_ASSERTING_INT_CAST(UINT16, integer));
 	}
 	else if (integer <= UINT32_MAX)
 	{
@@ -272,10 +296,12 @@ BOOL per_write_integer(wStream* s, UINT32 integer)
 
 /**
  * Read PER INTEGER (UINT16).
- * @param s stream
- * @param integer integer
+ *
+ * @param s The stream to read from
+ * @param integer The integer result variable pointer, must not be NULL
  * @param min minimum value
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise
  */
 
 BOOL per_read_integer16(wStream* s, UINT16* integer, UINT16 min)
@@ -302,10 +328,14 @@ BOOL per_read_integer16(wStream* s, UINT16* integer, UINT16 min)
  * @param s stream
  * @param integer integer
  * @param min minimum value
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_integer16(wStream* s, UINT16 integer, UINT16 min)
 {
+	if (min > integer)
+		return FALSE;
 	if (!Stream_EnsureRemainingCapacity(s, 2))
 		return FALSE;
 	Stream_Write_UINT16_BE(s, integer - min);
@@ -314,10 +344,12 @@ BOOL per_write_integer16(wStream* s, UINT16 integer, UINT16 min)
 
 /**
  * Read PER ENUMERATED.
- * @param s stream
- * @param enumerated enumerated
+ *
+ * @param s The stream to read from
+ * @param enumerated enumerated result variable, must not be NULL
  * @param count enumeration count
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise
  */
 
 BOOL per_read_enumerated(wStream* s, BYTE* enumerated, BYTE count)
@@ -340,10 +372,12 @@ BOOL per_read_enumerated(wStream* s, BYTE* enumerated, BYTE count)
 
 /**
  * Write PER ENUMERATED.
- * @param s stream
+ *
+ * @param s The stream to write to
  * @param enumerated enumerated
  * @param count enumeration count
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise
  */
 
 BOOL per_write_enumerated(wStream* s, BYTE enumerated, BYTE count)
@@ -374,16 +408,18 @@ static BOOL per_check_oid_and_log_mismatch(const BYTE* got, const BYTE* expect, 
 
 /**
  * Read PER OBJECT_IDENTIFIER (OID).
- * @param s stream
+ *
+ * @param s The stream to read from
  * @param oid object identifier (OID)
  * @warning It works correctly only for limited set of OIDs.
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise
  */
 
 BOOL per_read_object_identifier(wStream* s, const BYTE oid[6])
 {
-	BYTE t12;
-	UINT16 length;
+	BYTE t12 = 0;
+	UINT16 length = 0;
 	BYTE a_oid[6] = { 0 };
 
 	if (!per_read_length(s, &length))
@@ -415,6 +451,8 @@ BOOL per_read_object_identifier(wStream* s, const BYTE oid[6])
  * @param s stream
  * @param oid object identifier (oid)
  * @warning It works correctly only for limited set of OIDs.
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_object_identifier(wStream* s, const BYTE oid[6])
@@ -440,36 +478,38 @@ BOOL per_write_object_identifier(wStream* s, const BYTE oid[6])
 
 static void per_write_string(wStream* s, BYTE* str, int length)
 {
-	int i;
-
-	for (i = 0; i < length; i++)
+	for (int i = 0; i < length; i++)
 		Stream_Write_UINT8(s, str[i]);
 }
 
 /**
  * Read PER OCTET_STRING.
- * @param s stream
+ *
+ * @param s The stream to read from
  * @param oct_str octet string
  * @param length string length
  * @param min minimum length
- * @return
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_octet_string(wStream* s, const BYTE* oct_str, UINT16 length, UINT16 min)
 {
-	UINT16 mlength;
-	BYTE* a_oct_str;
+	UINT16 mlength = 0;
 
 	if (!per_read_length(s, &mlength))
 		return FALSE;
 
 	if (mlength + min != length)
+	{
+		WLog_ERR(TAG, "length mismatch: %" PRIu16 "!= %" PRIu16, mlength + min, length);
 		return FALSE;
+	}
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, length))
 		return FALSE;
 
-	a_oct_str = Stream_Pointer(s);
+	const BYTE* a_oct_str = Stream_ConstPointer(s);
 	Stream_Seek(s, length);
 
 	return per_check_oid_and_log_mismatch(a_oct_str, oct_str, length);
@@ -481,12 +521,13 @@ BOOL per_read_octet_string(wStream* s, const BYTE* oct_str, UINT16 length, UINT1
  * @param oct_str octet string
  * @param length string length
  * @param min minimum string length
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_octet_string(wStream* s, const BYTE* oct_str, UINT16 length, UINT16 min)
 {
-	UINT16 i;
-	UINT16 mlength;
+	UINT16 mlength = 0;
 
 	mlength = (length >= min) ? length - min : min;
 
@@ -495,7 +536,7 @@ BOOL per_write_octet_string(wStream* s, const BYTE* oct_str, UINT16 length, UINT
 
 	if (!Stream_EnsureRemainingCapacity(s, length))
 		return FALSE;
-	for (i = 0; i < length; i++)
+	for (UINT16 i = 0; i < length; i++)
 		Stream_Write_UINT8(s, oct_str[i]);
 	return TRUE;
 }
@@ -503,15 +544,15 @@ BOOL per_write_octet_string(wStream* s, const BYTE* oct_str, UINT16 length, UINT
 /**
  * Read PER NumericString.
  * @param s stream
- * @param num_str numeric string
- * @param length string length
  * @param min minimum string length
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_read_numeric_string(wStream* s, UINT16 min)
 {
-	size_t length;
-	UINT16 mlength;
+	size_t length = 0;
+	UINT16 mlength = 0;
 
 	if (!per_read_length(s, &mlength))
 		return FALSE;
@@ -531,29 +572,32 @@ BOOL per_read_numeric_string(wStream* s, UINT16 min)
  * @param num_str numeric string
  * @param length string length
  * @param min minimum string length
+ *
+ * @return \b TRUE for success, \b FALSE otherwise.
  */
 
 BOOL per_write_numeric_string(wStream* s, const BYTE* num_str, UINT16 length, UINT16 min)
 {
-	UINT16 i;
-	UINT16 mlength;
-	BYTE num, c1, c2;
+	WINPR_ASSERT(num_str || (length == 0));
 
-	mlength = (length >= min) ? length - min : min;
+	const UINT16 mlength = (length >= min) ? length - min : min;
 
 	if (!per_write_length(s, mlength))
 		return FALSE;
 
 	if (!Stream_EnsureRemainingCapacity(s, length))
 		return FALSE;
-	for (i = 0; i < length; i += 2)
+	for (UINT16 i = 0; i < length; i += 2)
 	{
-		c1 = num_str[i];
-		c2 = ((i + 1) < length) ? num_str[i + 1] : 0x30;
+		BYTE c1 = num_str[i];
+		BYTE c2 = ((i + 1) < length) ? num_str[i + 1] : 0x30;
+
+		if ((c1 < 0x30) || (c2 < 0x30))
+			return FALSE;
 
 		c1 = (c1 - 0x30) % 10;
 		c2 = (c2 - 0x30) % 10;
-		num = (c1 << 4) | c2;
+		const BYTE num = WINPR_ASSERTING_INT_CAST(BYTE, (c1 << 4) | c2);
 
 		Stream_Write_UINT8(s, num); /* string */
 	}

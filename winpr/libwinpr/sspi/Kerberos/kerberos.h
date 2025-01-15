@@ -27,15 +27,13 @@
 #include "../sspi.h"
 #include "../../log.h"
 
-#ifdef WITH_GSSAPI
-#include <krb5/krb5.h>
-#endif
-
 typedef struct s_KRB_CONTEXT KRB_CONTEXT;
 
 extern const SecPkgInfoA KERBEROS_SecPkgInfoA;
 extern const SecPkgInfoW KERBEROS_SecPkgInfoW;
 extern const SecurityFunctionTableA KERBEROS_SecurityFunctionTableA;
 extern const SecurityFunctionTableW KERBEROS_SecurityFunctionTableW;
+
+BOOL KERBEROS_init(void);
 
 #endif /* WINPR_SSPI_KERBEROS_PRIVATE_H */

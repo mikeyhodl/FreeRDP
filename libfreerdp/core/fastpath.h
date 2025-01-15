@@ -55,18 +55,6 @@ enum FASTPATH_OUTPUT_ACTION_TYPE
 	FASTPATH_OUTPUT_ACTION_X224 = 0x3
 };
 
-enum FASTPATH_INPUT_ENCRYPTION_FLAGS
-{
-	FASTPATH_INPUT_SECURE_CHECKSUM = 0x1,
-	FASTPATH_INPUT_ENCRYPTED = 0x2
-};
-
-enum FASTPATH_OUTPUT_ENCRYPTION_FLAGS
-{
-	FASTPATH_OUTPUT_SECURE_CHECKSUM = 0x1,
-	FASTPATH_OUTPUT_ENCRYPTED = 0x2
-};
-
 enum FASTPATH_UPDATETYPE
 {
 	FASTPATH_UPDATETYPE_ORDERS = 0x0,
@@ -103,7 +91,9 @@ enum FASTPATH_INPUT_EVENT_CODE
 	FASTPATH_INPUT_EVENT_MOUSE = 0x1,
 	FASTPATH_INPUT_EVENT_MOUSEX = 0x2,
 	FASTPATH_INPUT_EVENT_SYNC = 0x3,
-	FASTPATH_INPUT_EVENT_UNICODE = 0x4
+	FASTPATH_INPUT_EVENT_UNICODE = 0x4,
+	TS_FP_RELPOINTER_EVENT = 0x5,
+	TS_FP_QOETIMESTAMP_EVENT = 0x6
 };
 
 /* FastPath Keyboard Event Flags */
@@ -116,7 +106,6 @@ enum FASTPATH_INPUT_KBDFLAGS
 
 typedef struct
 {
-	BYTE fpOutputHeader;
 	BYTE length1;
 	BYTE length2;
 	BYTE fipsInformation[4];
@@ -129,7 +118,6 @@ typedef struct
 
 typedef struct
 {
-	BYTE updateHeader;
 	BYTE compressionFlags;
 	UINT16 size;
 
@@ -139,8 +127,10 @@ typedef struct
 } FASTPATH_UPDATE_HEADER;
 
 FREERDP_LOCAL BOOL fastpath_read_header_rdp(rdpFastPath* fastpath, wStream* s, UINT16* length);
-FREERDP_LOCAL int fastpath_recv_updates(rdpFastPath* fastpath, wStream* s);
-FREERDP_LOCAL int fastpath_recv_inputs(rdpFastPath* fastpath, wStream* s);
+FREERDP_LOCAL state_run_t fastpath_recv_updates(rdpFastPath* fastpath, wStream* s);
+FREERDP_LOCAL state_run_t fastpath_recv_inputs(rdpFastPath* fastpath, wStream* s);
+
+FREERDP_LOCAL BOOL fastpath_decrypt(rdpFastPath* fastpath, wStream* s, UINT16* length);
 
 FREERDP_LOCAL wStream* fastpath_input_pdu_init_header(rdpFastPath* fastpath);
 FREERDP_LOCAL wStream* fastpath_input_pdu_init(rdpFastPath* fastpath, BYTE eventFlags,
@@ -149,7 +139,10 @@ FREERDP_LOCAL BOOL fastpath_send_multiple_input_pdu(rdpFastPath* fastpath, wStre
                                                     size_t iEventCount);
 FREERDP_LOCAL BOOL fastpath_send_input_pdu(rdpFastPath* fastpath, wStream* s);
 
+WINPR_ATTR_MALLOC(Stream_Release, 1)
 FREERDP_LOCAL wStream* fastpath_update_pdu_init(rdpFastPath* fastpath);
+
+WINPR_ATTR_MALLOC(Stream_Free, 1)
 FREERDP_LOCAL wStream* fastpath_update_pdu_init_new(rdpFastPath* fastpath);
 FREERDP_LOCAL BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s,
                                             BOOL skipCompression);

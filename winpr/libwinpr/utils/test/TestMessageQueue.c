@@ -5,10 +5,8 @@
 
 static DWORD WINAPI message_queue_consumer_thread(LPVOID arg)
 {
-	wMessage message;
-	wMessageQueue* queue;
-
-	queue = (wMessageQueue*)arg;
+	wMessage message = { 0 };
+	wMessageQueue* queue = (wMessageQueue*)arg;
 
 	while (MessageQueue_Wait(queue))
 	{
@@ -26,8 +24,8 @@ static DWORD WINAPI message_queue_consumer_thread(LPVOID arg)
 
 int TestMessageQueue(int argc, char* argv[])
 {
-	HANDLE thread;
-	wMessageQueue* queue;
+	HANDLE thread = NULL;
+	wMessageQueue* queue = NULL;
 
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
@@ -52,7 +50,7 @@ int TestMessageQueue(int argc, char* argv[])
 		return -1;
 
 	MessageQueue_Free(queue);
-	CloseHandle(thread);
+	(void)CloseHandle(thread);
 
 	return 0;
 }

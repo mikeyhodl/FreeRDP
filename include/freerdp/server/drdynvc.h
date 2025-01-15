@@ -26,33 +26,35 @@
 #include <freerdp/types.h>
 #include <freerdp/channels/wtsvc.h>
 
-/**
- * Server Interface
- */
-
-typedef struct s_drdynvc_server_context DrdynvcServerContext;
-typedef struct s_drdynvc_server_private DrdynvcServerPrivate;
-
-typedef UINT (*psDrdynvcStart)(DrdynvcServerContext* context);
-typedef UINT (*psDrdynvcStop)(DrdynvcServerContext* context);
-
-struct s_drdynvc_server_context
-{
-	HANDLE vcm;
-
-	psDrdynvcStart Start;
-	psDrdynvcStop Stop;
-
-	DrdynvcServerPrivate* priv;
-};
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	FREERDP_API DrdynvcServerContext* drdynvc_server_context_new(HANDLE vcm);
+	/**
+	 * Server Interface
+	 */
+
+	typedef struct s_drdynvc_server_context DrdynvcServerContext;
+	typedef struct s_drdynvc_server_private DrdynvcServerPrivate;
+
+	typedef UINT (*psDrdynvcStart)(DrdynvcServerContext* context);
+	typedef UINT (*psDrdynvcStop)(DrdynvcServerContext* context);
+
+	struct s_drdynvc_server_context
+	{
+		HANDLE vcm;
+
+		psDrdynvcStart Start;
+		psDrdynvcStop Stop;
+
+		DrdynvcServerPrivate* priv;
+	};
+
 	FREERDP_API void drdynvc_server_context_free(DrdynvcServerContext* context);
+
+	WINPR_ATTR_MALLOC(drdynvc_server_context_free, 1)
+	FREERDP_API DrdynvcServerContext* drdynvc_server_context_new(HANDLE vcm);
 
 #ifdef __cplusplus
 }

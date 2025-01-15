@@ -26,8 +26,6 @@
 
 #include "errinfo.h"
 
-#define TAG FREERDP_TAG("core")
-
 #define ERRCONNECT_DEFINE(_code, category)                                              \
 	{                                                                                   \
 		ERRCONNECT_##_code, "ERRCONNECT_" #_code, ERRCONNECT_##_code##_STRING, category \
@@ -137,7 +135,7 @@ static const ERRINFO ERRCONNECT_CODES[] = {
 
 const char* freerdp_get_error_connect_string(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRCONNECT_CODES[0];
 
 	while (errInfo->code != ERRCONNECT_NONE)
@@ -155,7 +153,7 @@ const char* freerdp_get_error_connect_string(UINT32 code)
 
 const char* freerdp_get_error_connect_category(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRCONNECT_CODES[0];
 
 	while (errInfo->code != ERRCONNECT_NONE)
@@ -173,7 +171,7 @@ const char* freerdp_get_error_connect_category(UINT32 code)
 
 const char* freerdp_get_error_connect_name(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRCONNECT_CODES[0];
 
 	while (errInfo->code != ERRCONNECT_NONE)

@@ -23,30 +23,31 @@
 
 #include <winpr/crt.h>
 #include <winpr/assert.h>
+#include <winpr/cast.h>
 
 #include <freerdp/freerdp.h>
 #include <freerdp/constants.h>
 #include <winpr/stream.h>
 
 #include <freerdp/log.h>
-#include <freerdp/cache/bitmap.h>
 #include <freerdp/gdi/bitmap.h>
 
 #include "../gdi/gdi.h"
 #include "../core/graphics.h"
 
 #include "bitmap.h"
+#include "cache.h"
 
 #define TAG FREERDP_TAG("cache.bitmap")
 
 static rdpBitmap* bitmap_cache_get(rdpBitmapCache* bitmapCache, UINT32 id, UINT32 index);
-static BOOL bitmap_cache_put(rdpBitmapCache* bitmap_cache, UINT32 id, UINT32 index,
+static BOOL bitmap_cache_put(rdpBitmapCache* bitmapCache, UINT32 id, UINT32 index,
                              rdpBitmap* bitmap);
 
 static BOOL update_gdi_memblt(rdpContext* context, MEMBLT_ORDER* memblt)
 {
-	rdpBitmap* bitmap;
-	rdpCache* cache;
+	rdpBitmap* bitmap = NULL;
+	rdpCache* cache = NULL;
 
 	cache = context->cache;
 
@@ -65,8 +66,7 @@ static BOOL update_gdi_memblt(rdpContext* context, MEMBLT_ORDER* memblt)
 
 static BOOL update_gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 {
-	BYTE style;
-	rdpBitmap* bitmap;
+	rdpBitmap* bitmap = NULL;
 	rdpCache* cache = context->cache;
 	rdpBrush* brush = &mem3blt->brush;
 	BOOL ret = TRUE;
@@ -80,7 +80,7 @@ static BOOL update_gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 	if (!bitmap)
 		return TRUE;
 
-	style = brush->style;
+	const BYTE style = WINPR_ASSERTING_INT_CAST(UINT8, brush->style);
 
 	if (brush->style & CACHED_BRUSH)
 	{
@@ -100,40 +100,40 @@ static BOOL update_gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 
 static BOOL update_gdi_cache_bitmap(rdpContext* context, const CACHE_BITMAP_ORDER* cacheBitmap)
 {
-	rdpBitmap* bitmap;
-	rdpBitmap* prevBitmap;
+	rdpBitmap* bitmap = NULL;
+	rdpBitmap* prevBitmap = NULL;
 	rdpCache* cache = context->cache;
 	bitmap = Bitmap_Alloc(context);
 
 	if (!bitmap)
 		return FALSE;
 
-	Bitmap_SetDimensions(bitmap, cacheBitmap->bitmapWidth, cacheBitmap->bitmapHeight);
+	if (!Bitmap_SetDimensions(bitmap, WINPR_ASSERTING_INT_CAST(UINT16, cacheBitmap->bitmapWidth),
+	                          WINPR_ASSERTING_INT_CAST(UINT16, cacheBitmap->bitmapHeight)))
+		goto fail;
 
 	if (!bitmap->Decompress(context, bitmap, cacheBitmap->bitmapDataStream,
 	                        cacheBitmap->bitmapWidth, cacheBitmap->bitmapHeight,
 	                        cacheBitmap->bitmapBpp, cacheBitmap->bitmapLength,
 	                        cacheBitmap->compressed, RDP_CODEC_ID_NONE))
-	{
-		Bitmap_Free(context, bitmap);
-		return FALSE;
-	}
+		goto fail;
 
 	if (!bitmap->New(context, bitmap))
-	{
-		Bitmap_Free(context, bitmap);
-		return FALSE;
-	}
+		goto fail;
 
 	prevBitmap = bitmap_cache_get(cache->bitmap, cacheBitmap->cacheId, cacheBitmap->cacheIndex);
 	Bitmap_Free(context, prevBitmap);
 	return bitmap_cache_put(cache->bitmap, cacheBitmap->cacheId, cacheBitmap->cacheIndex, bitmap);
+
+fail:
+	Bitmap_Free(context, bitmap);
+	return FALSE;
 }
 
 static BOOL update_gdi_cache_bitmap_v2(rdpContext* context, CACHE_BITMAP_V2_ORDER* cacheBitmapV2)
 
 {
-	rdpBitmap* prevBitmap;
+	rdpBitmap* prevBitmap = NULL;
 	rdpCache* cache = context->cache;
 	rdpSettings* settings = context->settings;
 	rdpBitmap* bitmap = Bitmap_Alloc(context);
@@ -150,7 +150,9 @@ static BOOL update_gdi_cache_bitmap_v2(rdpContext* context, CACHE_BITMAP_V2_ORDE
 	if ((ColorDepth == 15) && (cacheBitmapV2->bitmapBpp == 16))
 		cacheBitmapV2->bitmapBpp = ColorDepth;
 
-	Bitmap_SetDimensions(bitmap, cacheBitmapV2->bitmapWidth, cacheBitmapV2->bitmapHeight);
+	if (!Bitmap_SetDimensions(bitmap, WINPR_ASSERTING_INT_CAST(UINT16, cacheBitmapV2->bitmapWidth),
+	                          WINPR_ASSERTING_INT_CAST(UINT16, cacheBitmapV2->bitmapHeight)))
+		goto fail;
 
 	if (!bitmap->Decompress(context, bitmap, cacheBitmapV2->bitmapDataStream,
 	                        cacheBitmapV2->bitmapWidth, cacheBitmapV2->bitmapHeight,
@@ -174,8 +176,8 @@ fail:
 
 static BOOL update_gdi_cache_bitmap_v3(rdpContext* context, CACHE_BITMAP_V3_ORDER* cacheBitmapV3)
 {
-	rdpBitmap* bitmap;
-	rdpBitmap* prevBitmap;
+	rdpBitmap* bitmap = NULL;
+	rdpBitmap* prevBitmap = NULL;
 	BOOL compressed = TRUE;
 	rdpCache* cache = context->cache;
 	rdpSettings* settings = context->settings;
@@ -192,7 +194,10 @@ static BOOL update_gdi_cache_bitmap_v3(rdpContext* context, CACHE_BITMAP_V3_ORDE
 		cacheBitmapV3->bpp = ColorDepth;
 
 	compressed = (bitmapData->codecID != RDP_CODEC_ID_NONE);
-	Bitmap_SetDimensions(bitmap, bitmapData->width, bitmapData->height);
+
+	if (!Bitmap_SetDimensions(bitmap, WINPR_ASSERTING_INT_CAST(UINT16, bitmapData->width),
+	                          WINPR_ASSERTING_INT_CAST(UINT16, bitmapData->height)))
+		goto fail;
 
 	if (!bitmap->Decompress(context, bitmap, bitmapData->data, bitmapData->width,
 	                        bitmapData->height, bitmapData->bpp, bitmapData->length, compressed,
@@ -214,7 +219,7 @@ fail:
 
 rdpBitmap* bitmap_cache_get(rdpBitmapCache* bitmapCache, UINT32 id, UINT32 index)
 {
-	rdpBitmap* bitmap;
+	rdpBitmap* bitmap = NULL;
 
 	if (id >= bitmapCache->maxCells)
 	{
@@ -260,7 +265,7 @@ BOOL bitmap_cache_put(rdpBitmapCache* bitmapCache, UINT32 id, UINT32 index, rdpB
 
 void bitmap_cache_register_callbacks(rdpUpdate* update)
 {
-	rdpCache* cache;
+	rdpCache* cache = NULL;
 
 	WINPR_ASSERT(update);
 	WINPR_ASSERT(update->context);
@@ -284,55 +289,61 @@ void bitmap_cache_register_callbacks(rdpUpdate* update)
 
 static int bitmap_cache_save_persistent(rdpBitmapCache* bitmapCache)
 {
-	int status;
-	UINT32 i, j;
-	UINT32 version;
-	rdpPersistentCache* persistent;
 	rdpContext* context = bitmapCache->context;
 	rdpSettings* settings = context->settings;
 
-	version = settings->BitmapCacheVersion;
+	const UINT32 version = freerdp_settings_get_uint32(settings, FreeRDP_BitmapCacheVersion);
 
 	if (version != 2)
 		return 0; /* persistent bitmap cache already saved in egfx channel */
 
-	if (!settings->BitmapCachePersistEnabled)
+	if (!freerdp_settings_get_bool(settings, FreeRDP_BitmapCachePersistEnabled))
 		return 0;
 
-	if (!settings->BitmapCachePersistFile)
+	const char* BitmapCachePersistFile =
+	    freerdp_settings_get_string(settings, FreeRDP_BitmapCachePersistFile);
+	if (!BitmapCachePersistFile)
 		return 0;
 
-	persistent = persistent_cache_new();
+	rdpPersistentCache* persistent = persistent_cache_new();
 
 	if (!persistent)
 		return -1;
 
-	status = persistent_cache_open(persistent, settings->BitmapCachePersistFile, TRUE, version);
+	int status = persistent_cache_open(persistent, BitmapCachePersistFile, TRUE, version);
 
 	if (status < 1)
 		goto end;
 
-	for (i = 0; i < bitmapCache->maxCells; i++)
+	if (bitmapCache->cells)
 	{
-		for (j = 0; j < bitmapCache->cells[i].number + 1; j++)
+		for (UINT32 i = 0; i < bitmapCache->maxCells; i++)
 		{
-			PERSISTENT_CACHE_ENTRY cacheEntry;
-			rdpBitmap* bitmap = bitmapCache->cells[i].entries[j];
-
-			if (!bitmap || !bitmap->key64)
-				continue;
-
-			cacheEntry.key64 = bitmap->key64;
-			cacheEntry.width = bitmap->width;
-			cacheEntry.height = bitmap->height;
-			cacheEntry.size = (UINT32)(bitmap->width * bitmap->height * 4);
-			cacheEntry.flags = 0;
-			cacheEntry.data = bitmap->data;
-
-			if (persistent_cache_write_entry(persistent, &cacheEntry) < 1)
+			BITMAP_V2_CELL* cell = &bitmapCache->cells[i];
+			for (UINT32 j = 0; j < cell->number + 1 && cell->entries; j++)
 			{
-				status = -1;
-				goto end;
+				PERSISTENT_CACHE_ENTRY cacheEntry = { 0 };
+				rdpBitmap* bitmap = cell->entries[j];
+
+				if (!bitmap || !bitmap->key64)
+					continue;
+
+				cacheEntry.key64 = bitmap->key64;
+
+				cacheEntry.width = WINPR_ASSERTING_INT_CAST(UINT16, bitmap->width);
+				cacheEntry.height = WINPR_ASSERTING_INT_CAST(UINT16, bitmap->height);
+				const UINT64 size = 4ULL * bitmap->width * bitmap->height;
+				if (size > UINT32_MAX)
+					continue;
+				cacheEntry.size = (UINT32)size;
+				cacheEntry.flags = 0;
+				cacheEntry.data = bitmap->data;
+
+				if (persistent_cache_write_entry(persistent, &cacheEntry) < 1)
+				{
+					status = -1;
+					goto end;
+				}
 			}
 		}
 	}
@@ -346,9 +357,8 @@ end:
 
 rdpBitmapCache* bitmap_cache_new(rdpContext* context)
 {
-	UINT32 i;
-	rdpSettings* settings;
-	rdpBitmapCache* bitmapCache;
+	rdpSettings* settings = NULL;
+	rdpBitmapCache* bitmapCache = NULL;
 
 	WINPR_ASSERT(context);
 
@@ -369,7 +379,7 @@ rdpBitmapCache* bitmap_cache_new(rdpContext* context)
 		goto fail;
 	bitmapCache->maxCells = BitmapCacheV2NumCells;
 
-	for (i = 0; i < bitmapCache->maxCells; i++)
+	for (UINT32 i = 0; i < bitmapCache->maxCells; i++)
 	{
 		const BITMAP_CACHE_V2_CELL_INFO* info =
 		    freerdp_settings_get_pointer_array(settings, FreeRDP_BitmapCacheV2CellInfo, i);
@@ -385,8 +395,10 @@ rdpBitmapCache* bitmap_cache_new(rdpContext* context)
 
 	return bitmapCache;
 fail:
-
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	bitmap_cache_free(bitmapCache);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -397,25 +409,28 @@ void bitmap_cache_free(rdpBitmapCache* bitmapCache)
 
 	bitmap_cache_save_persistent(bitmapCache);
 
-	UINT32 i;
-	for (i = 0; i < bitmapCache->maxCells; i++)
+	if (bitmapCache->cells)
 	{
-		UINT32 j;
-		BITMAP_V2_CELL* cell = &bitmapCache->cells[i];
-
-		if (!cell->entries)
-			continue;
-
-		for (j = 0; j < cell->number + 1; j++)
+		for (UINT32 i = 0; i < bitmapCache->maxCells; i++)
 		{
-			rdpBitmap* bitmap = cell->entries[j];
-			Bitmap_Free(bitmapCache->context, bitmap);
+			UINT32 j = 0;
+			BITMAP_V2_CELL* cell = &bitmapCache->cells[i];
+
+			if (!cell->entries)
+				continue;
+
+			for (j = 0; j < cell->number + 1; j++)
+			{
+				rdpBitmap* bitmap = cell->entries[j];
+				Bitmap_Free(bitmapCache->context, bitmap);
+			}
+
+			free((void*)cell->entries);
 		}
 
-		free(bitmapCache->cells[i].entries);
+		free(bitmapCache->cells);
 	}
 
-	free(bitmapCache->cells);
 	persistent_cache_free(bitmapCache->persistent);
 
 	free(bitmapCache);
@@ -423,12 +438,10 @@ void bitmap_cache_free(rdpBitmapCache* bitmapCache)
 
 static void free_bitmap_data(BITMAP_DATA* data, size_t count)
 {
-	size_t x;
-
 	if (!data)
 		return;
 
-	for (x = 0; x < count; x++)
+	for (size_t x = 0; x < count; x++)
 		free(data[x].bitmapDataStream);
 
 	free(data);
@@ -436,13 +449,12 @@ static void free_bitmap_data(BITMAP_DATA* data, size_t count)
 
 static BITMAP_DATA* copy_bitmap_data(const BITMAP_DATA* data, size_t count)
 {
-	size_t x;
 	BITMAP_DATA* dst = (BITMAP_DATA*)calloc(count, sizeof(BITMAP_DATA));
 
 	if (!dst)
 		goto fail;
 
-	for (x = 0; x < count; x++)
+	for (size_t x = 0; x < count; x++)
 	{
 		dst[x] = data[x];
 
@@ -487,7 +499,10 @@ BITMAP_UPDATE* copy_bitmap_update(rdpContext* context, const BITMAP_UPDATE* poin
 
 	return dst;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	free_bitmap_update(context, dst);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -512,7 +527,10 @@ CACHE_BITMAP_ORDER* copy_cache_bitmap_order(rdpContext* context, const CACHE_BIT
 
 	return dst;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	free_cache_bitmap_order(context, dst);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -546,7 +564,10 @@ CACHE_BITMAP_V2_ORDER* copy_cache_bitmap_v2_order(rdpContext* context,
 
 	return dst;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	free_cache_bitmap_v2_order(context, dst);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -580,7 +601,10 @@ CACHE_BITMAP_V3_ORDER* copy_cache_bitmap_v3_order(rdpContext* context,
 
 	return dst;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	free_cache_bitmap_v3_order(context, dst);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 

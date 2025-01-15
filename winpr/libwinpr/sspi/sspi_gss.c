@@ -30,18 +30,18 @@
 BOOL sspi_gss_wrap_token(SecBuffer* buf, const WinPrAsn1_OID* oid, uint16_t tok_id,
                          const sspi_gss_data* token)
 {
-	WinPrAsn1Encoder* enc;
+	WinPrAsn1Encoder* enc = NULL;
 	BYTE tok_id_buf[2];
 	WinPrAsn1_MemoryChunk mc = { 2, tok_id_buf };
 	wStream s;
-	size_t len;
+	size_t len = 0;
 	BOOL ret = FALSE;
 
 	WINPR_ASSERT(buf);
 	WINPR_ASSERT(oid);
 	WINPR_ASSERT(token);
 
-	Data_Write_UINT16_BE(tok_id_buf, tok_id);
+	winpr_Data_Write_UINT16_BE(tok_id_buf, tok_id);
 
 	enc = WinPrAsn1Encoder_New(WINPR_ASN1_DER);
 	if (!enc)
@@ -74,7 +74,7 @@ BOOL sspi_gss_wrap_token(SecBuffer* buf, const WinPrAsn1_OID* oid, uint16_t tok_
 	Stream_StaticInit(&s, buf->pvBuffer, len);
 	if (WinPrAsn1EncToStream(enc, &s))
 	{
-		buf->cbBuffer = len;
+		buf->cbBuffer = (UINT32)len;
 		ret = TRUE;
 	}
 
@@ -86,10 +86,11 @@ cleanup:
 BOOL sspi_gss_unwrap_token(const SecBuffer* buf, WinPrAsn1_OID* oid, uint16_t* tok_id,
                            sspi_gss_data* token)
 {
-	WinPrAsn1Decoder dec, dec2;
-	WinPrAsn1_tagId tag;
+	WinPrAsn1Decoder dec;
+	WinPrAsn1Decoder dec2;
+	WinPrAsn1_tagId tag = 0;
 	wStream sbuffer = { 0 };
-	wStream* s;
+	wStream* s = NULL;
 
 	WINPR_ASSERT(buf);
 	WINPR_ASSERT(oid);
@@ -110,9 +111,9 @@ BOOL sspi_gss_unwrap_token(const SecBuffer* buf, WinPrAsn1_OID* oid, uint16_t* t
 		return FALSE;
 
 	if (tok_id)
-		Stream_Read_INT16_BE(s, *tok_id);
+		Stream_Read_UINT16_BE(s, *tok_id);
 
-	token->data = (char*)Stream_Pointer(s);
+	token->data = Stream_Pointer(s);
 	token->length = (UINT)Stream_GetRemainingLength(s);
 
 	return TRUE;

@@ -54,12 +54,13 @@ typedef struct
 	SMARTCARD_OPERATION op;
 	wStream* out;
 	pClientContext* pc;
-	UINT (*send_fkt)(pClientContext*, wStream*);
+	wLog* log;
+	pf_scard_send_fkt_t send_fkt;
 } pf_channel_client_queue_element;
 
 static pf_channel_client_context* scard_get_client_context(pClientContext* pc)
 {
-	pf_channel_client_context* scard;
+	pf_channel_client_context* scard = NULL;
 
 	WINPR_ASSERT(pc);
 	WINPR_ASSERT(pc->interceptContextMap);
@@ -73,9 +74,11 @@ static pf_channel_client_context* scard_get_client_context(pClientContext* pc)
 static BOOL pf_channel_client_write_iostatus(wStream* out, const SMARTCARD_OPERATION* op,
                                              UINT32 ioStatus)
 {
-	UINT16 component, packetid;
-	UINT32 dID, cID;
-	size_t pos;
+	UINT16 component = 0;
+	UINT16 packetid = 0;
+	UINT32 dID = 0;
+	UINT32 cID = 0;
+	size_t pos = 0;
 
 	WINPR_ASSERT(op);
 	WINPR_ASSERT(out);
@@ -115,13 +118,13 @@ static VOID irp_thread(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_WORK W
 	struct thread_arg* arg = Context;
 	pf_channel_client_context* scard = arg->scard;
 	{
-		UINT32 ioStatus;
+		UINT32 ioStatus = 0;
 		LONG rc = smartcard_irp_device_control_call(arg->scard->callctx, arg->e->out, &ioStatus,
 		                                            &arg->e->op);
 		if (rc == CHANNEL_RC_OK)
 		{
 			if (pf_channel_client_write_iostatus(arg->e->out, &arg->e->op, ioStatus))
-				arg->e->send_fkt(arg->e->pc, arg->e->out);
+				arg->e->send_fkt(arg->e->log, arg->e->pc, arg->e->out);
 		}
 	}
 	queue_free(arg->e);
@@ -132,7 +135,7 @@ static VOID irp_thread(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_WORK W
 static BOOL start_irp_thread(pf_channel_client_context* scard,
                              const pf_channel_client_queue_element* e)
 {
-	PTP_WORK work;
+	PTP_WORK work = NULL;
 	struct thread_arg* arg = calloc(1, sizeof(struct thread_arg));
 	if (!arg)
 		return FALSE;
@@ -156,23 +159,25 @@ fail:
 	return FALSE;
 }
 
-BOOL pf_channel_smartcard_client_handle(pClientContext* pc, wStream* s, wStream* out,
-                                        UINT (*send_fkt)(pClientContext*, wStream*))
+BOOL pf_channel_smartcard_client_handle(wLog* log, pClientContext* pc, wStream* s, wStream* out,
+                                        pf_scard_send_fkt_t send_fkt)
 {
 	BOOL rc = FALSE;
-	LONG status;
-	UINT32 FileId;
-	UINT32 CompletionId;
-	UINT32 ioStatus;
+	LONG status = 0;
+	UINT32 FileId = 0;
+	UINT32 CompletionId = 0;
+	UINT32 ioStatus = 0;
 	pf_channel_client_queue_element e = { 0 };
 	pf_channel_client_context* scard = scard_get_client_context(pc);
 
+	WINPR_ASSERT(log);
 	WINPR_ASSERT(send_fkt);
 	WINPR_ASSERT(s);
 
 	if (!scard)
 		return FALSE;
 
+	e.log = log;
 	e.pc = pc;
 	e.out = out;
 	e.send_fkt = send_fkt;
@@ -182,9 +187,9 @@ BOOL pf_channel_smartcard_client_handle(pClientContext* pc, wStream* s, wStream*
 		return FALSE;
 	else
 	{
-		UINT32 DeviceId;
-		UINT32 MajorFunction;
-		UINT32 MinorFunction;
+		UINT32 DeviceId = 0;
+		UINT32 MajorFunction = 0;
+		UINT32 MinorFunction = 0;
 
 		Stream_Read_UINT32(s, DeviceId);      /* DeviceId (4 bytes) */
 		Stream_Read_UINT32(s, FileId);        /* FileId (4 bytes) */
@@ -247,7 +252,7 @@ BOOL pf_channel_smartcard_client_handle(pClientContext* pc, wStream* s, wStream*
 			break;
 	}
 
-	rc = send_fkt(pc, out) == CHANNEL_RC_OK;
+	rc = send_fkt(log, pc, out) == CHANNEL_RC_OK;
 
 fail:
 	smartcard_operation_free(&e.op, FALSE);
@@ -256,7 +261,7 @@ fail:
 
 BOOL pf_channel_smartcard_server_handle(pServerContext* ps, wStream* s)
 {
-	WLog_ERR(TAG, "TODO: %s unimplemented", __FUNCTION__);
+	WLog_ERR(TAG, "TODO: unimplemented");
 	return TRUE;
 }
 
@@ -307,7 +312,7 @@ static void queue_free(void* obj)
 static void* queue_copy(const void* obj)
 {
 	const pf_channel_client_queue_element* other = obj;
-	pf_channel_client_queue_element* copy;
+	pf_channel_client_queue_element* copy = NULL;
 	if (!other)
 		return NULL;
 	copy = calloc(1, sizeof(pf_channel_client_queue_element));
@@ -333,8 +338,8 @@ static void work_object_free(void* arg)
 
 BOOL pf_channel_smartcard_client_new(pClientContext* pc)
 {
-	pf_channel_client_context* scard;
-	wObject* obj;
+	pf_channel_client_context* scard = NULL;
+	wObject* obj = NULL;
 
 	WINPR_ASSERT(pc);
 	WINPR_ASSERT(pc->interceptContextMap);

@@ -15,9 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(WITH_CHANNEL_GFXREDIR)
-	define_channel("gfxredir")
-	if(WITH_SERVER_CHANNELS)
-		add_channel_server(${MODULE_PREFIX} ${CHANNEL_NAME})
-	endif()
+define_channel("gfxredir")
+
+if(WITH_SERVER_CHANNELS OR WITH_CLIENT_CHANNELS)
+  include_directories(common)
+  add_subdirectory(common)
+endif()
+
+if(WITH_SERVER_CHANNELS)
+  add_channel_server(${MODULE_PREFIX} ${CHANNEL_NAME})
 endif()

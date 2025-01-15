@@ -97,7 +97,7 @@ static DWORD WINAPI drdynvc_server_thread(LPVOID arg)
 		}
 
 		if (!WTSVirtualChannelRead(context->priv->ChannelHandle, 0,
-		                           (PCHAR) Stream_Buffer(s), Stream_Capacity(s), &BytesReturned))
+		                           Stream_BufferAs(s, char), Stream_Capacity(s), &BytesReturned))
 		{
 			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
 			break;
@@ -138,7 +138,7 @@ static UINT drdynvc_server_start(DrdynvcServerContext* context)
 	          CreateThread(NULL, 0, drdynvc_server_thread, (void*)context, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed!");
-		CloseHandle(context->priv->StopEvent);
+		(void)CloseHandle(context->priv->StopEvent);
 		context->priv->StopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -153,8 +153,8 @@ static UINT drdynvc_server_start(DrdynvcServerContext* context)
  */
 static UINT drdynvc_server_stop(DrdynvcServerContext* context)
 {
-	UINT error;
-	SetEvent(context->priv->StopEvent);
+	UINT error = 0;
+	(void)SetEvent(context->priv->StopEvent);
 
 	if (WaitForSingleObject(context->priv->Thread, INFINITE) == WAIT_FAILED)
 	{
@@ -163,13 +163,13 @@ static UINT drdynvc_server_stop(DrdynvcServerContext* context)
 		return error;
 	}
 
-	CloseHandle(context->priv->Thread);
+	(void)CloseHandle(context->priv->Thread);
 	return CHANNEL_RC_OK;
 }
 
 DrdynvcServerContext* drdynvc_server_context_new(HANDLE vcm)
 {
-	DrdynvcServerContext* context;
+	DrdynvcServerContext* context = NULL;
 	context = (DrdynvcServerContext*)calloc(1, sizeof(DrdynvcServerContext));
 
 	if (context)

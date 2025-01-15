@@ -37,6 +37,7 @@
 #define PROTOCOL_HYBRID 0x00000002
 #define PROTOCOL_RDSTLS 0x00000004
 #define PROTOCOL_HYBRID_EX 0x00000008
+#define PROTOCOL_RDSAAD 0x00000010
 
 #define PROTOCOL_FAILED_NEGO 0x80000000 /* only used internally, not on the wire */
 
@@ -51,18 +52,16 @@ enum RDP_NEG_FAILURE_FAILURECODES
 	SSL_WITH_USER_AUTH_REQUIRED_BY_SERVER = 0x00000006
 };
 
-/* Authorization Result */
-#define AUTHZ_SUCCESS 0x00000000
-#define AUTHZ_ACCESS_DENIED 0x0000052E
-
 typedef enum
 {
 	NEGO_STATE_INITIAL,
-	NEGO_STATE_EXT,  /* Extended NLA (NLA + TLS implicit) */
-	NEGO_STATE_NLA,  /* Network Level Authentication (TLS implicit) */
-	NEGO_STATE_TLS,  /* TLS Encryption without NLA */
-	NEGO_STATE_RDP,  /* Standard Legacy RDP Encryption */
-	NEGO_STATE_FAIL, /* Negotiation failure */
+	NEGO_STATE_RDSTLS, /* RDSTLS (TLS implicit) */
+	NEGO_STATE_AAD,    /* Azure AD Authentication (TLS implicit) */
+	NEGO_STATE_EXT,    /* Extended NLA (NLA + TLS implicit) */
+	NEGO_STATE_NLA,    /* Network Level Authentication (TLS implicit) */
+	NEGO_STATE_TLS,    /* TLS Encryption without NLA */
+	NEGO_STATE_RDP,    /* Standard Legacy RDP Encryption */
+	NEGO_STATE_FAIL,   /* Negotiation failure */
 	NEGO_STATE_FINAL
 } NEGO_STATE;
 
@@ -107,22 +106,30 @@ FREERDP_LOCAL BOOL nego_read_request(rdpNego* nego, wStream* s);
 FREERDP_LOCAL BOOL nego_send_negotiation_request(rdpNego* nego);
 FREERDP_LOCAL BOOL nego_send_negotiation_response(rdpNego* nego);
 
-FREERDP_LOCAL rdpNego* nego_new(rdpTransport* transport);
 FREERDP_LOCAL void nego_free(rdpNego* nego);
+
+WINPR_ATTR_MALLOC(nego_free, 1)
+FREERDP_LOCAL rdpNego* nego_new(rdpTransport* transport);
 
 FREERDP_LOCAL void nego_init(rdpNego* nego);
 FREERDP_LOCAL BOOL nego_set_target(rdpNego* nego, const char* hostname, UINT16 port);
 FREERDP_LOCAL void nego_set_negotiation_enabled(rdpNego* nego, BOOL NegotiateSecurityLayer);
 FREERDP_LOCAL void nego_set_restricted_admin_mode_required(rdpNego* nego,
                                                            BOOL RestrictedAdminModeRequired);
+FREERDP_LOCAL void nego_set_RCG_required(rdpNego* nego, BOOL enabled);
+FREERDP_LOCAL void nego_set_RCG_supported(rdpNego* nego, BOOL enabled);
+FREERDP_LOCAL BOOL nego_get_remoteCredentialGuard(rdpNego* nego);
+FREERDP_LOCAL void nego_set_childsession_enabled(rdpNego* nego, BOOL ChildSessionEnabled);
 FREERDP_LOCAL void nego_set_gateway_enabled(rdpNego* nego, BOOL GatewayEnabled);
 FREERDP_LOCAL void nego_set_gateway_bypass_local(rdpNego* nego, BOOL GatewayBypassLocal);
 FREERDP_LOCAL void nego_enable_rdp(rdpNego* nego, BOOL enable_rdp);
 FREERDP_LOCAL void nego_enable_tls(rdpNego* nego, BOOL enable_tls);
 FREERDP_LOCAL void nego_enable_nla(rdpNego* nego, BOOL enable_nla);
+FREERDP_LOCAL void nego_enable_rdstls(rdpNego* nego, BOOL enable_rdstls);
+FREERDP_LOCAL void nego_enable_aad(rdpNego* nego, BOOL enable_aad);
 FREERDP_LOCAL void nego_enable_ext(rdpNego* nego, BOOL enable_ext);
 FREERDP_LOCAL const BYTE* nego_get_routing_token(rdpNego* nego, DWORD* RoutingTokenLength);
-FREERDP_LOCAL BOOL nego_set_routing_token(rdpNego* nego, const BYTE* RoutingToken,
+FREERDP_LOCAL BOOL nego_set_routing_token(rdpNego* nego, const void* RoutingToken,
                                           DWORD RoutingTokenLength);
 FREERDP_LOCAL BOOL nego_set_cookie(rdpNego* nego, const char* cookie);
 FREERDP_LOCAL void nego_set_cookie_max_length(rdpNego* nego, UINT32 CookieMaxLength);
@@ -136,11 +143,15 @@ FREERDP_LOCAL BOOL nego_set_selected_protocol(rdpNego* nego, UINT32 SelectedProt
 FREERDP_LOCAL UINT32 nego_get_requested_protocols(rdpNego* nego);
 FREERDP_LOCAL BOOL nego_set_requested_protocols(rdpNego* nego, UINT32 RequestedProtocols);
 
+FREERDP_LOCAL BOOL nego_update_settings_from_state(rdpNego* nego, rdpSettings* settings);
+
 FREERDP_LOCAL BOOL nego_set_state(rdpNego* nego, NEGO_STATE state);
 FREERDP_LOCAL NEGO_STATE nego_get_state(rdpNego* nego);
 
 FREERDP_LOCAL SEC_WINNT_AUTH_IDENTITY* nego_get_identity(rdpNego* nego);
 
 FREERDP_LOCAL void nego_free_nla(rdpNego* nego);
+
+FREERDP_LOCAL const char* nego_protocol_to_str(UINT32 protocol, char* buffer, size_t size);
 
 #endif /* FREERDP_LIB_CORE_NEGO_H */

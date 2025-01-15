@@ -27,6 +27,7 @@
 #define FREERDP_CHANNEL_DRIVE_CLIENT_FILE_H
 
 #include <winpr/stream.h>
+#include <winpr/file.h>
 #include <freerdp/channels/log.h>
 
 #define TAG CHANNELS_TAG("drive.client")
@@ -40,7 +41,6 @@ typedef struct
 	WIN32_FIND_DATAW find_data;
 	const WCHAR* basepath;
 	WCHAR* fullpath;
-	WCHAR* filename;
 	BOOL delete_pending;
 	UINT32 FileAttributes;
 	UINT32 SharedAccess;
@@ -49,19 +49,19 @@ typedef struct
 	UINT32 CreateOptions;
 } DRIVE_FILE;
 
-DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 PathLength, UINT32 id,
-                           UINT32 DesiredAccess, UINT32 CreateDisposition, UINT32 CreateOptions,
-                           UINT32 FileAttributes, UINT32 SharedAccess);
+DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 PathWCharLength,
+                           UINT32 id, UINT32 DesiredAccess, UINT32 CreateDisposition,
+                           UINT32 CreateOptions, UINT32 FileAttributes, UINT32 SharedAccess);
 BOOL drive_file_free(DRIVE_FILE* file);
 
 BOOL drive_file_open(DRIVE_FILE* file);
 BOOL drive_file_seek(DRIVE_FILE* file, UINT64 Offset);
 BOOL drive_file_read(DRIVE_FILE* file, BYTE* buffer, UINT32* Length);
-BOOL drive_file_write(DRIVE_FILE* file, BYTE* buffer, UINT32 Length);
+BOOL drive_file_write(DRIVE_FILE* file, const BYTE* buffer, UINT32 Length);
 BOOL drive_file_query_information(DRIVE_FILE* file, UINT32 FsInformationClass, wStream* output);
 BOOL drive_file_set_information(DRIVE_FILE* file, UINT32 FsInformationClass, UINT32 Length,
                                 wStream* input);
 BOOL drive_file_query_directory(DRIVE_FILE* file, UINT32 FsInformationClass, BYTE InitialQuery,
-                                const WCHAR* path, UINT32 PathLength, wStream* output);
+                                const WCHAR* path, UINT32 PathWCharLength, wStream* output);
 
 #endif /* FREERDP_CHANNEL_DRIVE_FILE_H */

@@ -28,7 +28,9 @@
 #if defined(CHANNEL_AINPUT_SERVER)
 #include <freerdp/server/ainput.h>
 #endif
+#if defined(CHANNEL_AUDIN_SERVER)
 #include <freerdp/server/audin.h>
+#endif
 #include <freerdp/server/rdpsnd.h>
 #include <freerdp/server/encomsp.h>
 #include <freerdp/transport_io.h>
@@ -36,6 +38,7 @@
 #include <winpr/crt.h>
 #include <winpr/synch.h>
 #include <winpr/thread.h>
+#include <winpr/image.h>
 
 struct test_peer_context
 {
@@ -44,10 +47,7 @@ struct test_peer_context
 	RFX_CONTEXT* rfx_context;
 	NSC_CONTEXT* nsc_context;
 	wStream* s;
-	BYTE* icon_data;
 	BYTE* bg_data;
-	UINT16 icon_width;
-	UINT16 icon_height;
 	UINT32 icon_x;
 	UINT32 icon_y;
 	BOOL activated;
@@ -56,7 +56,9 @@ struct test_peer_context
 	HANDLE vcm;
 	void* debug_channel;
 	HANDLE debug_channel_thread;
+#if defined(CHANNEL_AUDIN_SERVER)
 	audin_server_context* audin;
+#endif
 	BOOL audin_open;
 #if defined(CHANNEL_AINPUT_SERVER)
 	ainput_server_context* ainput;
@@ -67,6 +69,7 @@ struct test_peer_context
 	EncomspServerContext* encomsp;
 
 	rdpTransportIo io;
+	wImage* image;
 };
 typedef struct test_peer_context testPeerContext;
 

@@ -22,6 +22,7 @@
 #include <freerdp/primitives.h>
 
 #include "prim_internal.h"
+#include "prim_set.h"
 
 /* ========================================================================= */
 static pstatus_t general_set_8u(BYTE val, BYTE* pDst, UINT32 len)
@@ -40,9 +41,10 @@ static pstatus_t general_zero(void* pDst, size_t len)
 /* ========================================================================= */
 static pstatus_t general_set_32s(INT32 val, INT32* pDst, UINT32 len)
 {
-	INT32* dptr = (INT32*)pDst;
-	size_t span, remaining;
-	primitives_t* prims;
+	INT32* dptr = pDst;
+	size_t span = 0;
+	size_t remaining = 0;
+	primitives_t* prims = NULL;
 
 	if (len < 256)
 	{
@@ -65,7 +67,9 @@ static pstatus_t general_set_32s(INT32 val, INT32* pDst, UINT32 len)
 		if (thiswidth > remaining)
 			thiswidth = remaining;
 
-		prims->copy_8u((BYTE*)dptr, (BYTE*)(dptr + span), thiswidth << 2);
+		const size_t s = thiswidth << 2;
+		WINPR_ASSERT(thiswidth <= INT32_MAX);
+		prims->copy_8u((BYTE*)dptr, (BYTE*)(dptr + span), (INT32)s);
 		remaining -= thiswidth;
 		span <<= 1;
 	}
@@ -76,9 +80,10 @@ static pstatus_t general_set_32s(INT32 val, INT32* pDst, UINT32 len)
 /* ------------------------------------------------------------------------- */
 static pstatus_t general_set_32u(UINT32 val, UINT32* pDst, UINT32 len)
 {
-	UINT32* dptr = (UINT32*)pDst;
-	size_t span, remaining;
-	primitives_t* prims;
+	UINT32* dptr = pDst;
+	size_t span = 0;
+	size_t remaining = 0;
+	primitives_t* prims = NULL;
 
 	if (len < 256)
 	{
@@ -101,7 +106,9 @@ static pstatus_t general_set_32u(UINT32 val, UINT32* pDst, UINT32 len)
 		if (thiswidth > remaining)
 			thiswidth = remaining;
 
-		prims->copy_8u((BYTE*)dptr, (BYTE*)(dptr + span), thiswidth << 2);
+		const size_t s = thiswidth << 2;
+		WINPR_ASSERT(thiswidth <= INT32_MAX);
+		prims->copy_8u((BYTE*)dptr, (BYTE*)(dptr + span), (INT32)s);
 		remaining -= thiswidth;
 		span <<= 1;
 	}
@@ -110,11 +117,16 @@ static pstatus_t general_set_32u(UINT32 val, UINT32* pDst, UINT32 len)
 }
 
 /* ------------------------------------------------------------------------- */
-void primitives_init_set(primitives_t* prims)
+void primitives_init_set(primitives_t* WINPR_RESTRICT prims)
 {
 	/* Start with the default. */
 	prims->set_8u = general_set_8u;
 	prims->set_32s = general_set_32s;
 	prims->set_32u = general_set_32u;
 	prims->zero = general_zero;
+}
+
+void primitives_init_set_opt(primitives_t* WINPR_RESTRICT prims)
+{
+	primitives_init_set_sse2(prims);
 }

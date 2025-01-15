@@ -285,33 +285,47 @@ static const RTS_PDU_SIGNATURE_ENTRY RTS_PDU_SIGNATURE_TABLE[] = {
 BOOL rts_match_pdu_signature(const RtsPduSignature* signature, wStream* src,
                              const rpcconn_hdr_t* header)
 {
+	return rts_match_pdu_signature_ex(signature, src, header, NULL, FALSE);
+}
+
+BOOL rts_match_pdu_signature_ex(const RtsPduSignature* signature, wStream* src,
+                                const rpcconn_hdr_t* header, RtsPduSignature* found_signature,
+                                BOOL silent)
+{
 	RtsPduSignature extracted = { 0 };
 
 	WINPR_ASSERT(signature);
 	WINPR_ASSERT(src);
 
-	if (!rts_extract_pdu_signature(&extracted, src, header))
+	if (!rts_extract_pdu_signature_ex(&extracted, src, header, silent))
 		return FALSE;
 
+	if (found_signature)
+		*found_signature = extracted;
 	return memcmp(signature, &extracted, sizeof(extracted)) == 0;
 }
 
 BOOL rts_extract_pdu_signature(RtsPduSignature* signature, wStream* src,
                                const rpcconn_hdr_t* header)
 {
+	return rts_extract_pdu_signature_ex(signature, src, header, FALSE);
+}
+
+BOOL rts_extract_pdu_signature_ex(RtsPduSignature* signature, wStream* src,
+                                  const rpcconn_hdr_t* header, BOOL silent)
+{
 	BOOL rc = FALSE;
-	UINT16 i;
-	wStream tmp;
+	wStream sbuffer = { 0 };
 	rpcconn_hdr_t rheader = { 0 };
-	const rpcconn_rts_hdr_t* rts;
+	const rpcconn_rts_hdr_t* rts = NULL;
 
 	WINPR_ASSERT(signature);
 	WINPR_ASSERT(src);
 
-	Stream_StaticInit(&tmp, Stream_Pointer(src), Stream_GetRemainingLength(src));
+	wStream* s = Stream_StaticInit(&sbuffer, Stream_Pointer(src), Stream_GetRemainingLength(src));
 	if (!header)
 	{
-		if (!rts_read_pdu_header(&tmp, &rheader))
+		if (!rts_read_pdu_header_ex(s, &rheader, silent))
 			goto fail;
 		header = &rheader;
 	}
@@ -322,42 +336,39 @@ BOOL rts_extract_pdu_signature(RtsPduSignature* signature, wStream* src,
 	signature->Flags = rts->Flags;
 	signature->NumberOfCommands = rts->NumberOfCommands;
 
-	for (i = 0; i < rts->NumberOfCommands; i++)
+	for (UINT16 i = 0; i < rts->NumberOfCommands; i++)
 	{
-		UINT32 CommandType;
-		size_t CommandLength;
+		UINT32 CommandType = 0;
+		size_t CommandLength = 0;
 
-		if (!Stream_CheckAndLogRequiredLength(TAG, &tmp, 4))
+		if (!Stream_ConditionalCheckAndLogRequiredLength(TAG, s, 4, silent))
 			goto fail;
 
-		Stream_Read_UINT32(&tmp, CommandType); /* CommandType (4 bytes) */
+		Stream_Read_UINT32(s, CommandType); /* CommandType (4 bytes) */
 
 		/* We only need this for comparison against known command types */
 		if (i < ARRAYSIZE(signature->CommandTypes))
 			signature->CommandTypes[i] = CommandType;
 
-		if (!rts_command_length(CommandType, &tmp, &CommandLength))
+		if (!rts_command_length(CommandType, s, &CommandLength, silent))
 			goto fail;
-		if (!Stream_SafeSeek(&tmp, CommandLength))
+		if (!Stream_ConditionalSafeSeek(s, CommandLength, silent))
 			goto fail;
 	}
 
 	rc = TRUE;
 fail:
 	rts_free_pdu_header(&rheader, FALSE);
-	Stream_Free(&tmp, FALSE);
 	return rc;
 }
 
 UINT32 rts_identify_pdu_signature(const RtsPduSignature* signature,
                                   const RTS_PDU_SIGNATURE_ENTRY** entry)
 {
-	size_t i, j;
-
 	if (entry)
 		*entry = NULL;
 
-	for (i = 0; i < ARRAYSIZE(RTS_PDU_SIGNATURE_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RTS_PDU_SIGNATURE_TABLE); i++)
 	{
 		const RTS_PDU_SIGNATURE_ENTRY* current = &RTS_PDU_SIGNATURE_TABLE[i];
 		const RtsPduSignature* pSignature = current->Signature;
@@ -371,7 +382,7 @@ UINT32 rts_identify_pdu_signature(const RtsPduSignature* signature,
 		if (signature->NumberOfCommands != pSignature->NumberOfCommands)
 			continue;
 
-		for (j = 0; j < signature->NumberOfCommands; j++)
+		for (size_t j = 0; j < signature->NumberOfCommands; j++)
 		{
 			if (signature->CommandTypes[j] != pSignature->CommandTypes[j])
 				continue;
@@ -386,20 +397,21 @@ UINT32 rts_identify_pdu_signature(const RtsPduSignature* signature,
 	return 0;
 }
 
-BOOL rts_print_pdu_signature(const RtsPduSignature* signature)
+BOOL rts_print_pdu_signature(wLog* log, DWORD level, const RtsPduSignature* signature)
 {
-	UINT32 SignatureId;
-	const RTS_PDU_SIGNATURE_ENTRY* entry;
+	UINT32 SignatureId = 0;
+	const RTS_PDU_SIGNATURE_ENTRY* entry = NULL;
 
 	if (!signature)
 		return FALSE;
 
-	WLog_INFO(TAG, "RTS PDU Signature: Flags: 0x%04" PRIX16 " NumberOfCommands: %" PRIu16 "",
-	          signature->Flags, signature->NumberOfCommands);
+	WLog_Print(log, level,
+	           "RTS PDU Signature: Flags: 0x%04" PRIX16 " NumberOfCommands: %" PRIu16 "",
+	           signature->Flags, signature->NumberOfCommands);
 	SignatureId = rts_identify_pdu_signature(signature, &entry);
 
 	if (SignatureId)
-		WLog_ERR(TAG, "Identified %s RTS PDU", entry->PduName);
+		WLog_Print(log, level, "Identified %s RTS PDU", entry->PduName);
 
 	return TRUE;
 }

@@ -87,12 +87,13 @@ int region16_n_rects(const REGION16* region)
 {
 	WINPR_ASSERT(region);
 	WINPR_ASSERT(region->data);
-	return region->data->nbRects;
+	WINPR_ASSERT(region->data->nbRects <= INT32_MAX);
+	return (int)region->data->nbRects;
 }
 
 const RECTANGLE_16* region16_rects(const REGION16* region, UINT32* nbRects)
 {
-	REGION16_DATA* data;
+	REGION16_DATA* data = NULL;
 
 	if (nbRects)
 		*nbRects = 0;
@@ -106,14 +107,17 @@ const RECTANGLE_16* region16_rects(const REGION16* region, UINT32* nbRects)
 		return NULL;
 
 	if (nbRects)
-		*nbRects = data->nbRects;
+	{
+		WINPR_ASSERT(data->nbRects <= UINT32_MAX);
+		*nbRects = (UINT32)data->nbRects;
+	}
 
 	return (RECTANGLE_16*)(data + 1);
 }
 
 static INLINE RECTANGLE_16* region16_rects_noconst(REGION16* region)
 {
-	REGION16_DATA* data;
+	REGION16_DATA* data = NULL;
 	data = region->data;
 
 	if (!data)
@@ -163,7 +167,7 @@ BOOL rectangles_equal(const RECTANGLE_16* r1, const RECTANGLE_16* r2)
 
 BOOL rectangles_intersects(const RECTANGLE_16* r1, const RECTANGLE_16* r2)
 {
-	RECTANGLE_16 tmp;
+	RECTANGLE_16 tmp = { 0 };
 	return rectangles_intersection(r1, r2, &tmp);
 }
 
@@ -190,13 +194,14 @@ void region16_clear(REGION16* region)
 
 static INLINE REGION16_DATA* allocateRegion(long nbItems)
 {
-	long allocSize = sizeof(REGION16_DATA) + (nbItems * sizeof(RECTANGLE_16));
+	size_t allocSize =
+	    sizeof(REGION16_DATA) + (WINPR_ASSERTING_INT_CAST(size_t, nbItems) * sizeof(RECTANGLE_16));
 	REGION16_DATA* ret = (REGION16_DATA*)malloc(allocSize);
 
 	if (!ret)
 		return ret;
 
-	ret->size = allocSize;
+	ret->size = WINPR_ASSERTING_INT_CAST(long, allocSize);
 	ret->nbRects = nbItems;
 	return ret;
 }
@@ -225,7 +230,7 @@ BOOL region16_copy(REGION16* dst, const REGION16* src)
 		if (!dst->data)
 			return FALSE;
 
-		CopyMemory(dst->data, src->data, src->data->size);
+		CopyMemory(dst->data, src->data, WINPR_ASSERTING_INT_CAST(size_t, src->data->size));
 	}
 
 	return TRUE;
@@ -233,13 +238,13 @@ BOOL region16_copy(REGION16* dst, const REGION16* src)
 
 void region16_print(const REGION16* region)
 {
-	const RECTANGLE_16* rects;
-	UINT32 nbRects, i;
+	const RECTANGLE_16* rects = NULL;
+	UINT32 nbRects = 0;
 	int currentBandY = -1;
 	rects = region16_rects(region, &nbRects);
 	WLog_DBG(TAG, "nrects=%" PRIu32 "", nbRects);
 
-	for (i = 0; i < nbRects; i++, rects++)
+	for (UINT32 i = 0; i < nbRects; i++, rects++)
 	{
 		if (rects->top != currentBandY)
 		{
@@ -258,7 +263,8 @@ static void region16_copy_band_with_union(RECTANGLE_16* dst, const RECTANGLE_16*
                                           const RECTANGLE_16** srcPtr, RECTANGLE_16** dstPtr)
 {
 	UINT16 refY = src->top;
-	const RECTANGLE_16 *startOverlap, *endOverlap;
+	const RECTANGLE_16* startOverlap = NULL;
+	const RECTANGLE_16* endOverlap = NULL;
 
 	/* merges a band with the given rect
 	 * Input:
@@ -277,7 +283,7 @@ static void region16_copy_band_with_union(RECTANGLE_16* dst, const RECTANGLE_16*
 	 *
 	 *  We first copy as-is items that are before Item2, the first overlapping
 	 *  item.
-	 *  Then we find the last one that overlap unionRect to agregate Item2, Item3
+	 *  Then we find the last one that overlap unionRect to aggregate Item2, Item3
 	 *  and Item4 to create Item2.
 	 *  Finally Item5 is copied as Item3.
 	 *
@@ -356,7 +362,8 @@ static RECTANGLE_16* next_band(RECTANGLE_16* band1, RECTANGLE_16* endPtr, int* n
 	return band1;
 }
 
-static BOOL band_match(const RECTANGLE_16* band1, const RECTANGLE_16* band2, RECTANGLE_16* endPtr)
+static BOOL band_match(const RECTANGLE_16* band1, const RECTANGLE_16* band2,
+                       const RECTANGLE_16* endPtr)
 {
 	int refBand2 = band2->top;
 	const RECTANGLE_16* band2Start = band2;
@@ -417,20 +424,21 @@ static BOOL region16_simplify_bands(REGION16* region)
 	 *  ====================          ====================
 	 *
 	 */
-	RECTANGLE_16 *band1, *band2, *endPtr, *endBand, *tmp;
-	int nbRects, finalNbRects;
-	int bandItems, toMove;
+	RECTANGLE_16* endBand = NULL;
+	int nbRects = 0;
+	int finalNbRects = 0;
+	int bandItems = 0;
 	finalNbRects = nbRects = region16_n_rects(region);
 
 	if (nbRects < 2)
 		return TRUE;
 
-	band1 = region16_rects_noconst(region);
-	endPtr = band1 + nbRects;
+	RECTANGLE_16* band1 = region16_rects_noconst(region);
+	RECTANGLE_16* endPtr = band1 + nbRects;
 
 	do
 	{
-		band2 = next_band(band1, endPtr, &bandItems);
+		RECTANGLE_16* band2 = next_band(band1, endPtr, &bandItems);
 
 		if (band2 == endPtr)
 			break;
@@ -438,7 +446,7 @@ static BOOL region16_simplify_bands(REGION16* region)
 		if ((band1->bottom == band2->top) && band_match(band1, band2, endPtr))
 		{
 			/* adjust the bottom of band1 items */
-			tmp = band1;
+			RECTANGLE_16* tmp = band1;
 
 			while (tmp < band2)
 			{
@@ -449,7 +457,8 @@ static BOOL region16_simplify_bands(REGION16* region)
 			/* override band2, we don't move band1 pointer as the band after band2
 			 * may be merged too */
 			endBand = band2 + bandItems;
-			toMove = (endPtr - endBand) * sizeof(RECTANGLE_16);
+			const size_t toMove =
+			    WINPR_ASSERTING_INT_CAST(size_t, (endPtr - endBand)) * sizeof(RECTANGLE_16);
 
 			if (toMove)
 				MoveMemory(band2, endBand, toMove);
@@ -465,9 +474,9 @@ static BOOL region16_simplify_bands(REGION16* region)
 
 	if (finalNbRects != nbRects)
 	{
-		REGION16_DATA* data;
-		size_t allocSize = sizeof(REGION16_DATA) + (finalNbRects * sizeof(RECTANGLE_16));
-		data = realloc(region->data, allocSize);
+		size_t allocSize = sizeof(REGION16_DATA) +
+		                   (WINPR_ASSERTING_INT_CAST(size_t, finalNbRects) * sizeof(RECTANGLE_16));
+		REGION16_DATA* data = realloc(region->data, allocSize);
 		if (!data)
 			free(region->data);
 		region->data = data;
@@ -479,7 +488,7 @@ static BOOL region16_simplify_bands(REGION16* region)
 		}
 
 		region->data->nbRects = finalNbRects;
-		region->data->size = allocSize;
+		region->data->size = WINPR_ASSERTING_INT_CAST(long, allocSize);
 	}
 
 	return TRUE;
@@ -487,16 +496,18 @@ static BOOL region16_simplify_bands(REGION16* region)
 
 BOOL region16_union_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16* rect)
 {
-	const RECTANGLE_16* srcExtents;
-	RECTANGLE_16* dstExtents;
-	const RECTANGLE_16 *currentBand, *endSrcRect, *nextBand;
+	const RECTANGLE_16* srcExtents = NULL;
+	RECTANGLE_16* dstExtents = NULL;
+	const RECTANGLE_16* currentBand = NULL;
+	const RECTANGLE_16* endSrcRect = NULL;
+	const RECTANGLE_16* nextBand = NULL;
 	REGION16_DATA* newItems = NULL;
 	REGION16_DATA* tmpItems = NULL;
 	RECTANGLE_16* dstRect = NULL;
-	UINT32 usedRects, srcNbRects;
-	UINT16 topInterBand;
+	UINT32 usedRects = 0;
+	UINT32 srcNbRects = 0;
+	UINT16 topInterBand = 0;
 	WINPR_ASSERT(src);
-	WINPR_ASSERT(src->data);
 	WINPR_ASSERT(dst);
 	srcExtents = region16_extents(src);
 	dstExtents = region16_extents_noconst(dst);
@@ -518,7 +529,7 @@ BOOL region16_union_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16*
 		return TRUE;
 	}
 
-	newItems = allocateRegion((1 + region16_n_rects(src)) * 4);
+	newItems = allocateRegion((1L + 4L * region16_n_rects(src)));
 
 	if (!newItems)
 		return FALSE;
@@ -581,13 +592,13 @@ BOOL region16_union_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16*
 			           |    |  |    |
 
 			 possible cases:
-			 1) no top split, merge zone then a bottom split. The band will be splitted
+			 1) no top split, merge zone then a bottom split. The band will be split
 			  in two
-			 2) not band split, only the merge zone, band merged with rect but not splitted
+			 2) not band split, only the merge zone, band merged with rect but not split
 			 3) a top split, the merge zone and no bottom split. The band will be split
 			 in two
 			 4) a top split, the merge zone and also a bottom split. The band will be
-			 splitted in 3, but the coalesce algorithm may merge the created bands
+			 split in 3, but the coalesce algorithm may merge the created bands
 			 */
 			UINT16 mergeTop = currentBand->top;
 			UINT16 mergeBottom = currentBand->bottom;
@@ -658,25 +669,25 @@ BOOL region16_union_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16*
 		dstRect++;
 	}
 
-	if ((src == dst) && (src->data->size > 0) && (src->data != &empty_region))
-		free(src->data);
+	if ((src == dst) && (dst->data != &empty_region))
+		free(dst->data);
 
 	dstExtents->top = MIN(rect->top, srcExtents->top);
 	dstExtents->left = MIN(rect->left, srcExtents->left);
 	dstExtents->bottom = MAX(rect->bottom, srcExtents->bottom);
 	dstExtents->right = MAX(rect->right, srcExtents->right);
-	newItems->size = sizeof(REGION16_DATA) + (usedRects * sizeof(RECTANGLE_16));
-	tmpItems = realloc(newItems, newItems->size);
+	newItems->size =
+	    WINPR_ASSERTING_INT_CAST(long, sizeof(REGION16_DATA) + (usedRects * sizeof(RECTANGLE_16)));
+	if (newItems->size != 0)
+		tmpItems = realloc(newItems, WINPR_ASSERTING_INT_CAST(size_t, newItems->size));
 	if (!tmpItems)
 		free(newItems);
+
 	newItems = tmpItems;
 	dst->data = newItems;
 
 	if (!dst->data)
-	{
-		free(newItems);
 		return FALSE;
-	}
 
 	dst->data->nbRects = usedRects;
 	return region16_simplify_bands(dst);
@@ -684,8 +695,10 @@ BOOL region16_union_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16*
 
 BOOL region16_intersects_rect(const REGION16* src, const RECTANGLE_16* arg2)
 {
-	const RECTANGLE_16 *rect, *endPtr, *srcExtents;
-	UINT32 nbRects;
+	const RECTANGLE_16* rect = NULL;
+	const RECTANGLE_16* endPtr = NULL;
+	const RECTANGLE_16* srcExtents = NULL;
+	UINT32 nbRects = 0;
 
 	if (!src || !src->data || !arg2)
 		return FALSE;
@@ -714,11 +727,15 @@ BOOL region16_intersects_rect(const REGION16* src, const RECTANGLE_16* arg2)
 
 BOOL region16_intersect_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16* rect)
 {
-	REGION16_DATA* newItems;
-	const RECTANGLE_16 *srcPtr, *endPtr, *srcExtents;
-	RECTANGLE_16* dstPtr;
-	UINT32 nbRects, usedRects;
-	RECTANGLE_16 common, newExtents;
+	REGION16_DATA* newItems = NULL;
+	const RECTANGLE_16* srcPtr = NULL;
+	const RECTANGLE_16* endPtr = NULL;
+	const RECTANGLE_16* srcExtents = NULL;
+	RECTANGLE_16* dstPtr = NULL;
+	UINT32 nbRects = 0;
+	UINT32 usedRects = 0;
+	RECTANGLE_16 common;
+	RECTANGLE_16 newExtents;
 	WINPR_ASSERT(src);
 	WINPR_ASSERT(src->data);
 	srcPtr = region16_rects(src, &nbRects);
@@ -781,12 +798,13 @@ BOOL region16_intersect_rect(REGION16* dst, const REGION16* src, const RECTANGLE
 	}
 
 	newItems->nbRects = usedRects;
-	newItems->size = sizeof(REGION16_DATA) + (usedRects * sizeof(RECTANGLE_16));
+	newItems->size =
+	    WINPR_ASSERTING_INT_CAST(long, sizeof(REGION16_DATA) + (usedRects * sizeof(RECTANGLE_16)));
 
 	if ((dst->data->size > 0) && (dst->data != &empty_region))
 		free(dst->data);
 
-	dst->data = realloc(newItems, newItems->size);
+	dst->data = realloc(newItems, WINPR_ASSERTING_INT_CAST(size_t, newItems->size));
 
 	if (!dst->data)
 	{

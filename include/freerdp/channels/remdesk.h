@@ -23,6 +23,16 @@
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+/** The command line name of the channel
+ *
+ *  \since version 3.0.0
+ */
+#define REMDESK_CHANNEL_NAME "remdesk"
 #define REMDESK_SVC_CHANNEL_NAME "remdesk"
 
 #define REMDESK_ERROR_NOERROR 0
@@ -147,5 +157,9 @@ typedef struct
 	BYTE* EncryptedPassword;
 	UINT32 EncryptedPasswordLength;
 } REMDESK_CTL_EXPERT_ON_VISTA_PDU;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FREERDP_CHANNEL_REMDESK_H */

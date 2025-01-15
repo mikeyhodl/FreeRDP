@@ -19,39 +19,38 @@
 set(MODULE_NAME "wlfreerdp")
 set(MODULE_PREFIX "FREERDP_CLIENT_WAYLAND")
 
-include_directories(${WAYLAND_INCLUDE_DIR})
+include_directories(SYSTEM ${WAYLAND_INCLUDE_DIR})
 
 set(${MODULE_PREFIX}_SRCS
     wlfreerdp.c
-	wlfreerdp.h
-	wlf_disp.c
-	wlf_disp.h
-	wlf_pointer.c
-	wlf_pointer.h
-	wlf_input.c
-	wlf_input.h
-	wlf_cliprdr.c
-	wlf_cliprdr.h
-	wlf_channels.c
-	wlf_channels.h
-	)
+    wlfreerdp.h
+    wlf_disp.c
+    wlf_disp.h
+    wlf_pointer.c
+    wlf_pointer.h
+    wlf_input.c
+    wlf_input.h
+    wlf_cliprdr.c
+    wlf_cliprdr.h
+    wlf_channels.c
+    wlf_channels.h
+)
 
-if (FREERDP_UNIFIED_BUILD)
-	include_directories(${PROJECT_SOURCE_DIR}/uwac/include)
-	include_directories(${PROJECT_BINARY_DIR}/uwac/include)
+if(FREERDP_UNIFIED_BUILD)
+  include_directories(${PROJECT_SOURCE_DIR}/uwac/include)
+  include_directories(${PROJECT_BINARY_DIR}/uwac/include)
 else()
-	find_package(uwac 0 REQUIRED)
-	include_directories(${UWAC_INCLUDE_DIR})
+  find_package(uwac 0 REQUIRED)
+  include_directories(SYSTEM ${UWAC_INCLUDE_DIR})
 endif()
 
-list (APPEND ${MODULE_PREFIX}_LIBS freerdp-client freerdp uwac)
+list(APPEND ${MODULE_PREFIX}_LIBS freerdp-client freerdp uwac)
 
-add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
+addtargetwithresourcefile(${MODULE_NAME} TRUE ${FREERDP_VERSION} ${MODULE_PREFIX}_SRCS)
 
 target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})
 
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT client)
 
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Client/Wayland")
-configure_file(wlfreerdp.1.in ${CMAKE_CURRENT_BINARY_DIR}/wlfreerdp.1)
-install_freerdp_man(${CMAKE_CURRENT_BINARY_DIR}/wlfreerdp.1 1)
+generate_and_install_freerdp_man_from_template(${MODULE_NAME} "1" "${FREERDP_API_VERSION}")

@@ -9,6 +9,7 @@
  */
 
 #include <winpr/assert.h>
+#import <winpr/clipboard.h>
 
 #import <freerdp/gdi/gdi.h>
 #import <freerdp/channels/channels.h>
@@ -16,10 +17,12 @@
 #import <freerdp/client/cmdline.h>
 #import <freerdp/freerdp.h>
 #import <freerdp/gdi/gfx.h>
+#import <freerdp/client/cliprdr.h>
 
 #import "ios_freerdp.h"
 #import "ios_freerdp_ui.h"
 #import "ios_freerdp_events.h"
+#import "ios_cliprdr.h"
 
 #import "RDPSession.h"
 #import "Utils.h"
@@ -32,12 +35,13 @@
 
 static void ios_OnChannelConnectedEventHandler(void *context, const ChannelConnectedEventArgs *e)
 {
+	WLog_INFO(TAG, "ios_OnChannelConnectedEventHandler, channel %s", e->name);
 	rdpSettings *settings;
 	mfContext *afc;
 
 	if (!context || !e)
 	{
-		WLog_FATAL(TAG, "%s(context=%p, EventArgs=%p", __FUNCTION__, context, (void *)e);
+		WLog_FATAL(TAG, "(context=%p, EventArgs=%p", context, (void *)e);
 		return;
 	}
 
@@ -46,7 +50,7 @@ static void ios_OnChannelConnectedEventHandler(void *context, const ChannelConne
 
 	if (strcmp(e->name, RDPGFX_DVC_CHANNEL_NAME) == 0)
 	{
-		if (settings->SoftwareGdi)
+		if (freerdp_settings_get_bool(settings, FreeRDP_SoftwareGdi))
 		{
 			gdi_graphics_pipeline_init(afc->_p.gdi, (RdpgfxClientContext *)e->pInterface);
 		}
@@ -56,17 +60,22 @@ static void ios_OnChannelConnectedEventHandler(void *context, const ChannelConne
 			               " This is not supported, add /gdi:sw");
 		}
 	}
+	else if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0)
+	{
+		ios_cliprdr_init(afc, (CliprdrClientContext *)e->pInterface);
+	}
 }
 
 static void ios_OnChannelDisconnectedEventHandler(void *context,
                                                   const ChannelDisconnectedEventArgs *e)
 {
+	WLog_INFO(TAG, "ios_OnChannelConnectedEventHandler, channel %s", e->name);
 	rdpSettings *settings;
 	mfContext *afc;
 
 	if (!context || !e)
 	{
-		WLog_FATAL(TAG, "%s(context=%p, EventArgs=%p", __FUNCTION__, context, (void *)e);
+		WLog_FATAL(TAG, "(context=%p, EventArgs=%p", context, (void *)e);
 		return;
 	}
 
@@ -75,7 +84,7 @@ static void ios_OnChannelDisconnectedEventHandler(void *context,
 
 	if (strcmp(e->name, RDPGFX_DVC_CHANNEL_NAME) == 0)
 	{
-		if (settings->SoftwareGdi)
+		if (freerdp_settings_get_bool(settings, FreeRDP_SoftwareGdi))
 		{
 			gdi_graphics_pipeline_uninit(afc->_p.gdi, (RdpgfxClientContext *)e->pInterface);
 		}
@@ -84,6 +93,10 @@ static void ios_OnChannelDisconnectedEventHandler(void *context,
 			WLog_WARN(TAG, "GFX without software GDI requested. "
 			               " This is not supported, add /gdi:sw");
 		}
+	}
+	else if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0)
+	{
+		ios_cliprdr_uninit(afc, (CliprdrClientContext *)e->pInterface);
 	}
 }
 
@@ -98,14 +111,20 @@ static BOOL ios_pre_connect(freerdp *instance)
 	settings = instance->context->settings;
 	WINPR_ASSERT(settings);
 
-	settings->AutoLogonEnabled = settings->Password && (strlen(settings->Password) > 0);
+	const char *Password = freerdp_settings_get_string(settings, FreeRDP_Password);
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AutoLogonEnabled,
+	                               Password && (Password && (strlen(Password) > 0))))
+		return FALSE;
 
 	// Verify screen width/height are sane
-	if ((settings->DesktopWidth < 64) || (settings->DesktopHeight < 64) ||
-	    (settings->DesktopWidth > 4096) || (settings->DesktopHeight > 4096))
+	if ((freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) < 64) ||
+	    (freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) < 64) ||
+	    (freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) > 4096) ||
+	    (freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) > 4096))
 	{
-		NSLog(@"%s: invalid dimensions %d %d", __func__, settings->DesktopWidth,
-		      settings->DesktopHeight);
+		NSLog(@"%s: invalid dimensions %d %d", __func__,
+		      freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+		      freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight));
 		return FALSE;
 	}
 
@@ -184,7 +203,7 @@ static BOOL ios_Pointer_SetDefault(rdpContext *context)
 
 static BOOL ios_register_pointer(rdpGraphics *graphics)
 {
-	rdpPointer pointer;
+	rdpPointer pointer = { 0 };
 
 	if (!graphics)
 		return FALSE;
@@ -404,8 +423,21 @@ void ios_uninit_freerdp()
 {
 }
 
-/* compatibilty functions */
+/* compatibility functions */
 size_t fwrite$UNIX2003(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	return fwrite(ptr, size, nmemb, stream);
+}
+
+void ios_send_clipboard_data(void *context, const void *data, UINT32 size)
+{
+	mfContext *afc = (mfContext *)context;
+	ClipboardLock(afc->clipboard);
+	UINT32 formatId = ClipboardRegisterFormat(afc->clipboard, "UTF8_STRING");
+	if (size)
+		ClipboardSetData(afc->clipboard, formatId, data, size);
+	else
+		ClipboardEmpty(afc->clipboard);
+	ClipboardUnlock(afc->clipboard);
+	ios_cliprdr_send_client_format_list(afc->cliprdr);
 }

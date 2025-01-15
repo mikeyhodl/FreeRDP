@@ -20,26 +20,31 @@
 #include <freerdp/config.h>
 
 #include <errno.h>
+#include <stdint.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
 #include <winpr/stream.h>
 #include <winpr/string.h>
+#include <winpr/rpc.h>
+#include <winpr/sysinfo.h>
 
 #include <freerdp/log.h>
+#include <freerdp/crypto/crypto.h>
 
 /* websocket need sha1 for Sec-Websocket-Accept */
 #include <winpr/crypto.h>
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
+#ifdef FREERDP_HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif
 
 #include "http.h"
+#include "../tcp.h"
 
 #define TAG FREERDP_TAG("core.gateway.http")
 
-#define RESPONSE_SIZE_LIMIT 64 * 1024 * 1024
+#define RESPONSE_SIZE_LIMIT (64ULL * 1024ULL * 1024ULL)
 
 #define WEBSOCKET_MAGIC_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
@@ -48,15 +53,18 @@ struct s_http_context
 	char* Method;
 	char* URI;
 	char* UserAgent;
+	char* X_MS_UserAgent;
 	char* Host;
 	char* Accept;
 	char* CacheControl;
 	char* Connection;
 	char* Pragma;
 	char* RdgConnectionId;
+	char* RdgCorrelationId;
 	char* RdgAuthScheme;
 	BOOL websocketUpgrade;
 	char* SecWebsocketKey;
+	wListDictionary* cookies;
 };
 
 struct s_http_request
@@ -67,7 +75,7 @@ struct s_http_request
 	char* AuthParam;
 	char* Authorization;
 	size_t ContentLength;
-	char* Content;
+	char* ContentType;
 	TRANSFER_ENCODING TransferEncoding;
 };
 
@@ -76,7 +84,7 @@ struct s_http_response
 	size_t count;
 	char** lines;
 
-	long StatusCode;
+	INT16 StatusCode;
 	const char* ReasonPhrase;
 
 	size_t ContentLength;
@@ -89,13 +97,15 @@ struct s_http_response
 	BYTE* BodyContent;
 
 	wListDictionary* Authenticates;
+	wListDictionary* SetCookie;
 	wStream* data;
 };
 
 static char* string_strnstr(char* str1, const char* str2, size_t slen)
 {
-	char c, sc;
-	size_t len;
+	char c = 0;
+	char sc = 0;
+	size_t len = 0;
 
 	if ((c = *str2++) != '\0')
 	{
@@ -129,7 +139,32 @@ static BOOL strings_equals_nocase(const void* obj1, const void* obj2)
 
 HttpContext* http_context_new(void)
 {
-	return (HttpContext*)calloc(1, sizeof(HttpContext));
+	HttpContext* context = (HttpContext*)calloc(1, sizeof(HttpContext));
+	if (!context)
+		return NULL;
+
+	context->cookies = ListDictionary_New(FALSE);
+	if (!context->cookies)
+		goto fail;
+
+	wObject* key = ListDictionary_KeyObject(context->cookies);
+	wObject* value = ListDictionary_ValueObject(context->cookies);
+	if (!key || !value)
+		goto fail;
+
+	key->fnObjectFree = winpr_ObjectStringFree;
+	key->fnObjectNew = winpr_ObjectStringClone;
+	value->fnObjectFree = winpr_ObjectStringFree;
+	value->fnObjectNew = winpr_ObjectStringClone;
+
+	return context;
+
+fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
+	http_context_free(context);
+	WINPR_PRAGMA_DIAG_POP
+	return NULL;
 }
 
 BOOL http_context_set_method(HttpContext* context, const char* Method)
@@ -141,6 +176,20 @@ BOOL http_context_set_method(HttpContext* context, const char* Method)
 	context->Method = _strdup(Method);
 
 	if (!context->Method)
+		return FALSE;
+
+	return TRUE;
+}
+
+BOOL http_request_set_content_type(HttpRequest* request, const char* ContentType)
+{
+	if (!request || !ContentType)
+		return FALSE;
+
+	free(request->ContentType);
+	request->ContentType = _strdup(ContentType);
+
+	if (!request->ContentType)
 		return FALSE;
 
 	return TRUE;
@@ -177,6 +226,20 @@ BOOL http_context_set_user_agent(HttpContext* context, const char* UserAgent)
 	context->UserAgent = _strdup(UserAgent);
 
 	if (!context->UserAgent)
+		return FALSE;
+
+	return TRUE;
+}
+
+BOOL http_context_set_x_ms_user_agent(HttpContext* context, const char* X_MS_UserAgent)
+{
+	if (!context || !X_MS_UserAgent)
+		return FALSE;
+
+	free(context->X_MS_UserAgent);
+	context->X_MS_UserAgent = _strdup(X_MS_UserAgent);
+
+	if (!context->X_MS_UserAgent)
 		return FALSE;
 
 	return TRUE;
@@ -238,29 +301,107 @@ BOOL http_context_set_connection(HttpContext* context, const char* Connection)
 	return TRUE;
 }
 
-BOOL http_context_set_pragma(HttpContext* context, const char* Pragma)
+WINPR_ATTR_FORMAT_ARG(2, 0)
+static BOOL list_append(HttpContext* context, WINPR_FORMAT_ARG const char* str, va_list ap)
+{
+	BOOL rc = FALSE;
+	va_list vat;
+	char* Pragma = NULL;
+	size_t PragmaSize = 0;
+
+	va_copy(vat, ap);
+	const int size = winpr_vasprintf(&Pragma, &PragmaSize, str, ap);
+	va_end(vat);
+
+	if (size <= 0)
+		goto fail;
+
+	char* sstr = NULL;
+	size_t slen = 0;
+	if (context->Pragma)
+	{
+		winpr_asprintf(&sstr, &slen, "%s, %s", context->Pragma, Pragma);
+		free(Pragma);
+	}
+	else
+		sstr = Pragma;
+	Pragma = NULL;
+
+	free(context->Pragma);
+	context->Pragma = sstr;
+
+	rc = TRUE;
+
+fail:
+	va_end(ap);
+	return rc;
+}
+
+WINPR_ATTR_FORMAT_ARG(2, 3)
+BOOL http_context_set_pragma(HttpContext* context, WINPR_FORMAT_ARG const char* Pragma, ...)
 {
 	if (!context || !Pragma)
 		return FALSE;
 
 	free(context->Pragma);
-	context->Pragma = _strdup(Pragma);
+	context->Pragma = NULL;
 
-	if (!context->Pragma)
-		return FALSE;
-
-	return TRUE;
+	va_list ap = { 0 };
+	va_start(ap, Pragma);
+	return list_append(context, Pragma, ap);
 }
 
-BOOL http_context_set_rdg_connection_id(HttpContext* context, const char* RdgConnectionId)
+WINPR_ATTR_FORMAT_ARG(2, 3)
+BOOL http_context_append_pragma(HttpContext* context, const char* Pragma, ...)
+{
+	if (!context || !Pragma)
+		return FALSE;
+
+	va_list ap = { 0 };
+	va_start(ap, Pragma);
+	return list_append(context, Pragma, ap);
+}
+
+static char* guid2str(const GUID* guid)
+{
+	if (!guid)
+		return NULL;
+	char* strguid = NULL;
+	char bracedGuid[64] = { 0 };
+
+	RPC_STATUS rpcStatus = UuidToStringA(guid, &strguid);
+
+	if (rpcStatus != RPC_S_OK)
+		return NULL;
+
+	(void)sprintf_s(bracedGuid, sizeof(bracedGuid), "{%s}", strguid);
+	RpcStringFreeA(&strguid);
+	return _strdup(bracedGuid);
+}
+
+BOOL http_context_set_rdg_connection_id(HttpContext* context, const GUID* RdgConnectionId)
 {
 	if (!context || !RdgConnectionId)
 		return FALSE;
 
 	free(context->RdgConnectionId);
-	context->RdgConnectionId = _strdup(RdgConnectionId);
+	context->RdgConnectionId = guid2str(RdgConnectionId);
 
 	if (!context->RdgConnectionId)
+		return FALSE;
+
+	return TRUE;
+}
+
+BOOL http_context_set_rdg_correlation_id(HttpContext* context, const GUID* RdgCorrelationId)
+{
+	if (!context || !RdgCorrelationId)
+		return FALSE;
+
+	free(context->RdgCorrelationId);
+	context->RdgCorrelationId = guid2str(RdgCorrelationId);
+
+	if (!context->RdgCorrelationId)
 		return FALSE;
 
 	return TRUE;
@@ -273,11 +414,12 @@ BOOL http_context_enable_websocket_upgrade(HttpContext* context, BOOL enable)
 
 	if (enable)
 	{
-		BYTE key[16];
-		if (winpr_RAND(key, sizeof(key)) != 0)
+		GUID key = { 0 };
+		if (RPC_S_OK != UuidCreate(&key))
 			return FALSE;
 
-		context->SecWebsocketKey = crypto_base64_encode(key, sizeof(key));
+		free(context->SecWebsocketKey);
+		context->SecWebsocketKey = crypto_base64_encode((BYTE*)&key, sizeof(key));
 		if (!context->SecWebsocketKey)
 			return FALSE;
 	}
@@ -301,12 +443,30 @@ BOOL http_context_set_rdg_auth_scheme(HttpContext* context, const char* RdgAuthS
 	return context->RdgAuthScheme != NULL;
 }
 
+BOOL http_context_set_cookie(HttpContext* context, const char* CookieName, const char* CookieValue)
+{
+	if (!context || !CookieName || !CookieValue)
+		return FALSE;
+	if (ListDictionary_Contains(context->cookies, CookieName))
+	{
+		if (!ListDictionary_SetItemValue(context->cookies, CookieName, CookieValue))
+			return FALSE;
+	}
+	else
+	{
+		if (!ListDictionary_Add(context->cookies, CookieName, CookieValue))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 void http_context_free(HttpContext* context)
 {
 	if (context)
 	{
 		free(context->SecWebsocketKey);
 		free(context->UserAgent);
+		free(context->X_MS_UserAgent);
 		free(context->Host);
 		free(context->URI);
 		free(context->Accept);
@@ -315,7 +475,9 @@ void http_context_free(HttpContext* context)
 		free(context->Connection);
 		free(context->Pragma);
 		free(context->RdgConnectionId);
+		free(context->RdgCorrelationId);
 		free(context->RdgAuthScheme);
+		ListDictionary_Free(context->cookies);
 		free(context);
 	}
 }
@@ -386,11 +548,13 @@ BOOL http_request_set_transfer_encoding(HttpRequest* request, TRANSFER_ENCODING 
 	return TRUE;
 }
 
-static BOOL http_encode_print(wStream* s, const char* fmt, ...)
+WINPR_ATTR_FORMAT_ARG(2, 3)
+static BOOL http_encode_print(wStream* s, WINPR_FORMAT_ARG const char* fmt, ...)
 {
-	char* str;
-	va_list ap;
-	int length, used;
+	char* str = NULL;
+	va_list ap = { 0 };
+	int length = 0;
+	int used = 0;
 
 	if (!s || !fmt)
 		return FALSE;
@@ -425,7 +589,7 @@ static BOOL http_encode_body_line(wStream* s, const char* param, const char* val
 
 static BOOL http_encode_content_length_line(wStream* s, size_t ContentLength)
 {
-	return http_encode_print(s, "Content-Length: %" PRIdz "\r\n", ContentLength);
+	return http_encode_print(s, "Content-Length: %" PRIuz "\r\n", ContentLength);
 }
 
 static BOOL http_encode_header_line(wStream* s, const char* Method, const char* URI)
@@ -445,9 +609,51 @@ static BOOL http_encode_authorization_line(wStream* s, const char* AuthScheme,
 	return http_encode_print(s, "Authorization: %s %s\r\n", AuthScheme, AuthParam);
 }
 
+static BOOL http_encode_cookie_line(wStream* s, wListDictionary* cookies)
+{
+	ULONG_PTR* keys = NULL;
+	BOOL status = TRUE;
+
+	if (!s && !cookies)
+		return FALSE;
+
+	ListDictionary_Lock(cookies);
+	const size_t count = ListDictionary_GetKeys(cookies, &keys);
+
+	if (count == 0)
+		goto unlock;
+
+	status = http_encode_print(s, "Cookie: ");
+	if (!status)
+		goto unlock;
+
+	for (size_t x = 0; status && x < count; x++)
+	{
+		char* cur = (char*)ListDictionary_GetItemValue(cookies, (void*)keys[x]);
+		if (!cur)
+		{
+			status = FALSE;
+			continue;
+		}
+		if (x > 0)
+		{
+			status = http_encode_print(s, "; ");
+			if (!status)
+				continue;
+		}
+		status = http_encode_print(s, "%s=%s", (char*)keys[x], cur);
+	}
+
+	status = http_encode_print(s, "\r\n");
+unlock:
+	free(keys);
+	ListDictionary_Unlock(cookies);
+	return status;
+}
+
 wStream* http_request_write(HttpContext* context, HttpRequest* request)
 {
-	wStream* s;
+	wStream* s = NULL;
 
 	if (!context || !request)
 		return NULL;
@@ -485,6 +691,12 @@ wStream* http_request_write(HttpContext* context, HttpRequest* request)
 			goto fail;
 	}
 
+	if (context->RdgCorrelationId)
+	{
+		if (!http_encode_body_line(s, "RDG-Correlation-Id", context->RdgCorrelationId))
+			goto fail;
+	}
+
 	if (context->RdgAuthScheme)
 	{
 		if (!http_encode_body_line(s, "RDG-Auth-Scheme", context->RdgAuthScheme))
@@ -518,7 +730,27 @@ wStream* http_request_write(HttpContext* context, HttpRequest* request)
 			goto fail;
 	}
 
-	Stream_Write(s, "\r\n", 2);
+	if (context->cookies)
+	{
+		if (!http_encode_cookie_line(s, context->cookies))
+			goto fail;
+	}
+
+	if (request->ContentType)
+	{
+		if (!http_encode_body_line(s, "Content-Type", request->ContentType))
+			goto fail;
+	}
+
+	if (context->X_MS_UserAgent)
+	{
+		if (!http_encode_body_line(s, "X-MS-User-Agent", context->X_MS_UserAgent))
+			goto fail;
+	}
+
+	if (!http_encode_print(s, "\r\n"))
+		goto fail;
+
 	Stream_SealLength(s);
 	return s;
 fail:
@@ -544,7 +776,7 @@ void http_request_free(HttpRequest* request)
 	free(request->AuthParam);
 	free(request->AuthScheme);
 	free(request->Authorization);
-	free(request->Content);
+	free(request->ContentType);
 	free(request->Method);
 	free(request->URI);
 	free(request);
@@ -554,8 +786,8 @@ static BOOL http_response_parse_header_status_line(HttpResponse* response, const
 {
 	BOOL rc = FALSE;
 	char* separator = NULL;
-	char* status_code;
-	char* reason_phrase;
+	char* status_code = NULL;
+	char* reason_phrase = NULL;
 
 	if (!response)
 		goto fail;
@@ -581,7 +813,7 @@ static BOOL http_response_parse_header_status_line(HttpResponse* response, const
 		if ((errno != 0) || (val < 0) || (val > INT16_MAX))
 			goto fail;
 
-		response->StatusCode = strtol(status_code, NULL, 0);
+		response->StatusCode = (INT16)val;
 	}
 	response->ReasonPhrase = reason_phrase;
 
@@ -602,12 +834,15 @@ static BOOL http_response_parse_header_field(HttpResponse* response, const char*
                                              const char* value)
 {
 	BOOL status = TRUE;
-	if (!response || !name)
+
+	WINPR_ASSERT(response);
+
+	if (!name)
 		return FALSE;
 
 	if (_stricmp(name, "Content-Length") == 0)
 	{
-		unsigned long long val;
+		unsigned long long val = 0;
 		errno = 0;
 		val = _strtoui64(value, NULL, 0);
 
@@ -680,6 +915,54 @@ static BOOL http_response_parse_header_field(HttpResponse* response, const char*
 
 		status = ListDictionary_Add(response->Authenticates, authScheme, authValue);
 	}
+	else if (_stricmp(name, "Set-Cookie") == 0)
+	{
+		char* separator = NULL;
+		const char* CookieName = NULL;
+		char* CookieValue = NULL;
+		separator = strchr(value, '=');
+
+		if (separator)
+		{
+			/* Set-Cookie: name=value
+			 * Set-Cookie: name=value; Attribute=value
+			 * Set-Cookie: name="value with spaces"; Attribute=value
+			 */
+			*separator = '\0';
+			CookieName = value;
+			CookieValue = separator + 1;
+
+			if (!CookieName || !CookieValue)
+				return FALSE;
+
+			if (*CookieValue == '"')
+			{
+				char* p = CookieValue;
+				while (*p != '"' && *p != '\0')
+				{
+					p++;
+					if (*p == '\\')
+						p++;
+				}
+				*p = '\0';
+			}
+			else
+			{
+				char* p = CookieValue;
+				while (*p != ';' && *p != '\0' && *p != ' ')
+				{
+					p++;
+				}
+				*p = '\0';
+			}
+		}
+		else
+		{
+			return FALSE;
+		}
+
+		status = ListDictionary_Add(response->SetCookie, CookieName, CookieValue);
+	}
 
 	return status;
 }
@@ -687,14 +970,12 @@ static BOOL http_response_parse_header_field(HttpResponse* response, const char*
 static BOOL http_response_parse_header(HttpResponse* response)
 {
 	BOOL rc = FALSE;
-	char c;
-	size_t count;
-	char* line;
-	char* name;
-	char* value;
-	char* colon_pos;
-	char* end_of_header;
-	char end_of_header_char;
+	char c = 0;
+	char* line = NULL;
+	char* name = NULL;
+	char* colon_pos = NULL;
+	char* end_of_header = NULL;
+	char end_of_header_char = 0;
 
 	if (!response)
 		goto fail;
@@ -705,7 +986,7 @@ static BOOL http_response_parse_header(HttpResponse* response)
 	if (!http_response_parse_header_status_line(response, response->lines[0]))
 		goto fail;
 
-	for (count = 1; count < response->count; count++)
+	for (size_t count = 1; count < response->count; count++)
 	{
 		line = response->lines[count];
 
@@ -743,38 +1024,50 @@ static BOOL http_response_parse_header(HttpResponse* response)
 		name = line;
 
 		/* eat space and tabs before header value */
-		for (value = colon_pos + 1; *value; value++)
+		char* value = colon_pos + 1;
+		for (; *value; value++)
 		{
 			if ((*value != ' ') && (*value != '\t'))
 				break;
 		}
 
-		if (!http_response_parse_header_field(response, name, value))
-			goto fail;
-
+		const int res = http_response_parse_header_field(response, name, value);
 		*end_of_header = end_of_header_char;
+		if (!res)
+			goto fail;
 	}
 
 	rc = TRUE;
 fail:
 
 	if (!rc)
-		WLog_ERR(TAG, "%s: parsing failed", __FUNCTION__);
+		WLog_ERR(TAG, "parsing failed");
 
 	return rc;
 }
 
-BOOL http_response_print(HttpResponse* response)
+static void http_response_print(wLog* log, DWORD level, const HttpResponse* response)
 {
-	size_t i;
+	char buffer[64] = { 0 };
 
-	if (!response)
-		return FALSE;
+	WINPR_ASSERT(log);
+	WINPR_ASSERT(response);
 
-	for (i = 0; i < response->count; i++)
-		WLog_ERR(TAG, "%s", response->lines[i]);
+	if (!WLog_IsLevelActive(log, level))
+		return;
 
-	return TRUE;
+	const long status = http_response_get_status_code(response);
+	WLog_Print(log, level, "HTTP status: %s",
+	           freerdp_http_status_string_format(status, buffer, ARRAYSIZE(buffer)));
+
+	for (size_t i = 0; i < response->count; i++)
+		WLog_Print(log, WLOG_DEBUG, "[%" PRIuz "] %s", i, response->lines[i]);
+
+	if (response->ReasonPhrase)
+		WLog_Print(log, level, "[reason] %s", response->ReasonPhrase);
+
+	WLog_Print(log, WLOG_TRACE, "[body][%" PRIuz "] %s", response->BodyLength,
+	           response->BodyContent);
 }
 
 static BOOL http_use_content_length(const char* cur)
@@ -790,6 +1083,8 @@ static BOOL http_use_content_length(const char* cur)
 		pos = 10;
 	else if (_strnicmp(cur, "text/html", 9) == 0)
 		pos = 9;
+	else if (_strnicmp(cur, "application/json", 16) == 0)
+		pos = 16;
 
 	if (pos > 0)
 	{
@@ -814,46 +1109,188 @@ static BOOL http_use_content_length(const char* cur)
 
 static int print_bio_error(const char* str, size_t len, void* bp)
 {
-	WINPR_UNUSED(len);
+	wLog* log = bp;
+
 	WINPR_UNUSED(bp);
-	WLog_ERR(TAG, "%s", str);
-	return len;
+	WLog_Print(log, WLOG_ERROR, "%s", str);
+	if (len > INT32_MAX)
+		return -1;
+	return (int)len;
 }
 
-HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
+int http_chuncked_read(BIO* bio, BYTE* pBuffer, size_t size,
+                       http_encoding_chunked_context* encodingContext)
 {
-	size_t position;
-	size_t bodyLength = 0;
-	size_t payloadOffset = 0;
-	HttpResponse* response = http_response_new();
-
-	if (!response)
-		return NULL;
-
-	response->ContentLength = 0;
-
-	while (payloadOffset == 0)
+	int status = 0;
+	int effectiveDataLen = 0;
+	WINPR_ASSERT(bio);
+	WINPR_ASSERT(pBuffer);
+	WINPR_ASSERT(encodingContext != NULL);
+	WINPR_ASSERT(size <= INT32_MAX);
+	while (TRUE)
 	{
-		size_t s;
-		char* end;
+		switch (encodingContext->state)
+		{
+			case ChunkStateData:
+			{
+				const size_t rd =
+				    (size > encodingContext->nextOffset ? encodingContext->nextOffset : size);
+				if (rd > INT32_MAX)
+					return -1;
+
+				ERR_clear_error();
+				status = BIO_read(bio, pBuffer, (int)rd);
+				if (status <= 0)
+					return (effectiveDataLen > 0 ? effectiveDataLen : status);
+
+				encodingContext->nextOffset -= WINPR_ASSERTING_INT_CAST(uint32_t, status);
+				if (encodingContext->nextOffset == 0)
+				{
+					encodingContext->state = ChunkStateFooter;
+					encodingContext->headerFooterPos = 0;
+				}
+				effectiveDataLen += status;
+
+				if ((size_t)status == size)
+					return effectiveDataLen;
+
+				pBuffer += status;
+				size -= (size_t)status;
+			}
+			break;
+			case ChunkStateFooter:
+			{
+				char _dummy[2] = { 0 };
+				WINPR_ASSERT(encodingContext->nextOffset == 0);
+				WINPR_ASSERT(encodingContext->headerFooterPos < 2);
+				ERR_clear_error();
+				status = BIO_read(bio, _dummy, (int)(2 - encodingContext->headerFooterPos));
+				if (status >= 0)
+				{
+					encodingContext->headerFooterPos += (size_t)status;
+					if (encodingContext->headerFooterPos == 2)
+					{
+						encodingContext->state = ChunkStateLenghHeader;
+						encodingContext->headerFooterPos = 0;
+					}
+				}
+				else
+					return (effectiveDataLen > 0 ? effectiveDataLen : status);
+			}
+			break;
+			case ChunkStateLenghHeader:
+			{
+				BOOL _haveNewLine = FALSE;
+				char* dst = &encodingContext->lenBuffer[encodingContext->headerFooterPos];
+				WINPR_ASSERT(encodingContext->nextOffset == 0);
+				while (encodingContext->headerFooterPos < 10 && !_haveNewLine)
+				{
+					ERR_clear_error();
+					status = BIO_read(bio, dst, 1);
+					if (status >= 0)
+					{
+						if (*dst == '\n')
+							_haveNewLine = TRUE;
+						encodingContext->headerFooterPos += (size_t)status;
+						dst += status;
+					}
+					else
+						return (effectiveDataLen > 0 ? effectiveDataLen : status);
+				}
+				*dst = '\0';
+				/* strtoul is tricky, error are reported via errno, we also need
+				 * to ensure the result does not overflow */
+				errno = 0;
+				size_t tmp = strtoul(encodingContext->lenBuffer, NULL, 16);
+				if ((errno != 0) || (tmp > SIZE_MAX))
+				{
+					/* denote end of stream if something bad happens */
+					encodingContext->nextOffset = 0;
+					encodingContext->state = ChunkStateEnd;
+					return -1;
+				}
+				encodingContext->nextOffset = tmp;
+				encodingContext->state = ChunkStateData;
+
+				if (encodingContext->nextOffset == 0)
+				{ /* end of stream */
+					WLog_DBG(TAG, "chunked encoding end of stream received");
+					encodingContext->headerFooterPos = 0;
+					encodingContext->state = ChunkStateEnd;
+					return (effectiveDataLen > 0 ? effectiveDataLen : 0);
+				}
+			}
+			break;
+			default:
+				/* invalid state / ChunkStateEnd */
+				return -1;
+		}
+	}
+}
+
+#define sleep_or_timeout(tls, startMS, timeoutMS) \
+	sleep_or_timeout_((tls), (startMS), (timeoutMS), __FILE__, __func__, __LINE__)
+static BOOL sleep_or_timeout_(rdpTls* tls, UINT64 startMS, UINT32 timeoutMS, const char* file,
+                              const char* fkt, size_t line)
+{
+	WINPR_ASSERT(tls);
+
+	USleep(100);
+	const UINT64 nowMS = GetTickCount64();
+	if (nowMS - startMS > timeoutMS)
+	{
+		DWORD level = WLOG_ERROR;
+		wLog* log = WLog_Get(TAG);
+		if (WLog_IsLevelActive(log, level))
+			WLog_PrintMessage(log, WLOG_MESSAGE_TEXT, level, line, file, fkt,
+			                  "timeout [%" PRIu32 "ms] exceeded", timeoutMS);
+		return TRUE;
+	}
+	if (!BIO_should_retry(tls->bio))
+	{
+		DWORD level = WLOG_ERROR;
+		wLog* log = WLog_Get(TAG);
+		if (WLog_IsLevelActive(log, level))
+		{
+			WLog_PrintMessage(log, WLOG_MESSAGE_TEXT, level, line, file, fkt, "Retries exceeded");
+			ERR_print_errors_cb(print_bio_error, log);
+		}
+		return TRUE;
+	}
+	if (freerdp_shall_disconnect_context(tls->context))
+		return TRUE;
+
+	return FALSE;
+}
+
+static SSIZE_T http_response_recv_line(rdpTls* tls, HttpResponse* response)
+{
+	WINPR_ASSERT(tls);
+	WINPR_ASSERT(response);
+
+	SSIZE_T payloadOffset = -1;
+	const UINT32 timeoutMS =
+	    freerdp_settings_get_uint32(tls->context->settings, FreeRDP_TcpConnectTimeout);
+	const UINT64 startMS = GetTickCount64();
+	while (payloadOffset <= 0)
+	{
+		size_t bodyLength = 0;
+		size_t position = 0;
+		int status = -1;
+		size_t s = 0;
+		char* end = NULL;
 		/* Read until we encounter \r\n\r\n */
 		ERR_clear_error();
-		int status = BIO_read(tls->bio, Stream_Pointer(response->data), 1);
 
+		status = BIO_read(tls->bio, Stream_Pointer(response->data), 1);
 		if (status <= 0)
 		{
-			if (!BIO_should_retry(tls->bio))
-			{
-				WLog_ERR(TAG, "%s: Retries exceeded", __FUNCTION__);
-				ERR_print_errors_cb(print_bio_error, NULL);
+			if (sleep_or_timeout(tls, startMS, timeoutMS))
 				goto out_error;
-			}
-
-			USleep(100);
 			continue;
 		}
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
+#ifdef FREERDP_HAVE_VALGRIND_MEMCHECK_H
 		VALGRIND_MAKE_MEM_DEFINED(Stream_Pointer(response->data), status);
 #endif
 		Stream_Seek(response->data, (size_t)status);
@@ -871,23 +1308,140 @@ HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
 			goto out_error;
 		}
 
-		/* Always check at most the lase 8 bytes for occurance of the desired
+		/* Always check at most the lase 8 bytes for occurrence of the desired
 		 * sequence of \r\n\r\n */
 		s = (position > 8) ? 8 : position;
 		end = (char*)Stream_Pointer(response->data) - s;
 
 		if (string_strnstr(end, "\r\n\r\n", s) != NULL)
-			payloadOffset = Stream_GetPosition(response->data);
+			payloadOffset = WINPR_ASSERTING_INT_CAST(SSIZE_T, Stream_GetPosition(response->data));
 	}
+
+out_error:
+	return payloadOffset;
+}
+
+static BOOL http_response_recv_body(rdpTls* tls, HttpResponse* response, BOOL readContentLength,
+                                    size_t payloadOffset, size_t bodyLength)
+{
+	BOOL rc = FALSE;
+
+	WINPR_ASSERT(tls);
+	WINPR_ASSERT(response);
+
+	const UINT64 startMS = GetTickCount64();
+	const UINT32 timeoutMS =
+	    freerdp_settings_get_uint32(tls->context->settings, FreeRDP_TcpConnectTimeout);
+
+	if ((response->TransferEncoding == TransferEncodingChunked) && readContentLength)
+	{
+		http_encoding_chunked_context ctx = { 0 };
+		ctx.state = ChunkStateLenghHeader;
+		ctx.nextOffset = 0;
+		ctx.headerFooterPos = 0;
+		int full_len = 0;
+		do
+		{
+			if (!Stream_EnsureRemainingCapacity(response->data, 2048))
+				goto out_error;
+
+			int status = http_chuncked_read(tls->bio, Stream_Pointer(response->data),
+			                                Stream_GetRemainingCapacity(response->data), &ctx);
+			if (status <= 0)
+			{
+				if (sleep_or_timeout(tls, startMS, timeoutMS))
+					goto out_error;
+			}
+			else
+			{
+				Stream_Seek(response->data, (size_t)status);
+				full_len += status;
+			}
+		} while (ctx.state != ChunkStateEnd);
+		response->BodyLength = WINPR_ASSERTING_INT_CAST(uint32_t, full_len);
+		if (response->BodyLength > 0)
+			response->BodyContent = &(Stream_Buffer(response->data))[payloadOffset];
+	}
+	else
+	{
+		while (response->BodyLength < bodyLength)
+		{
+			int status = 0;
+
+			if (!Stream_EnsureRemainingCapacity(response->data, bodyLength - response->BodyLength))
+				goto out_error;
+
+			ERR_clear_error();
+			size_t diff = bodyLength - response->BodyLength;
+			if (diff > INT32_MAX)
+				diff = INT32_MAX;
+			status = BIO_read(tls->bio, Stream_Pointer(response->data), (int)diff);
+
+			if (status <= 0)
+			{
+				if (sleep_or_timeout(tls, startMS, timeoutMS))
+					goto out_error;
+				continue;
+			}
+
+			Stream_Seek(response->data, (size_t)status);
+			response->BodyLength += (unsigned long)status;
+
+			if (response->BodyLength > RESPONSE_SIZE_LIMIT)
+			{
+				WLog_ERR(TAG, "Request body too large! (%" PRIdz " bytes) Aborting!",
+				         response->BodyLength);
+				goto out_error;
+			}
+		}
+
+		if (response->BodyLength > 0)
+			response->BodyContent = &(Stream_Buffer(response->data))[payloadOffset];
+
+		if (bodyLength != response->BodyLength)
+		{
+			WLog_WARN(TAG, "%s unexpected body length: actual: %" PRIuz ", expected: %" PRIuz,
+			          response->ContentType, response->BodyLength, bodyLength);
+
+			if (bodyLength > 0)
+				response->BodyLength = MIN(bodyLength, response->BodyLength);
+		}
+
+		/* '\0' terminate the http body */
+		if (!Stream_EnsureRemainingCapacity(response->data, sizeof(UINT16)))
+			goto out_error;
+		Stream_Write_UINT16(response->data, 0);
+	}
+
+	rc = TRUE;
+out_error:
+	return rc;
+}
+
+HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
+{
+	size_t bodyLength = 0;
+	HttpResponse* response = http_response_new();
+
+	if (!response)
+		return NULL;
+
+	response->ContentLength = 0;
+
+	const SSIZE_T payloadOffset = http_response_recv_line(tls, response);
+	if (payloadOffset < 0)
+		goto out_error;
 
 	if (payloadOffset)
 	{
 		size_t count = 0;
-		char* buffer = (char*)Stream_Buffer(response->data);
-		char* line = (char*)Stream_Buffer(response->data);
+		char* buffer = Stream_BufferAs(response->data, char);
+		char* line = Stream_BufferAs(response->data, char);
 		char* context = NULL;
 
-		while ((line = string_strnstr(line, "\r\n", payloadOffset - (line - buffer) - 2UL)))
+		while ((line = string_strnstr(line, "\r\n",
+		                              WINPR_ASSERTING_INT_CAST(size_t, payloadOffset) -
+		                                  WINPR_ASSERTING_INT_CAST(size_t, (line - buffer)) - 2UL)))
 		{
 			line += 2;
 			count++;
@@ -918,7 +1472,10 @@ HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
 		if (!http_response_parse_header(response))
 			goto out_error;
 
-		response->BodyLength = Stream_GetPosition(response->data) - payloadOffset;
+		response->BodyLength =
+		    Stream_GetPosition(response->data) - WINPR_ASSERTING_INT_CAST(size_t, payloadOffset);
+
+		WINPR_ASSERT(response->BodyLength == 0);
 		bodyLength = response->BodyLength; /* expected body length */
 
 		if (readContentLength)
@@ -934,6 +1491,8 @@ HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
 
 					break;
 				}
+				else
+					readContentLength = FALSE; /* prevent chunked read */
 
 				cur = strchr(cur, ';');
 			}
@@ -947,58 +1506,41 @@ HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
 		}
 
 		/* Fetch remaining body! */
-		while (response->BodyLength < bodyLength)
-		{
-			int status;
-
-			if (!Stream_EnsureRemainingCapacity(response->data, bodyLength - response->BodyLength))
-				goto out_error;
-
-			ERR_clear_error();
-			status = BIO_read(tls->bio, Stream_Pointer(response->data),
-			                  bodyLength - response->BodyLength);
-
-			if (status <= 0)
-			{
-				if (!BIO_should_retry(tls->bio))
-				{
-					WLog_ERR(TAG, "%s: Retries exceeded", __FUNCTION__);
-					ERR_print_errors_cb(print_bio_error, NULL);
-					goto out_error;
-				}
-
-				USleep(100);
-				continue;
-			}
-
-			Stream_Seek(response->data, (size_t)status);
-			response->BodyLength += (unsigned long)status;
-
-			if (response->BodyLength > RESPONSE_SIZE_LIMIT)
-			{
-				WLog_ERR(TAG, "Request body too large! (%" PRIdz " bytes) Aborting!",
-				         response->BodyLength);
-				goto out_error;
-			}
-		}
-
-		if (response->BodyLength > 0)
-			response->BodyContent = &(Stream_Buffer(response->data))[payloadOffset];
-
-		if (bodyLength != response->BodyLength)
-		{
-			WLog_WARN(TAG, "%s: %s unexpected body length: actual: %" PRIuz ", expected: %" PRIuz,
-			          __FUNCTION__, response->ContentType, response->BodyLength, bodyLength);
-
-			if (bodyLength > 0)
-				response->BodyLength = MIN(bodyLength, response->BodyLength);
-		}
+		if (!http_response_recv_body(tls, response, readContentLength,
+		                             WINPR_ASSERTING_INT_CAST(size_t, payloadOffset), bodyLength))
+			goto out_error;
 	}
+	Stream_SealLength(response->data);
+
+	/* Ensure '\0' terminated string */
+	if (!Stream_EnsureRemainingCapacity(response->data, 2))
+		goto out_error;
+	Stream_Write_UINT16(response->data, 0);
 
 	return response;
 out_error:
 	http_response_free(response);
 	return NULL;
+}
+
+const BYTE* http_response_get_body(const HttpResponse* response)
+{
+	if (!response)
+		return NULL;
+
+	return response->BodyContent;
+}
+
+static BOOL set_compare(wListDictionary* dict)
+{
+	WINPR_ASSERT(dict);
+	wObject* key = ListDictionary_KeyObject(dict);
+	wObject* value = ListDictionary_KeyObject(dict);
+	if (!key || !value)
+		return FALSE;
+	key->fnObjectEquals = strings_equals_nocase;
+	value->fnObjectEquals = strings_equals_nocase;
+	return TRUE;
 }
 
 HttpResponse* http_response_new(void)
@@ -1013,18 +1555,29 @@ HttpResponse* http_response_new(void)
 	if (!response->Authenticates)
 		goto fail;
 
+	if (!set_compare(response->Authenticates))
+		goto fail;
+
+	response->SetCookie = ListDictionary_New(FALSE);
+
+	if (!response->SetCookie)
+		goto fail;
+
+	if (!set_compare(response->SetCookie))
+		goto fail;
+
 	response->data = Stream_New(NULL, 2048);
 
 	if (!response->data)
 		goto fail;
 
-	ListDictionary_KeyObject(response->Authenticates)->fnObjectEquals = strings_equals_nocase;
-	ListDictionary_ValueObject(response->Authenticates)->fnObjectEquals = strings_equals_nocase;
-
 	response->TransferEncoding = TransferEncodingIdentity;
 	return response;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	http_response_free(response);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -1033,8 +1586,9 @@ void http_response_free(HttpResponse* response)
 	if (!response)
 		return;
 
-	free(response->lines);
+	free((void*)response->lines);
 	ListDictionary_Free(response->Authenticates);
+	ListDictionary_Free(response->SetCookie);
 	Stream_Free(response->data, TRUE);
 	free(response);
 }
@@ -1064,23 +1618,21 @@ BOOL http_request_set_content_length(HttpRequest* request, size_t length)
 	return TRUE;
 }
 
-long http_response_get_status_code(HttpResponse* response)
+INT16 http_response_get_status_code(const HttpResponse* response)
 {
-	if (!response)
-		return -1;
+	WINPR_ASSERT(response);
 
 	return response->StatusCode;
 }
 
-SSIZE_T http_response_get_body_length(HttpResponse* response)
+size_t http_response_get_body_length(const HttpResponse* response)
 {
-	if (!response)
-		return -1;
+	WINPR_ASSERT(response);
 
-	return (SSIZE_T)response->BodyLength;
+	return response->BodyLength;
 }
 
-const char* http_response_get_auth_token(HttpResponse* response, const char* method)
+const char* http_response_get_auth_token(const HttpResponse* response, const char* method)
 {
 	if (!response || !method)
 		return NULL;
@@ -1091,7 +1643,18 @@ const char* http_response_get_auth_token(HttpResponse* response, const char* met
 	return ListDictionary_GetItemValue(response->Authenticates, method);
 }
 
-TRANSFER_ENCODING http_response_get_transfer_encoding(HttpResponse* response)
+const char* http_response_get_setcookie(const HttpResponse* response, const char* cookie)
+{
+	if (!response || !cookie)
+		return NULL;
+
+	if (!ListDictionary_Contains(response->SetCookie, cookie))
+		return NULL;
+
+	return ListDictionary_GetItemValue(response->SetCookie, cookie);
+}
+
+TRANSFER_ENCODING http_response_get_transfer_encoding(const HttpResponse* response)
 {
 	if (!response)
 		return TransferEncodingUnknown;
@@ -1099,7 +1662,7 @@ TRANSFER_ENCODING http_response_get_transfer_encoding(HttpResponse* response)
 	return response->TransferEncoding;
 }
 
-BOOL http_response_is_websocket(HttpContext* http, HttpResponse* response)
+BOOL http_response_is_websocket(const HttpContext* http, const HttpResponse* response)
 {
 	BOOL isWebsocket = FALSE;
 	WINPR_DIGEST_CTX* sha1 = NULL;
@@ -1149,4 +1712,19 @@ out:
 	winpr_Digest_Free(sha1);
 	free(base64accept);
 	return isWebsocket;
+}
+
+void http_response_log_error_status(wLog* log, DWORD level, const HttpResponse* response)
+{
+	WINPR_ASSERT(log);
+	WINPR_ASSERT(response);
+
+	if (!WLog_IsLevelActive(log, level))
+		return;
+
+	char buffer[64] = { 0 };
+	const long status = http_response_get_status_code(response);
+	WLog_Print(log, level, "Unexpected HTTP status: %s",
+	           freerdp_http_status_string_format(status, buffer, ARRAYSIZE(buffer)));
+	http_response_print(log, level, response);
 }

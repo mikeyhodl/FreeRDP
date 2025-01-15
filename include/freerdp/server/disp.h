@@ -22,53 +22,54 @@
 
 #include <freerdp/channels/disp.h>
 
-#include <freerdp/freerdp.h>
 #include <freerdp/api.h>
 #include <freerdp/types.h>
-
-typedef struct s_disp_server_private DispServerPrivate;
-typedef struct s_disp_server_context DispServerContext;
-
-typedef BOOL (*psDispChannelIdAssigned)(DispServerContext* context, UINT32 channelId);
-
-typedef UINT (*psDispMonitorLayout)(DispServerContext* context,
-                                    const DISPLAY_CONTROL_MONITOR_LAYOUT_PDU* pdu);
-typedef UINT (*psDispCaps)(DispServerContext* context);
-typedef UINT (*psDispOpen)(DispServerContext* context);
-typedef UINT (*psDispClose)(DispServerContext* context);
-
-struct s_disp_server_context
-{
-	void* custom;
-	HANDLE vcm;
-
-	/* Server capabilities */
-	UINT32 MaxNumMonitors;
-	UINT32 MaxMonitorAreaFactorA;
-	UINT32 MaxMonitorAreaFactorB;
-
-	psDispOpen Open;
-	psDispClose Close;
-
-	psDispMonitorLayout DispMonitorLayout;
-	psDispCaps DisplayControlCaps;
-
-	DispServerPrivate* priv;
-	rdpContext* rdpcontext;
-
-	/**
-	 * Callback, when the channel got its id assigned.
-	 */
-	psDispChannelIdAssigned ChannelIdAssigned;
-};
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	FREERDP_API DispServerContext* disp_server_context_new(HANDLE vcm);
+	typedef struct s_disp_server_private DispServerPrivate;
+	typedef struct s_disp_server_context DispServerContext;
+
+	typedef BOOL (*psDispChannelIdAssigned)(DispServerContext* context, UINT32 channelId);
+
+	typedef UINT (*psDispMonitorLayout)(DispServerContext* context,
+	                                    const DISPLAY_CONTROL_MONITOR_LAYOUT_PDU* pdu);
+	typedef UINT (*psDispCaps)(DispServerContext* context);
+	typedef UINT (*psDispOpen)(DispServerContext* context);
+	typedef UINT (*psDispClose)(DispServerContext* context);
+
+	struct s_disp_server_context
+	{
+		void* custom;
+		HANDLE vcm;
+
+		/* Server capabilities */
+		UINT32 MaxNumMonitors;
+		UINT32 MaxMonitorAreaFactorA;
+		UINT32 MaxMonitorAreaFactorB;
+
+		psDispOpen Open;
+		psDispClose Close;
+
+		psDispMonitorLayout DispMonitorLayout;
+		psDispCaps DisplayControlCaps;
+
+		DispServerPrivate* priv;
+		rdpContext* rdpcontext;
+
+		/**
+		 * Callback, when the channel got its id assigned.
+		 */
+		psDispChannelIdAssigned ChannelIdAssigned;
+	};
+
 	FREERDP_API void disp_server_context_free(DispServerContext* context);
+
+	WINPR_ATTR_MALLOC(disp_server_context_free, 1)
+	FREERDP_API DispServerContext* disp_server_context_new(HANDLE vcm);
 
 #ifdef __cplusplus
 }

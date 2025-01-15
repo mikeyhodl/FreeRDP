@@ -16,26 +16,19 @@
 # limitations under the License.
 
 winpr_module_add(
-	synch.c
-	work.c
-	timer.c
-	io.c
-	cleanup_group.c
-	pool.c
-	pool.h
-	callback.c
-	callback_cleanup.c)
+  synch.c
+  work.c
+  timer.c
+  io.c
+  cleanup_group.c
+  pool.c
+  pool.h
+  callback.c
+  callback_cleanup.c
+)
 
-winpr_library_add_private(
-	${CMAKE_THREAD_LIBS_INIT}
-	${CMAKE_DL_LIBS})
+winpr_library_add_private(${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
-if(${CMAKE_SYSTEM_NAME} MATCHES SunOS)
-	winpr_library_add_private(rt)
+if(BUILD_TESTING_INTERNAL OR BUILD_TESTING)
+  add_subdirectory(test)
 endif()
-
-if(BUILD_TESTING)
-	add_subdirectory(test)
-endif()
-
-

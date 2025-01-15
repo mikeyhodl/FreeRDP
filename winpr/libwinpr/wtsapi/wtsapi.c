@@ -52,10 +52,10 @@ static WtsApiFunctionTable WtsApi32_WtsApiFunctionTable = { 0 };
 
 #ifdef __MINGW32__
 #define WTSAPI32_LOAD_PROC(NAME, TYPE) \
-	WtsApi32_WtsApiFunctionTable.p##NAME = (TYPE)GetProcAddress(g_WtsApi32Module, "WTS" #NAME);
+	WtsApi32_WtsApiFunctionTable.p##NAME = GetProcAddressAs(g_WtsApi32Module, "WTS" #NAME, TYPE);
 #else
 #define WTSAPI32_LOAD_PROC(NAME, TYPE) \
-	WtsApi32_WtsApiFunctionTable.p##NAME = (##TYPE)GetProcAddress(g_WtsApi32Module, "WTS" #NAME);
+	WtsApi32_WtsApiFunctionTable.p##NAME = GetProcAddressAs(g_WtsApi32Module, "WTS" #NAME, ##TYPE);
 #endif
 
 static BOOL WtsApi32_InitializeWtsApi(void)
@@ -672,6 +672,8 @@ const CHAR* WTSSessionStateToString(WTS_CONNECTSTATE_CLASS state)
 			return "WTSDown";
 		case WTSInit:
 			return "WTSInit";
+		default:
+			break;
 	}
 	return "INVALID_STATE";
 }
@@ -679,7 +681,7 @@ const CHAR* WTSSessionStateToString(WTS_CONNECTSTATE_CLASS state)
 BOOL WTSRegisterWtsApiFunctionTable(const WtsApiFunctionTable* table)
 {
 	/* Use InitOnceExecuteOnce here as well - otherwise a table set with this
-	   function is overriden on the first use of a WTS* API call (due to
+	   function is overridden on the first use of a WTS* API call (due to
 	   wtsapiInitOnce not being set). */
 	union
 	{
@@ -695,26 +697,23 @@ BOOL WTSRegisterWtsApiFunctionTable(const WtsApiFunctionTable* table)
 
 static BOOL LoadAndInitialize(char* library)
 {
-	INIT_WTSAPI_FN pInitWtsApi;
 	g_WtsApiModule = LoadLibraryX(library);
 
 	if (!g_WtsApiModule)
 		return FALSE;
 
-	pInitWtsApi = (INIT_WTSAPI_FN)GetProcAddress(g_WtsApiModule, "InitWtsApi");
+	INIT_WTSAPI_FN pInitWtsApi = GetProcAddressAs(g_WtsApiModule, "InitWtsApi", INIT_WTSAPI_FN);
 
 	if (!pInitWtsApi)
-	{
 		return FALSE;
-	}
 
 	g_WtsApi = pInitWtsApi();
 	return TRUE;
 }
 
-static void InitializeWtsApiStubs_Env()
+static void InitializeWtsApiStubs_Env(void)
 {
-	DWORD nSize;
+	DWORD nSize = 0;
 	char* env = NULL;
 	LPCSTR wts = "WTSAPI_LIBRARY";
 
@@ -737,11 +736,11 @@ static void InitializeWtsApiStubs_Env()
 
 #define FREERDS_LIBRARY_NAME "libfreerds-fdsapi.so"
 
-static void InitializeWtsApiStubs_FreeRDS()
+static void InitializeWtsApiStubs_FreeRDS(void)
 {
-	wIniFile* ini;
-	const char* prefix;
-	const char* libdir;
+	wIniFile* ini = NULL;
+	const char* prefix = NULL;
+	const char* libdir = NULL;
 
 	if (g_WtsApi)
 		return;
@@ -762,8 +761,8 @@ static void InitializeWtsApiStubs_FreeRDS()
 
 	if (prefix && libdir)
 	{
-		char* prefix_libdir;
-		char* wtsapi_library;
+		char* prefix_libdir = NULL;
+		char* wtsapi_library = NULL;
 		prefix_libdir = GetCombinedPath(prefix, libdir);
 		wtsapi_library = GetCombinedPath(prefix_libdir, FREERDS_LIBRARY_NAME);
 

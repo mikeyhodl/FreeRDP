@@ -27,18 +27,20 @@
 
 static ITSMFAudioDevice* tsmf_load_audio_device_by_name(const char* name, const char* device)
 {
-	ITSMFAudioDevice* audio;
-	TSMF_AUDIO_DEVICE_ENTRY entry;
+	ITSMFAudioDevice* audio = NULL;
+	union
+	{
+		PVIRTUALCHANNELENTRY pvce;
+		TSMF_AUDIO_DEVICE_ENTRY entry;
+	} cnv;
+	cnv.pvce = freerdp_load_channel_addin_entry("tsmf", name, "audio", 0);
 
-	entry =
-	    (TSMF_AUDIO_DEVICE_ENTRY)(void*)freerdp_load_channel_addin_entry("tsmf", name, "audio", 0);
-
-	if (!entry)
+	if (!cnv.entry)
 		return NULL;
 
-	audio = entry();
+	const UINT rc = cnv.entry(&audio);
 
-	if (!audio)
+	if ((rc != CHANNEL_RC_OK) || !audio)
 	{
 		WLog_ERR(TAG, "failed to call export function in %s", name);
 		return NULL;

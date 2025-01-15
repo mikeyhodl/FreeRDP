@@ -26,6 +26,7 @@
 
 #include <winpr/cmdline.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/channels/rdpsnd.h>
 
 #include "audin_main.h"
@@ -203,7 +204,7 @@ static UINT audin_sndio_open(IAudinDevice* device, AudinReceive receive, void* u
 	                                   sndio, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed");
-		CloseHandle(sndio->stopEvent);
+		(void)CloseHandle(sndio->stopEvent);
 		sndio->stopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -226,7 +227,7 @@ static UINT audin_sndio_close(IAudinDevice* device)
 
 	if (sndio->stopEvent != NULL)
 	{
-		SetEvent(sndio->stopEvent);
+		(void)SetEvent(sndio->stopEvent);
 
 		if (WaitForSingleObject(sndio->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -235,9 +236,9 @@ static UINT audin_sndio_close(IAudinDevice* device)
 			return error;
 		}
 
-		CloseHandle(sndio->stopEvent);
+		(void)CloseHandle(sndio->stopEvent);
 		sndio->stopEvent = NULL;
-		CloseHandle(sndio->thread);
+		(void)CloseHandle(sndio->thread);
 		sndio->thread = NULL;
 	}
 
@@ -308,7 +309,8 @@ static UINT audin_sndio_parse_addin_args(AudinSndioDevice* device, ADDIN_ARGV* a
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT sndio_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE sndio_freerdp_audin_client_subsystem_entry(
+    PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	ADDIN_ARGV* args;
 	AudinSndioDevice* sndio;

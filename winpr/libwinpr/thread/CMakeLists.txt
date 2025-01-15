@@ -16,19 +16,16 @@
 # limitations under the License.
 
 winpr_module_add(
-	apc.h
-	apc.c
-	argv.c
-	process.c
-	processor.c
-	thread.c
-	thread.h
-	tls.c)
+  apc.h
+  apc.c
+  argv.c
+  process.c
+  processor.c
+  thread.c
+  thread.h
+  tls.c
+)
 
-if(${CMAKE_SYSTEM_NAME} MATCHES SunOS)
-	winpr_library_add_private(rt)
-endif()
-
-if(BUILD_TESTING)
-	add_subdirectory(test)
+if(BUILD_TESTING_INTERNAL OR BUILD_TESTING)
+  add_subdirectory(test)
 endif()

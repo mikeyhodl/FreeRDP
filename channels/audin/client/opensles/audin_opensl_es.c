@@ -29,6 +29,7 @@
 #include <winpr/crt.h>
 #include <winpr/cmdline.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/addin.h>
 #include <freerdp/channels/rdpsnd.h>
 
@@ -67,7 +68,7 @@ static void audin_receive(void* context, const void* data, size_t size)
 
 	if (!opensles || !data)
 	{
-		WLog_ERR(TAG, "[%s] Invalid arguments context=%p, data=%p", __FUNCTION__, opensles, data);
+		WLog_ERR(TAG, "Invalid arguments context=%p, data=%p", opensles, data);
 		return;
 	}
 
@@ -119,7 +120,7 @@ static BOOL audin_opensles_format_supported(IAudinDevice* device, const AUDIO_FO
 			break;
 
 		default:
-			WLog_Print(opensles->log, WLOG_DEBUG, "Encoding '%s' [0x%04X" PRIX16 "] not supported",
+			WLog_Print(opensles->log, WLOG_DEBUG, "Encoding '%s' [0x%04" PRIX16 "] not supported",
 			           audio_format_get_tag_string(format->wFormatTag), format->wFormatTag);
 			break;
 	}
@@ -291,7 +292,8 @@ static UINT audin_opensles_parse_addin_args(AudinOpenSLESDevice* device, const A
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT opensles_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE opensles_freerdp_audin_client_subsystem_entry(
+    PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	const ADDIN_ARGV* args;
 	AudinOpenSLESDevice* opensles;

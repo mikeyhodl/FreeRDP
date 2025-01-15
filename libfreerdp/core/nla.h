@@ -29,7 +29,6 @@ typedef struct rdp_nla rdpNla;
 #include <winpr/stream.h>
 #include <winpr/crypto.h>
 
-#include <freerdp/crypto/tls.h>
 #include <freerdp/crypto/ber.h>
 #include <freerdp/crypto/der.h>
 #include <freerdp/crypto/crypto.h>
@@ -41,6 +40,7 @@ typedef enum
 	NLA_STATE_INITIAL,
 	NLA_STATE_NEGO_TOKEN,
 	NLA_STATE_PUB_KEY_AUTH,
+	NLA_STATE_EARLY_USER_AUTH,
 	NLA_STATE_AUTH_INFO,
 	NLA_STATE_POST_NEGO,
 	NLA_STATE_FINAL
@@ -58,6 +58,7 @@ FREERDP_LOCAL BOOL nla_set_state(rdpNla* nla, NLA_STATE state);
 FREERDP_LOCAL const char* nla_get_state_str(NLA_STATE state);
 
 FREERDP_LOCAL DWORD nla_get_error(rdpNla* nla);
+FREERDP_LOCAL INT32 nla_get_sspi_error(rdpNla* nla);
 
 FREERDP_LOCAL BOOL nla_set_service_principal(rdpNla* nla, const char* service,
                                              const char* hostname);
@@ -68,7 +69,14 @@ FREERDP_LOCAL BOOL nla_sspi_module_init(rdpNla* nla);
 FREERDP_LOCAL BOOL nla_impersonate(rdpNla* nla);
 FREERDP_LOCAL BOOL nla_revert_to_self(rdpNla* nla);
 
-FREERDP_LOCAL rdpNla* nla_new(rdpContext* context, rdpTransport* transport);
 FREERDP_LOCAL void nla_free(rdpNla* nla);
+
+WINPR_ATTR_MALLOC(nla_free, 1)
+FREERDP_LOCAL rdpNla* nla_new(rdpContext* context, rdpTransport* transport);
+
+FREERDP_LOCAL void nla_set_early_user_auth(rdpNla* nla, BOOL earlyUserAuth);
+FREERDP_LOCAL BOOL nla_encrypt(rdpNla* nla, const SecBuffer* inBuffer, SecBuffer* outBuffer);
+FREERDP_LOCAL BOOL nla_decrypt(rdpNla* nla, const SecBuffer* inBuffer, SecBuffer* outBuffer);
+FREERDP_LOCAL SECURITY_STATUS nla_QueryContextAttributes(rdpNla* nla, DWORD ulAttr, PVOID pBuffer);
 
 #endif /* FREERDP_LIB_CORE_NLA_H */

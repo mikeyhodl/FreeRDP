@@ -30,6 +30,8 @@
 #include <freerdp/log.h>
 #include <freerdp/utils/ringbuffer.h>
 
+#include "../../crypto/tls.h"
+
 typedef struct rdp_rpc rdpRpc;
 
 #pragma pack(push, 1)
@@ -83,7 +85,6 @@ typedef struct
 
 #include <freerdp/types.h>
 #include <freerdp/settings.h>
-#include <freerdp/crypto/tls.h>
 #include <freerdp/crypto/crypto.h>
 #include <freerdp/api.h>
 
@@ -396,6 +397,8 @@ typedef struct
 
 } rpcconn_cancel_hdr_t;
 
+#pragma pack(pop)
+
 /* fault codes */
 
 typedef struct
@@ -455,6 +458,8 @@ typedef struct
 #define nca_s_fault_codeset_conv_error 0x1C000023
 #define nca_s_fault_object_not_found 0x1C000024
 #define nca_s_fault_no_client_stub 0x1C000025
+
+#pragma pack(push, 1)
 
 typedef struct
 {
@@ -601,7 +606,8 @@ typedef struct
 	rdpTls* tls;
 	rdpCredsspAuth* auth;
 	HttpContext* http;
-	BYTE Cookie[16];
+	GUID Cookie;
+	rdpRpc* rpc;
 } RpcChannel;
 
 /* Ping Originator */
@@ -690,8 +696,8 @@ typedef enum
 
 typedef struct
 {
-	BYTE Cookie[16];
-	BYTE AssociationGroupId[16];
+	GUID Cookie;
+	GUID AssociationGroupId;
 	VIRTUAL_CONNECTION_STATE State;
 	RpcInChannel* DefaultInChannel;
 	RpcInChannel* NonDefaultInChannel;
@@ -710,7 +716,7 @@ typedef struct
 
 typedef struct
 {
-	BYTE Cookie[16];
+	GUID Cookie;
 	UINT32 ReferenceCount;
 	RpcVirtualConnection* Reference;
 } RpcVirtualConnectionCookieEntry;
@@ -722,7 +728,7 @@ struct rdp_rpc
 	UINT32 result;
 
 	rdpCredsspAuth* auth;
-	size_t SendSeqNum;
+	UINT32 SendSeqNum;
 
 	RpcClient* client;
 
@@ -748,15 +754,17 @@ struct rdp_rpc
 	UINT32 CurrentKeepAliveInterval;
 
 	RpcVirtualConnection* VirtualConnection;
+	wLog* log;
 };
 
-FREERDP_LOCAL void rpc_pdu_header_print(const rpcconn_hdr_t* header);
+FREERDP_LOCAL const char* rpc_vc_state_str(VIRTUAL_CONNECTION_STATE state);
+FREERDP_LOCAL void rpc_pdu_header_print(wLog* log, const rpcconn_hdr_t* header);
 FREERDP_LOCAL rpcconn_common_hdr_t rpc_pdu_header_init(const rdpRpc* rpc);
 
 FREERDP_LOCAL size_t rpc_offset_align(size_t* offset, size_t alignment);
 FREERDP_LOCAL size_t rpc_offset_pad(size_t* offset, size_t pad);
 
-FREERDP_LOCAL BOOL rpc_get_stub_data_info(const rpcconn_hdr_t* header, size_t* offset,
+FREERDP_LOCAL BOOL rpc_get_stub_data_info(rdpRpc* rpc, const rpcconn_hdr_t* header, size_t* offset,
                                           size_t* length);
 
 FREERDP_LOCAL SSIZE_T rpc_channel_write(RpcChannel* channel, const BYTE* data, size_t length);
@@ -765,8 +773,9 @@ FREERDP_LOCAL SSIZE_T rpc_channel_read(RpcChannel* channel, wStream* s, size_t l
 
 FREERDP_LOCAL void rpc_channel_free(RpcChannel* channel);
 
-FREERDP_LOCAL RpcOutChannel* rpc_out_channel_new(rdpRpc* rpc);
-FREERDP_LOCAL int rpc_out_channel_replacement_connect(RpcOutChannel* outChannel, int timeout);
+WINPR_ATTR_MALLOC(rpc_channel_free, 1)
+FREERDP_LOCAL RpcOutChannel* rpc_out_channel_new(rdpRpc* rpc, const GUID* guid);
+FREERDP_LOCAL int rpc_out_channel_replacement_connect(RpcOutChannel* outChannel, uint32_t timeout);
 
 FREERDP_LOCAL BOOL rpc_in_channel_transition_to_state(RpcInChannel* inChannel,
                                                       CLIENT_IN_CHANNEL_STATE state);
@@ -779,7 +788,9 @@ FREERDP_LOCAL BOOL rpc_virtual_connection_transition_to_state(rdpRpc* rpc,
 
 FREERDP_LOCAL BOOL rpc_connect(rdpRpc* rpc, UINT32 timeout);
 
-FREERDP_LOCAL rdpRpc* rpc_new(rdpTransport* transport);
 FREERDP_LOCAL void rpc_free(rdpRpc* rpc);
+
+WINPR_ATTR_MALLOC(rpc_free, 1)
+FREERDP_LOCAL rdpRpc* rpc_new(rdpTransport* transport);
 
 #endif /* FREERDP_LIB_CORE_GATEWAY_RPC_H */

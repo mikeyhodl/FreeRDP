@@ -120,7 +120,7 @@ wfInfo* wf_info_init()
 		if (!wfi->updateSemaphore)
 		{
 			WLog_ERR(TAG, "CreateSemaphore error: %lu", GetLastError());
-			CloseHandle(wfi->mutex);
+			(void)CloseHandle(wfi->mutex);
 			free(wfi);
 			return NULL;
 		}
@@ -130,8 +130,8 @@ wfInfo* wf_info_init()
 		if (!wfi->updateThread)
 		{
 			WLog_ERR(TAG, "Failed to create update thread");
-			CloseHandle(wfi->mutex);
-			CloseHandle(wfi->updateSemaphore);
+			(void)CloseHandle(wfi->mutex);
+			(void)CloseHandle(wfi->updateSemaphore);
 			free(wfi);
 			return NULL;
 		}
@@ -142,9 +142,9 @@ wfInfo* wf_info_init()
 		if (!wfi->peers)
 		{
 			WLog_ERR(TAG, "Failed to allocate memory for peer");
-			CloseHandle(wfi->mutex);
-			CloseHandle(wfi->updateSemaphore);
-			CloseHandle(wfi->updateThread);
+			(void)CloseHandle(wfi->mutex);
+			(void)CloseHandle(wfi->updateSemaphore);
+			(void)CloseHandle(wfi->updateThread);
 			free(wfi);
 			return NULL;
 		}
@@ -193,7 +193,6 @@ wfInfo* wf_info_get_instance()
 
 BOOL wf_info_peer_register(wfInfo* wfi, wfPeerContext* context)
 {
-	int i;
 	int peerId = 0;
 
 	if (!wfi || !context)
@@ -227,7 +226,7 @@ BOOL wf_info_peer_register(wfInfo* wfi, wfPeerContext* context)
 #endif
 
 	// look through the array of peers until an empty slot
-	for (i = 0; i < FREERDP_SERVER_WIN_INFO_MAXPEERS; ++i)
+	for (int i = 0; i < FREERDP_SERVER_WIN_INFO_MAXPEERS; ++i)
 	{
 		// empty index will be our peer id
 		if (wfi->peers[i] == NULL)
@@ -245,7 +244,7 @@ BOOL wf_info_peer_register(wfInfo* wfi, wfPeerContext* context)
 	wfreerdp_server_peer_callback_event(peerId, FREERDP_SERVER_WIN_SRV_CALLBACK_EVENT_CONNECT);
 	return TRUE;
 fail_driver_init:
-	CloseHandle(context->updateEvent);
+	(void)CloseHandle(context->updateEvent);
 	context->updateEvent = NULL;
 fail_update_event:
 fail_peer_count:
@@ -262,7 +261,7 @@ void wf_info_peer_unregister(wfInfo* wfi, wfPeerContext* context)
 		peerId = ((rdpContext*)context)->peer->pId;
 		wfi->peers[peerId] = NULL;
 		wfi->peerCount--;
-		CloseHandle(context->updateEvent);
+		(void)CloseHandle(context->updateEvent);
 		WLog_INFO(TAG, "Unregistering Peer: id=%d, #=%d", peerId, wfi->peerCount);
 #ifdef WITH_DXGI_1_2
 
@@ -308,11 +307,10 @@ void wf_info_find_invalid_region(wfInfo* wfi)
 #ifdef WITH_DXGI_1_2
 	wf_dxgi_getInvalidRegion(&wfi->invalid);
 #else
-	int i;
 	GETCHANGESBUF* buf;
 	buf = (GETCHANGESBUF*)wfi->changeBuffer;
 
-	for (i = wfi->lastUpdate; i != wfi->nextUpdate; i = (i + 1) % MAXCHANGES_BUF)
+	for (ULONG i = wfi->lastUpdate; i != wfi->nextUpdate; i = (i + 1) % MAXCHANGES_BUF)
 	{
 		LPRECT lpR = &buf->buffer->pointrect[i].rect;
 

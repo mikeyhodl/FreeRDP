@@ -15,7 +15,7 @@
     <string name="menu_app_settings">설정</string>
     <!-- Bookmark menu items -->
     <string name="menu_title_bookmark">연결</string>
-    <string name="menu_connect">열결하기</string>
+    <string name="menu_connect">연결하기</string>
     <string name="menu_edit">수정</string>
     <string name="menu_delete">삭제</string>
     <!-- Session menu items -->
@@ -59,15 +59,6 @@
         <item>True Color (24 Bit)</item>
         <item>Highest Quality (32 Bit)</item>
     </string-array>
-    <!-- This array is used as is in code,
-	do not translate! -->
-    <string-array name="colors_values_array" translatable="false">
-        <item>8</item>
-        <item>15</item>
-        <item>16</item>
-        <item>24</item>
-        <item>32</item>
-    </string-array>
     <string name="settings_resolution">해상도</string>
     <string name="resolution_automatic">자동</string>
     <string name="resolution_fit">화면에 맞게</string>
@@ -85,32 +76,15 @@
         <item>1920x1080</item>
         <item>1920x1200</item>
     </string-array>
-    <!-- This array is used as is in code,
-	do not translate! -->
-    <string-array name="resolutions_values_array" translatable="false">
-        <item>automatic</item>
-        <item>fitscreen</item>
-        <item>custom</item>
-        <item>640x480</item>
-        <item>720x480</item>
-        <item>800x600</item>
-        <item>1024x768</item>
-        <item>1280x1024</item>
-        <item>1440x900</item>
-        <item>1920x1080</item>
-        <item>1920x1200</item>
-    </string-array>
     <string name="settings_width">너비</string>
     <string name="settings_height">높이</string>
     <string name="settings_performance">성능</string>
     <string name="settings_cat_performance">성능 설정</string>
     <string name="settings_perf_remotefx">RemoteFX</string>
-    <string name="settings_perf_gfx" translatable="false">GFX</string>
-    <string name="settings_perf_gfx_h264" translatable="false">H264</string>
-    <string name="settings_perf_wallpaper">데스크탑 배경</string>
+    <string name="settings_perf_wallpaper">데스크톱 배경</string>
     <string name="settings_perf_font_smoothing">부드러운 폰트</string>
-    <string name="settings_perf_desktop_composition">Desktop Composition</string>
-    <string name="settings_perf_full_window_drag">Window contents while dragging</string>
+    <string name="settings_perf_desktop_composition">데스크톱 구성</string>
+    <string name="settings_perf_full_window_drag">윈도 끄는 동안 윈도 내용</string>
     <string name="settings_perf_menu_animation">메뉴 에니메이션</string>
     <string name="settings_perf_theming">테마 스타일</string>
     <string name="settings_advanced">고급</string>
@@ -128,14 +102,7 @@
         <item>서버에서 플레이</item>
         <item>기기에서 플레이</item>
     </string-array>
-    <!-- This array is used as is in code,
-	do not translate! -->
-    <string-array name="redirect_sound_values_array" translatable="false">
-        <item>2</item>
-        <item>1</item>
-        <item>0</item>
-    </string-array>
-    <string name="settings_redirect_microphone">마이크로폰 전달하기</string>
+    <string name="settings_redirect_microphone">마이크 리다이렉트</string>
     <string name="settings_security">보안</string>
     <string-array name="security_array">
         <item>자동</item>
@@ -143,15 +110,7 @@
         <item>TLS</item>
         <item>NLA</item>
     </string-array>
-    <!-- This array is used as is in code,
-	do not translate! -->
-    <string-array name="security_values_array" translatable="false">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-        <item>3</item>
-    </string-array>
-    <string name="settings_remote_program">리모트 프로그램</string>
+    <string name="settings_remote_program">원격 프로그램</string>
     <string name="settings_work_dir">작업 디렉터리</string>
     <string name="settings_async_channel">비동기 채널</string>
     <string name="settings_async_update">비동기 갱신</string>
@@ -167,6 +126,7 @@
     <string name="settings_ui_invert_scrolling">스크롤 뒤집기</string>
     <string name="settings_ui_auto_scroll_touchpointer">터치 포인터 자동 스크롤</string>
     <string name="settings_ui_ask_on_exit">종료할 때 다이얼로그 보이기</string>
+    <string name="settings_ui_use_back_as_altf4">뒤로 버튼을 Alt+F4로 사용</string>
     <string name="settings_cat_power">절전 기능</string>
     <string name="settings_cat_client">클라이언트</string>
     <string name="settings_power_disconnect_timeout">사용하지 않는 연결 종료</string>
@@ -185,11 +145,11 @@
     <!-- Error message strings -->
     <string name="error_bookmark_incomplete_title">저장하지 않고 취소하기?</string>
     <string name="error_bookmark_incomplete">중단하려면 "취소"를 탭 하세요!\n필수 입력을 채우고 "계속"을 탭 하세요!</string>
-    <string name="error_connection_failure">서버에 연결하지 못 했습니다!</string>
+    <string name="error_connection_failure">서버에 연결할 수 없습니다!</string>
     <!-- Info message strings -->
-    <string name="info_capabilities_changed">서버가 설정을 지원하지 않아서 화면 설정이 변경되었습니다!</string>
-    <string name="info_reset_success">캐시된 인증서를 삭제했습니다!</string>
-    <string name="info_reset_failed">캐시된 인증서를 삭제하지 못 했습니다!</string>
+    <string name="info_capabilities_changed">화면 설정이 서버에서 지원하는 설정으로 변경되었습니다.</string>
+    <string name="info_reset_success">인증서 캐시가 삭제되었습니다.</string>
+    <string name="info_reset_failed">인증서 캐시를 삭제할 수 없습니다!</string>
     <!-- Dialog strings -->
     <string name="dlg_title_verify_certificate">인증서 검증하기</string>
     <string name="dlg_msg_verify_certificate">인증서를 검증하지 못했습니다. 그래도 연결하시겠습니까?</string>
@@ -200,7 +160,7 @@
     <string name="dlg_msg_logging_in">로그인중 &#8230;</string>
     <string name="dlg_title_about">aFreeRDP 정보</string>
     <string name="dlg_title_create_bookmark_after_qc">연결 설정 저장하기?</string>
-    <string name="dlg_msg_create_bookmark_after_qc">연결 설정이 저장되지 않았습니다! 저장하시겠습니까?</string>
+    <string name="dlg_msg_create_bookmark_after_qc">저장하지 않은 연결 설정을 저장하시겠습니까?</string>
     <string name="dlg_title_save_bookmark">연결 저장?</string>
     <string name="dlg_save_bookmark">연결 설정을 저장하시겠습니까?</string>
     <string name="dlg_dont_show_again">다시 물어보지 않기</string>
@@ -211,40 +171,5 @@
     <string name="debug_level">디버그 레벨</string>
     <string name="settings_debug">디버그 설정</string>
     <string name="preference_title_client">클라이언트</string>
-    <string name="preference_key_client_name" translatable="false">preference_key_client_name</string>
     <string name="preference_title_client_name">클라이언트 이름</string>
-    <string name="preference_default_client_name" translatable="false">aFreeRDP</string>
-    <string name="preference_key_accept_certificates" translatable="false">security.accept_certificates</string>
-    <string name="preference_key_security_clear_certificate_cache" translatable="false">security.clear_certificate_cache</string>
-    <string name="preference_key_power_disconnect_timeout" translatable="false">power.disconnect_timeout</string>
-    <string name="preference_key_ui_hide_status_bar" translatable="false">ui.hide_status_bar</string>
-    <string name="preference_key_ui_ask_on_exit" translatable="false">ui.ask_on_exit</string>
-    <string name="preference_key_ui_auto_scroll_touchpointer" translatable="false">ui.auto_scroll_touchpointer</string>
-    <string name="preference_key_ui_invert_scrolling" translatable="false">ui.invert_scrolling</string>
-    <string name="preference_key_ui_swap_mouse_buttons" translatable="false">ui.swap_mouse_buttons</string>
-    <string name="preference_key_ui_hide_zoom_controls" translatable="false">ui.hide_zoom_controls</string>
-    <string name="preference_key_ui_hide_action_bar" translatable="false">ui.hide_action_bar</string>
-    <string-array name="debug_array" translatable="false">
-        <item>OFF</item>
-        <item>FATAL</item>
-        <item>ERROR</item>
-        <item>WARN</item>
-        <item>INFO</item>
-        <item>DEBUG</item>
-        <item>TRACE</item>
-    </string-array>
-    <!-- This array is used as is in code,
-	do not translate! -->
-    <string-array name="debug_values_array" translatable="false">
-        <item>OFF</item>
-        <item>FATAL</item>
-        <item>ERROR</item>
-        <item>WARN</item>
-        <item>INFO</item>
-        <item>DEBUG</item>
-        <item>TRACE</item>
-    </string-array>
-
-    <string name="preference_key_h264_3g" translatable="false">bookmark.perf_gfx_h264</string>
-    <string name="preference_key_h264" translatable="false">bookmark.perf_gfx_h264</string>
 </resources>

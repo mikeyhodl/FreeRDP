@@ -29,16 +29,16 @@
 
 #define STREAM_TAG WINPR_TAG("wStream")
 
-#define STREAM_ASSERT(cond)                                                                \
-	do                                                                                     \
-	{                                                                                      \
-		if (!(cond))                                                                       \
-		{                                                                                  \
-			WLog_FATAL(STREAM_TAG, "%s [%s:%s:%" PRIuz "]", #cond, __FILE__, __FUNCTION__, \
-			           __LINE__);                                                          \
-			winpr_log_backtrace(STREAM_TAG, WLOG_FATAL, 20);                               \
-			abort();                                                                       \
-		}                                                                                  \
+#define STREAM_ASSERT(cond)                                                            \
+	do                                                                                 \
+	{                                                                                  \
+		if (!(cond))                                                                   \
+		{                                                                              \
+			WLog_FATAL(STREAM_TAG, "%s [%s:%s:%" PRIuz "]", #cond, __FILE__, __func__, \
+			           (size_t)__LINE__);                                              \
+			winpr_log_backtrace(STREAM_TAG, WLOG_FATAL, 20);                           \
+			abort();                                                                   \
+		}                                                                              \
 	} while (0)
 
 BOOL Stream_EnsureCapacity(wStream* s, size_t size)
@@ -46,10 +46,10 @@ BOOL Stream_EnsureCapacity(wStream* s, size_t size)
 	WINPR_ASSERT(s);
 	if (s->capacity < size)
 	{
-		size_t position;
-		size_t old_capacity;
-		size_t new_capacity;
-		BYTE* new_buf;
+		size_t position = 0;
+		size_t old_capacity = 0;
+		size_t new_capacity = 0;
+		BYTE* new_buf = NULL;
 
 		old_capacity = s->capacity;
 		new_capacity = old_capacity;
@@ -93,7 +93,7 @@ BOOL Stream_EnsureRemainingCapacity(wStream* s, size_t size)
 
 wStream* Stream_New(BYTE* buffer, size_t size)
 {
-	wStream* s;
+	wStream* s = NULL;
 
 	if (!buffer && !size)
 		return NULL;
@@ -155,7 +155,7 @@ wStream* Stream_StaticInit(wStream* s, BYTE* buffer, size_t size)
 
 void Stream_EnsureValidity(wStream* s)
 {
-	size_t cur;
+	size_t cur = 0;
 
 	STREAM_ASSERT(s);
 	STREAM_ASSERT(s->pointer >= s->buffer);
@@ -202,7 +202,7 @@ BOOL Stream_SetPosition(wStream* _s, size_t _p)
 
 void Stream_SealLength(wStream* _s)
 {
-	size_t cur;
+	size_t cur = 0;
 	WINPR_ASSERT(_s);
 	WINPR_ASSERT(_s->buffer <= _s->pointer);
 	cur = (size_t)(_s->pointer - _s->buffer);
@@ -250,7 +250,7 @@ void Stream_SetCapacity(wStream* _s, size_t _c)
 
 size_t Stream_GetRemainingCapacity(const wStream* _s)
 {
-	size_t cur;
+	size_t cur = 0;
 	WINPR_ASSERT(_s);
 	WINPR_ASSERT(_s->buffer <= _s->pointer);
 	cur = (size_t)(_s->pointer - _s->buffer);
@@ -266,7 +266,7 @@ size_t Stream_GetRemainingCapacity(const wStream* _s)
 
 size_t Stream_GetRemainingLength(const wStream* _s)
 {
-	size_t cur;
+	size_t cur = 0;
 	WINPR_ASSERT(_s);
 	WINPR_ASSERT(_s->buffer <= _s->pointer);
 	WINPR_ASSERT(_s->length <= _s->capacity);
@@ -283,17 +283,15 @@ size_t Stream_GetRemainingLength(const wStream* _s)
 
 BOOL Stream_Write_UTF16_String(wStream* s, const WCHAR* src, size_t length)
 {
-	size_t x;
-
 	WINPR_ASSERT(s);
 	WINPR_ASSERT(src || (length == 0));
 	if (!s || !src)
 		return FALSE;
 
-	if (Stream_GetRemainingCapacity(s) / sizeof(WCHAR) < length)
+	if (!Stream_CheckAndLogRequiredCapacityOfSize(STREAM_TAG, (s), length, sizeof(WCHAR)))
 		return FALSE;
 
-	for (x = 0; x < length; x++)
+	for (size_t x = 0; x < length; x++)
 		Stream_Write_UINT16(s, src[x]);
 
 	return TRUE;
@@ -301,31 +299,30 @@ BOOL Stream_Write_UTF16_String(wStream* s, const WCHAR* src, size_t length)
 
 BOOL Stream_Read_UTF16_String(wStream* s, WCHAR* dst, size_t length)
 {
-	size_t x;
-
 	WINPR_ASSERT(s);
 	WINPR_ASSERT(dst);
 
-	if (Stream_GetRemainingLength(s) / sizeof(WCHAR) < length)
+	if (!Stream_CheckAndLogRequiredLengthOfSize(STREAM_TAG, s, length, sizeof(WCHAR)))
 		return FALSE;
 
-	for (x = 0; x < length; x++)
+	for (size_t x = 0; x < length; x++)
 		Stream_Read_UINT16(s, dst[x]);
 
 	return TRUE;
 }
 
-BOOL Stream_CheckAndLogRequiredLengthEx(const char* tag, DWORD level, wStream* s, UINT64 len,
-                                        const char* fmt, ...)
+BOOL Stream_CheckAndLogRequiredCapacityEx(const char* tag, DWORD level, wStream* s, size_t nmemb,
+                                          size_t size, const char* fmt, ...)
 {
-	const size_t actual = Stream_GetRemainingLength(s);
+	WINPR_ASSERT(size != 0);
+	const size_t actual = Stream_GetRemainingCapacity(s) / size;
 
-	if (actual < len)
+	if (actual < nmemb)
 	{
 		va_list args;
 
 		va_start(args, fmt);
-		Stream_CheckAndLogRequiredLengthExVa(tag, level, s, len, fmt, args);
+		Stream_CheckAndLogRequiredCapacityExVa(tag, level, s, nmemb, size, fmt, args);
 		va_end(args);
 
 		return FALSE;
@@ -333,49 +330,194 @@ BOOL Stream_CheckAndLogRequiredLengthEx(const char* tag, DWORD level, wStream* s
 	return TRUE;
 }
 
-BOOL Stream_CheckAndLogRequiredLengthExVa(const char* tag, DWORD level, wStream* s, UINT64 len,
-                                          const char* fmt, va_list args)
+BOOL Stream_CheckAndLogRequiredCapacityExVa(const char* tag, DWORD level, wStream* s, size_t nmemb,
+                                            size_t size, const char* fmt, va_list args)
 {
-	const size_t actual = Stream_GetRemainingLength(s);
+	WINPR_ASSERT(size != 0);
+	const size_t actual = Stream_GetRemainingCapacity(s) / size;
 
-	if (actual < len)
-		return Stream_CheckAndLogRequiredLengthWLogExVa(WLog_Get(tag), level, s, len, fmt, args);
+	if (actual < nmemb)
+		return Stream_CheckAndLogRequiredCapacityWLogExVa(WLog_Get(tag), level, s, nmemb, size, fmt,
+		                                                  args);
 	return TRUE;
 }
 
-BOOL Stream_CheckAndLogRequiredLengthWLogEx(wLog* log, DWORD level, wStream* s, UINT64 len,
-                                            const char* fmt, ...)
+WINPR_ATTR_FORMAT_ARG(6, 0)
+BOOL Stream_CheckAndLogRequiredCapacityWLogExVa(wLog* log, DWORD level, wStream* s, size_t nmemb,
+                                                size_t size, WINPR_FORMAT_ARG const char* fmt,
+                                                va_list args)
 {
-	const size_t actual = Stream_GetRemainingLength(s);
 
-	if (actual < len)
-	{
-		va_list args;
+	WINPR_ASSERT(size != 0);
+	const size_t actual = Stream_GetRemainingCapacity(s) / size;
 
-		va_start(args, fmt);
-		Stream_CheckAndLogRequiredLengthWLogExVa(log, level, s, len, fmt, args);
-		va_end(args);
-
-		return FALSE;
-	}
-	return TRUE;
-}
-
-BOOL Stream_CheckAndLogRequiredLengthWLogExVa(wLog* log, DWORD level, wStream* s, UINT64 len,
-                                              const char* fmt, va_list args)
-{
-	const size_t actual = Stream_GetRemainingLength(s);
-
-	if (actual < len)
+	if (actual < nmemb)
 	{
 		char prefix[1024] = { 0 };
 
-		vsnprintf(prefix, sizeof(prefix), fmt, args);
+		(void)vsnprintf(prefix, sizeof(prefix), fmt, args);
 
-		WLog_Print(log, level, "[%s] invalid length, got %" PRIuz ", require at least %" PRIu64,
-		           prefix, actual, len);
+		WLog_Print(log, level,
+		           "[%s] invalid remaining capacity, got %" PRIuz ", require at least %" PRIu64
+		           " [element size=%" PRIuz "]",
+		           prefix, actual, nmemb, size);
 		winpr_log_backtrace_ex(log, level, 20);
 		return FALSE;
 	}
+	return TRUE;
+}
+
+WINPR_ATTR_FORMAT_ARG(6, 7)
+BOOL Stream_CheckAndLogRequiredCapacityWLogEx(wLog* log, DWORD level, wStream* s, size_t nmemb,
+                                              size_t size, WINPR_FORMAT_ARG const char* fmt, ...)
+{
+
+	WINPR_ASSERT(size != 0);
+	const size_t actual = Stream_GetRemainingCapacity(s) / size;
+
+	if (actual < nmemb)
+	{
+		va_list args;
+
+		va_start(args, fmt);
+		Stream_CheckAndLogRequiredCapacityWLogExVa(log, level, s, nmemb, size, fmt, args);
+		va_end(args);
+
+		return FALSE;
+	}
+	return TRUE;
+}
+
+WINPR_ATTR_FORMAT_ARG(6, 7)
+BOOL Stream_CheckAndLogRequiredLengthEx(const char* tag, DWORD level, wStream* s, size_t nmemb,
+                                        size_t size, WINPR_FORMAT_ARG const char* fmt, ...)
+{
+	WINPR_ASSERT(size > 0);
+	const size_t actual = Stream_GetRemainingLength(s) / size;
+
+	if (actual < nmemb)
+	{
+		va_list args;
+
+		va_start(args, fmt);
+		Stream_CheckAndLogRequiredLengthExVa(tag, level, s, nmemb, size, fmt, args);
+		va_end(args);
+
+		return FALSE;
+	}
+	return TRUE;
+}
+
+BOOL Stream_CheckAndLogRequiredLengthExVa(const char* tag, DWORD level, wStream* s, size_t nmemb,
+                                          size_t size, const char* fmt, va_list args)
+{
+	WINPR_ASSERT(size > 0);
+	const size_t actual = Stream_GetRemainingLength(s) / size;
+
+	if (actual < nmemb)
+		return Stream_CheckAndLogRequiredLengthWLogExVa(WLog_Get(tag), level, s, nmemb, size, fmt,
+		                                                args);
+	return TRUE;
+}
+
+BOOL Stream_CheckAndLogRequiredLengthWLogEx(wLog* log, DWORD level, wStream* s, size_t nmemb,
+                                            size_t size, const char* fmt, ...)
+{
+	WINPR_ASSERT(size > 0);
+	const size_t actual = Stream_GetRemainingLength(s) / size;
+
+	if (actual < nmemb)
+	{
+		va_list args;
+
+		va_start(args, fmt);
+		Stream_CheckAndLogRequiredLengthWLogExVa(log, level, s, nmemb, size, fmt, args);
+		va_end(args);
+
+		return FALSE;
+	}
+	return TRUE;
+}
+
+WINPR_ATTR_FORMAT_ARG(6, 0)
+BOOL Stream_CheckAndLogRequiredLengthWLogExVa(wLog* log, DWORD level, wStream* s, size_t nmemb,
+                                              size_t size, WINPR_FORMAT_ARG const char* fmt,
+                                              va_list args)
+{
+	WINPR_ASSERT(size > 0);
+	const size_t actual = Stream_GetRemainingLength(s) / size;
+
+	if (actual < nmemb)
+	{
+		char prefix[1024] = { 0 };
+
+		(void)vsnprintf(prefix, sizeof(prefix), fmt, args);
+
+		WLog_Print(log, level,
+		           "[%s] invalid length, got %" PRIuz ", require at least %" PRIuz
+		           " [element size=%" PRIuz "]",
+		           prefix, actual, nmemb, size);
+		winpr_log_backtrace_ex(log, level, 20);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+SSIZE_T Stream_Write_UTF16_String_From_UTF8(wStream* s, size_t wcharLength, const char* src,
+                                            size_t length, BOOL fill)
+{
+	WCHAR* str = Stream_PointerAs(s, WCHAR);
+
+	if (length == 0)
+		return 0;
+
+	if (!Stream_CheckAndLogRequiredCapacityOfSize(STREAM_TAG, s, wcharLength, sizeof(WCHAR)))
+		return -1;
+
+	SSIZE_T rc = ConvertUtf8NToWChar(src, length, str, wcharLength);
+	if (rc < 0)
+		return -1;
+
+	Stream_Seek(s, (size_t)rc * sizeof(WCHAR));
+
+	if (fill)
+		Stream_Zero(s, (wcharLength - (size_t)rc) * sizeof(WCHAR));
+	return rc;
+}
+
+char* Stream_Read_UTF16_String_As_UTF8(wStream* s, size_t wcharLength, size_t* pUtfCharLength)
+{
+	const WCHAR* str = Stream_ConstPointer(s);
+	if (wcharLength > SIZE_MAX / sizeof(WCHAR))
+		return NULL;
+
+	if (!Stream_CheckAndLogRequiredLength(STREAM_TAG, s, wcharLength * sizeof(WCHAR)))
+		return NULL;
+
+	Stream_Seek(s, wcharLength * sizeof(WCHAR));
+	return ConvertWCharNToUtf8Alloc(str, wcharLength, pUtfCharLength);
+}
+
+SSIZE_T Stream_Read_UTF16_String_As_UTF8_Buffer(wStream* s, size_t wcharLength, char* utfBuffer,
+                                                size_t utfBufferCharLength)
+{
+	const WCHAR* ptr = Stream_ConstPointer(s);
+	if (wcharLength > SIZE_MAX / sizeof(WCHAR))
+		return -1;
+
+	if (!Stream_CheckAndLogRequiredLength(STREAM_TAG, s, wcharLength * sizeof(WCHAR)))
+		return -1;
+
+	Stream_Seek(s, wcharLength * sizeof(WCHAR));
+	return ConvertWCharNToUtf8(ptr, wcharLength, utfBuffer, utfBufferCharLength);
+}
+
+BOOL Stream_SafeSeekEx(wStream* s, size_t size, const char* file, size_t line, const char* fkt)
+{
+	if (!Stream_CheckAndLogRequiredLengthEx(STREAM_TAG, WLOG_WARN, s, size, 1, "%s(%s:%" PRIuz ")",
+	                                        fkt, file, line))
+		return FALSE;
+
+	Stream_Seek(s, size);
 	return TRUE;
 }

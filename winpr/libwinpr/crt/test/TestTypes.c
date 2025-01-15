@@ -36,19 +36,19 @@
 #define EXPECTED_SIZEOF_ULARGE_INTEGER 8
 #define EXPECTED_SIZEOF_GUID 16
 #define EXPECTED_SIZEOF_SYSTEMTIME 16
-#define EXPECTED_SIZEOF_SIZE_T sizeof(void*)
+#define EXPECTED_SIZEOF_size_t sizeof(void*)
 #define EXPECTED_SIZEOF_INT_PTR sizeof(void*)
 #define EXPECTED_SIZEOF_UINT_PTR sizeof(void*)
 #define EXPECTED_SIZEOF_DWORD_PTR sizeof(void*)
 #define EXPECTED_SIZEOF_LONG_PTR sizeof(void*)
 #define EXPECTED_SIZEOF_ULONG_PTR sizeof(void*)
 
-#define TEST_SIZEOF_TYPE(_name)                                                                    \
-	if (sizeof(_name) != EXPECTED_SIZEOF_##_name)                                                  \
-	{                                                                                              \
-		fprintf(stderr, "sizeof(%s) mismatch: Actual: %" PRIuz ", Expected: %" PRIuz "\n", #_name, \
-		        sizeof(_name), (size_t)EXPECTED_SIZEOF_##_name);                                   \
-		status = -1;                                                                               \
+#define TEST_SIZEOF_TYPE(_name)                                                                  \
+	if (sizeof(_name) != EXPECTED_SIZEOF_##_name)                                                \
+	{                                                                                            \
+		(void)fprintf(stderr, "sizeof(%s) mismatch: Actual: %" PRIuz ", Expected: %" PRIuz "\n", \
+		              #_name, sizeof(_name), (size_t)EXPECTED_SIZEOF_##_name);                   \
+		status = -1;                                                                             \
 	}
 
 int TestTypes(int argc, char* argv[])
@@ -104,7 +104,7 @@ int TestTypes(int argc, char* argv[])
 	TEST_SIZEOF_TYPE(GUID)
 	TEST_SIZEOF_TYPE(SYSTEMTIME)
 
-	TEST_SIZEOF_TYPE(SIZE_T)
+	TEST_SIZEOF_TYPE(size_t)
 	TEST_SIZEOF_TYPE(INT_PTR)
 	TEST_SIZEOF_TYPE(UINT_PTR)
 	TEST_SIZEOF_TYPE(DWORD_PTR)

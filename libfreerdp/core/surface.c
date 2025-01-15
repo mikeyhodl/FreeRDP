@@ -19,7 +19,10 @@
 
 #include <freerdp/config.h>
 
+#include "settings.h"
+
 #include <winpr/assert.h>
+#include <winpr/cast.h>
 
 #include <freerdp/utils/pcap.h>
 #include <freerdp/log.h>
@@ -195,7 +198,7 @@ static BOOL update_recv_surfcmd_frame_marker(rdpUpdate* update, wStream* s)
 
 int update_recv_surfcmds(rdpUpdate* update, wStream* s)
 {
-	UINT16 cmdType;
+	UINT16 cmdType = 0;
 	rdp_update_internal* up = update_cast(update);
 
 	WINPR_ASSERT(s);
@@ -203,7 +206,7 @@ int update_recv_surfcmds(rdpUpdate* update, wStream* s)
 	while (Stream_GetRemainingLength(s) >= 2)
 	{
 		const size_t start = Stream_GetPosition(s);
-		const BYTE* mark = Stream_Pointer(s);
+		const BYTE* mark = Stream_ConstPointer(s);
 
 		Stream_Read_UINT16(s, cmdType);
 
@@ -291,11 +294,11 @@ static BOOL update_write_surfcmd_bitmap_ex(wStream* s, const TS_BITMAP_DATA_EX* 
 
 BOOL update_write_surfcmd_surface_bits(wStream* s, const SURFACE_BITS_COMMAND* cmd)
 {
-	UINT16 cmdType;
 	if (!Stream_EnsureRemainingCapacity(s, SURFCMD_SURFACE_BITS_HEADER_LENGTH))
 		return FALSE;
 
-	cmdType = cmd->cmdType;
+	WINPR_ASSERT(cmd->cmdType <= UINT16_MAX);
+	UINT16 cmdType = (UINT16)cmd->cmdType;
 	switch (cmdType)
 	{
 		case CMDTYPE_SET_SURFACE_BITS:
@@ -310,11 +313,11 @@ BOOL update_write_surfcmd_surface_bits(wStream* s, const SURFACE_BITS_COMMAND* c
 			break;
 	}
 
-	Stream_Write_UINT16(s, cmdType);
-	Stream_Write_UINT16(s, cmd->destLeft);
-	Stream_Write_UINT16(s, cmd->destTop);
-	Stream_Write_UINT16(s, cmd->destRight);
-	Stream_Write_UINT16(s, cmd->destBottom);
+	Stream_Write_UINT16(s, WINPR_ASSERTING_INT_CAST(uint16_t, cmdType));
+	Stream_Write_UINT16(s, WINPR_ASSERTING_INT_CAST(uint16_t, cmd->destLeft));
+	Stream_Write_UINT16(s, WINPR_ASSERTING_INT_CAST(uint16_t, cmd->destTop));
+	Stream_Write_UINT16(s, WINPR_ASSERTING_INT_CAST(uint16_t, cmd->destRight));
+	Stream_Write_UINT16(s, WINPR_ASSERTING_INT_CAST(uint16_t, cmd->destBottom));
 	return update_write_surfcmd_bitmap_ex(s, &cmd->bmp);
 }
 

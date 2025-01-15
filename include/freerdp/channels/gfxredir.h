@@ -23,6 +23,11 @@
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #define GFXREDIR_DVC_CHANNEL_NAME "Microsoft::Windows::RDS::RemoteAppGraphicsRedirection"
 
 /* GFXREDIR_LEGACY_CAPS_PDU.version */
@@ -108,7 +113,7 @@ typedef struct
 {
 	UINT64 poolId;
 	UINT64 poolSize;
-	UINT32 sectionNameLength;          // number of charactor, must include null terminated char.
+	UINT32 sectionNameLength;          // number of characters, must include null terminated char.
 	const unsigned short* sectionName; // Windows-style 2 bytes wchar_t with null-terminated.
 } GFXREDIR_OPEN_POOL_PDU;
 
@@ -152,5 +157,9 @@ typedef struct
 	UINT64 windowId;
 	UINT64 presentId;
 } GFXREDIR_PRESENT_BUFFER_ACK_PDU;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FREERDP_CHANNEL_GFXREDIR_H */

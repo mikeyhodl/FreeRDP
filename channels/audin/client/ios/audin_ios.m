@@ -222,7 +222,6 @@ static UINT audin_ios_open(IAudinDevice *device, AudinReceive receive, void *use
 	DWORD errCode;
 	char errString[1024];
 	OSStatus devStat;
-	size_t index;
 
 	ios->receive = receive;
 	ios->user_data = user_data;
@@ -237,7 +236,7 @@ static UINT audin_ios_open(IAudinDevice *device, AudinReceive receive, void *use
 		goto err_out;
 	}
 
-	for (index = 0; index < IOS_AUDIO_QUEUE_NUM_BUFFERS; index++)
+	for (size_t index = 0; index < IOS_AUDIO_QUEUE_NUM_BUFFERS; index++)
 	{
 		devStat = AudioQueueAllocateBuffer(ios->audioQueue,
 		                                   ios->FramesPerPacket * 2 * ios->format.nChannels,
@@ -296,7 +295,8 @@ static UINT audin_ios_free(IAudinDevice *device)
 	return CHANNEL_RC_OK;
 }
 
-UINT ios_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE ios_freerdp_audin_client_subsystem_entry(
+    PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	DWORD errCode;
 	char errString[1024];

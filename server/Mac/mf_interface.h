@@ -23,28 +23,29 @@
 
 #include <pthread.h>
 
+#include <freerdp/config.h>
 #include <freerdp/codec/rfx.h>
 #include <freerdp/codec/nsc.h>
 #include <freerdp/listener.h>
+#include <freerdp/freerdp.h>
 
 #include <winpr/crt.h>
 
-//#ifdef WITH_SERVER_CHANNELS
+#ifdef WITH_SERVER_CHANNELS
 #include <freerdp/channels/wtsvc.h>
-//#endif
+#endif
 
-//#ifdef CHANNEL_RDPSND_SERVER
+#ifdef CHANNEL_RDPSND_SERVER
 #include <freerdp/server/rdpsnd.h>
-//#include "mf_rdpsnd.h"
-//#endif
+#include "mf_rdpsnd.h"
+#endif
 
-//#ifdef CHANNEL_AUDIN_SERVER
+#ifdef CHANNEL_AUDIN_SERVER
 #include <freerdp/server/audin.h>
-//#include "mf_audin.h"
-//#endif
+#include "mf_audin.h"
+#endif
 
-typedef struct mf_info mfInfo;
-typedef struct mf_peer_context mfPeerContext;
+#include "mf_types.h"
 
 struct mf_peer_context
 {
@@ -58,16 +59,17 @@ struct mf_peer_context
 	RFX_CONTEXT* rfx_context;
 	NSC_CONTEXT* nsc_context;
 
-	//#ifdef WITH_SERVER_CHANNELS
+#ifdef WITH_SERVER_CHANNELS
 	HANDLE vcm;
-	//#endif
-	//#ifdef CHANNEL_AUDIN_SERVER
-	audin_server_context* audin;
-	//#endif
+#endif
 
-	//#ifdef CHANNEL_RDPSND_SERVER
+#ifdef CHANNEL_AUDIN_SERVER
+	audin_server_context* audin;
+#endif
+
+#ifdef CHANNEL_RDPSND_SERVER
 	RdpsndServerContext* rdpsnd;
-	//#endif
+#endif
 };
 
 struct mf_info

@@ -1,9 +1,9 @@
 /**
  * WinPR: Windows Portable Runtime
- * Runtime ASSERT macros
+ * Compatibility header for runtime ASSERT macros
  *
- * Copyright 2021 Armin Novak <armin.novak@thincast.com>
- * Copyright 2021 Thincast Technologies GmbH
+ * Copyright 2024 Armin Novak <armin.novak@thincast.com>
+ * Copyright 2024 Thincast Technologies GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,38 +22,13 @@
 #define WINPR_ASSERT_H
 
 #include <stdlib.h>
+#include <assert.h>
+
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 #include <winpr/wlog.h>
 #include <winpr/debug.h>
 
-#if defined(WITH_VERBOSE_WINPR_ASSERT) && (WITH_VERBOSE_WINPR_ASSERT != 0)
-#define WINPR_ASSERT(cond)                                                                    \
-	do                                                                                        \
-	{                                                                                         \
-		if (!(cond))                                                                          \
-		{                                                                                     \
-			wLog* _log_cached_ptr = WLog_Get("com.freerdp.winpr.assert");                     \
-			WLog_Print(_log_cached_ptr, WLOG_FATAL, "%s [%s:%s:%" PRIuz "]", #cond, __FILE__, \
-			           __FUNCTION__, __LINE__);                                               \
-			winpr_log_backtrace_ex(_log_cached_ptr, WLOG_FATAL, 20);                          \
-			abort();                                                                          \
-		}                                                                                     \
-	} while (0)
-#else
-#define WINPR_ASSERT(cond) \
-	do                     \
-	{                      \
-	} while (0)
+#include <winpr/assert-api.h>
+#include <winpr/cast.h>
 #endif
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* WINPR_ERROR_H */

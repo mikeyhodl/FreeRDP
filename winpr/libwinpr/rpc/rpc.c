@@ -402,7 +402,7 @@ RPC_STATUS RpcServerUseProtseqIfExW(RPC_WSTR Protseq, unsigned int MaxCalls, RPC
 	return 0;
 }
 
-void RpcServerYield()
+void RpcServerYield(void)
 {
 	WLog_ERR(TAG, "Not implemented");
 }
@@ -524,7 +524,7 @@ RPC_STATUS RpcRevertToSelfEx(RPC_BINDING_HANDLE BindingHandle)
 	return 0;
 }
 
-RPC_STATUS RpcRevertToSelf()
+RPC_STATUS RpcRevertToSelf(void)
 {
 	WLog_ERR(TAG, "Not implemented");
 	return 0;
@@ -656,10 +656,11 @@ RPC_STATUS RpcBindingServerFromClient(RPC_BINDING_HANDLE ClientBinding,
 void RpcRaiseException(RPC_STATUS exception)
 {
 	WLog_ERR(TAG, "RpcRaiseException: 0x%08luX", exception);
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	exit((int)exception);
 }
 
-RPC_STATUS RpcTestCancel()
+RPC_STATUS RpcTestCancel(void)
 {
 	WLog_ERR(TAG, "Not implemented");
 	return 0;
@@ -717,9 +718,10 @@ RPC_STATUS UuidToStringA(const UUID* Uuid, RPC_CSTR* StringUuid)
 	 * Format is 32 hex digits partitioned in 5 groups:
 	 * xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 	 */
-	sprintf_s((char*)*StringUuid, 36 + 1, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-	          Uuid->Data1, Uuid->Data2, Uuid->Data3, Uuid->Data4[0], Uuid->Data4[1], Uuid->Data4[2],
-	          Uuid->Data4[3], Uuid->Data4[4], Uuid->Data4[5], Uuid->Data4[6], Uuid->Data4[7]);
+	(void)sprintf_s((char*)*StringUuid, 36 + 1, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+	                Uuid->Data1, Uuid->Data2, Uuid->Data3, Uuid->Data4[0], Uuid->Data4[1],
+	                Uuid->Data4[2], Uuid->Data4[3], Uuid->Data4[4], Uuid->Data4[5], Uuid->Data4[6],
+	                Uuid->Data4[7]);
 	return RPC_S_OK;
 }
 
@@ -731,13 +733,13 @@ RPC_STATUS UuidToStringW(const UUID* Uuid, RPC_WSTR* StringUuid)
 
 RPC_STATUS UuidFromStringA(RPC_CSTR StringUuid, UUID* Uuid)
 {
-	int index;
-	BYTE bin[36];
+	BYTE bin[36] = { 0 };
 
 	if (!StringUuid)
 		return UuidCreateNil(Uuid);
 
-	if (strlen((char*)StringUuid) != 36)
+	const size_t slen = 2 * sizeof(UUID) + 4;
+	if (strnlen(StringUuid, slen) != slen)
 		return RPC_S_INVALID_STRING_UUID;
 
 	if ((StringUuid[8] != '-') || (StringUuid[13] != '-') || (StringUuid[18] != '-') ||
@@ -746,33 +748,33 @@ RPC_STATUS UuidFromStringA(RPC_CSTR StringUuid, UUID* Uuid)
 		return RPC_S_INVALID_STRING_UUID;
 	}
 
-	for (index = 0; index < 36; index++)
+	for (size_t index = 0; index < 36; index++)
 	{
 		if ((index == 8) || (index == 13) || (index == 18) || (index == 23))
 			continue;
 
 		if ((StringUuid[index] >= '0') && (StringUuid[index] <= '9'))
-			bin[index] = StringUuid[index] - '0';
+			bin[index] = (StringUuid[index] - '0') & 0xFF;
 		else if ((StringUuid[index] >= 'a') && (StringUuid[index] <= 'f'))
-			bin[index] = StringUuid[index] - 'a' + 10;
+			bin[index] = (StringUuid[index] - 'a' + 10) & 0xFF;
 		else if ((StringUuid[index] >= 'A') && (StringUuid[index] <= 'F'))
-			bin[index] = StringUuid[index] - 'A' + 10;
+			bin[index] = (StringUuid[index] - 'A' + 10) & 0xFF;
 		else
 			return RPC_S_INVALID_STRING_UUID;
 	}
 
-	Uuid->Data1 = ((bin[0] << 28) | (bin[1] << 24) | (bin[2] << 20) | (bin[3] << 16) |
-	               (bin[4] << 12) | (bin[5] << 8) | (bin[6] << 4) | bin[7]);
-	Uuid->Data2 = ((bin[9] << 12) | (bin[10] << 8) | (bin[11] << 4) | bin[12]);
-	Uuid->Data3 = ((bin[14] << 12) | (bin[15] << 8) | (bin[16] << 4) | bin[17]);
-	Uuid->Data4[0] = ((bin[19] << 4) | bin[20]);
-	Uuid->Data4[1] = ((bin[21] << 4) | bin[22]);
-	Uuid->Data4[2] = ((bin[24] << 4) | bin[25]);
-	Uuid->Data4[3] = ((bin[26] << 4) | bin[27]);
-	Uuid->Data4[4] = ((bin[28] << 4) | bin[29]);
-	Uuid->Data4[5] = ((bin[30] << 4) | bin[31]);
-	Uuid->Data4[6] = ((bin[32] << 4) | bin[33]);
-	Uuid->Data4[7] = ((bin[34] << 4) | bin[35]);
+	Uuid->Data1 = (UINT32)((bin[0] << 28) | (bin[1] << 24) | (bin[2] << 20) | (bin[3] << 16) |
+	                       (bin[4] << 12) | (bin[5] << 8) | (bin[6] << 4) | bin[7]);
+	Uuid->Data2 = (UINT16)((bin[9] << 12) | (bin[10] << 8) | (bin[11] << 4) | bin[12]);
+	Uuid->Data3 = (UINT16)((bin[14] << 12) | (bin[15] << 8) | (bin[16] << 4) | bin[17]);
+	Uuid->Data4[0] = (UINT8)((bin[19] << 4) | bin[20]);
+	Uuid->Data4[1] = (UINT8)((bin[21] << 4) | bin[22]);
+	Uuid->Data4[2] = (UINT8)((bin[24] << 4) | bin[25]);
+	Uuid->Data4[3] = (UINT8)((bin[26] << 4) | bin[27]);
+	Uuid->Data4[4] = (UINT8)((bin[28] << 4) | bin[29]);
+	Uuid->Data4[5] = (UINT8)((bin[30] << 4) | bin[31]);
+	Uuid->Data4[6] = (UINT8)((bin[32] << 4) | bin[33]);
+	Uuid->Data4[7] = (UINT8)((bin[34] << 4) | bin[35]);
 	return RPC_S_OK;
 }
 
@@ -784,7 +786,6 @@ RPC_STATUS UuidFromStringW(RPC_WSTR StringUuid, UUID* Uuid)
 
 signed int UuidCompare(const UUID* Uuid1, const UUID* Uuid2, RPC_STATUS* Status)
 {
-	int index;
 	*Status = RPC_S_OK;
 
 	if (!Uuid1)
@@ -802,7 +803,7 @@ signed int UuidCompare(const UUID* Uuid1, const UUID* Uuid2, RPC_STATUS* Status)
 	if (Uuid1->Data3 != Uuid2->Data3)
 		return (Uuid1->Data3 < Uuid2->Data3) ? -1 : 1;
 
-	for (index = 0; index < 8; index++)
+	for (int index = 0; index < 8; index++)
 	{
 		if (Uuid1->Data4[index] != Uuid2->Data4[index])
 			return (Uuid1->Data4[index] < Uuid2->Data4[index]) ? -1 : 1;

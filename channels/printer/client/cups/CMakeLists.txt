@@ -17,15 +17,12 @@
 # limitations under the License.
 define_channel_client_subsystem("printer" "cups" "")
 
-set(${MODULE_PREFIX}_SRCS
-		printer_cups.c)
+find_package(Cups 2.0 REQUIRED)
+set(${MODULE_PREFIX}_SRCS printer_cups.c)
+
+set(${MODULE_PREFIX}_LIBS winpr freerdp ${CUPS_LIBRARIES})
 
 include_directories(..)
-include_directories(${CUPS_INCLUDE_DIR})
+include_directories(SYSTEM ${CUPS_INCLUDE_DIRS})
 
 add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")
-
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} winpr freerdp)
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${CUPS_LIBRARIES})
-
-target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})

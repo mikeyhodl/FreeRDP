@@ -38,8 +38,8 @@ typedef struct S_TP_POOL TP_POOL, *PTP_POOL;
 
 typedef struct
 {
-	SIZE_T StackReserve;
-	SIZE_T StackCommit;
+	size_t StackReserve;
+	size_t StackCommit;
 } TP_POOL_STACK_INFORMATION, *PTP_POOL_STACK_INFORMATION;
 
 typedef struct S_TP_CLEANUP_GROUP TP_CLEANUP_GROUP, *PTP_CLEANUP_GROUP;
@@ -110,7 +110,7 @@ typedef VOID (*PTP_WIN32_IO_CALLBACK)(PTP_CALLBACK_INSTANCE Instance, PVOID Cont
 #define WINPR_THREAD_POOL 1
 #elif defined(_WIN32) && (_WIN32_WINNT < 0x0600)
 #define WINPR_THREAD_POOL 1
-#elif defined(__MINGW32__) && (__MINGW64_VERSION_MAJOR < 9)
+#elif defined(__MINGW32__) && (__MINGW64_VERSION_MAJOR < 7)
 #define WINPR_THREAD_POOL 1
 #endif
 

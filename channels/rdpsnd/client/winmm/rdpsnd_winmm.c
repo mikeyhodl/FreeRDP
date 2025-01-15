@@ -31,6 +31,7 @@
 #include <mmsystem.h>
 
 #include <winpr/crt.h>
+#include <winpr/wtsapi.h>
 #include <winpr/cmdline.h>
 #include <winpr/sysinfo.h>
 
@@ -179,8 +180,8 @@ static void rdpsnd_winmm_close(rdpsndDevicePlugin* device)
 
 	if (winmm->hThread)
 	{
-		WaitForSingleObject(winmm->hThread, INFINITE);
-		CloseHandle(winmm->hThread);
+		(void)WaitForSingleObject(winmm->hThread, INFINITE);
+		(void)CloseHandle(winmm->hThread);
 		winmm->hThread = NULL;
 	}
 }
@@ -313,7 +314,8 @@ static void rdpsnd_winmm_parse_addin_args(rdpsndDevicePlugin* device, const ADDI
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT winmm_freerdp_rdpsnd_client_subsystem_entry(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE winmm_freerdp_rdpsnd_client_subsystem_entry(
+    PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	const ADDIN_ARGV* args;
 	rdpsndWinmmPlugin* winmm;

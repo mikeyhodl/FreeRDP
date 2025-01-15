@@ -17,18 +17,10 @@
 
 define_channel_server("rdpgfx")
 
-set(${MODULE_PREFIX}_SRCS
-	rdpgfx_main.c
-	rdpgfx_main.h
-	../rdpgfx_common.c
-	../rdpgfx_common.h)
+set(${MODULE_PREFIX}_SRCS rdpgfx_main.c rdpgfx_main.h ../rdpgfx_common.c ../rdpgfx_common.h)
+
+set(${MODULE_PREFIX}_LIBS freerdp)
 
 include_directories(..)
 
 add_channel_server_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} FALSE "DVCPluginEntry")
-
-
-
-target_link_libraries(${MODULE_NAME} freerdp)
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Channels/${CHANNEL_NAME}/Server")
