@@ -21,20 +21,29 @@
 #define FREERDP_REMOTE_ASSISTANCE_H
 
 #include <freerdp/api.h>
-#include <freerdp/freerdp.h>
-
-typedef struct rdp_assistance_file rdpAssistanceFile;
+#include <freerdp/types.h>
+#include <freerdp/settings.h>
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
+	typedef struct rdp_assistance_file rdpAssistanceFile;
+
+	WINPR_ATTR_MALLOC(free, 1)
 	FREERDP_API BYTE* freerdp_assistance_hex_string_to_bin(const void* str, size_t* size);
+
+	WINPR_ATTR_MALLOC(free, 1)
 	FREERDP_API char* freerdp_assistance_bin_to_hex_string(const void* data, size_t size);
 
+	WINPR_ATTR_MALLOC(free, 1)
 	FREERDP_API char* freerdp_assistance_generate_pass_stub(DWORD flags);
+
+	WINPR_ATTR_MALLOC(free, 1)
 	FREERDP_API char* freerdp_assistance_construct_expert_blob(const char* name, const char* pass);
+
+	WINPR_ATTR_MALLOC(free, 1)
 	FREERDP_API BYTE* freerdp_assistance_encrypt_pass_stub(const char* password,
 	                                                       const char* passStub,
 	                                                       size_t* pEncryptedSize);
@@ -54,8 +63,10 @@ extern "C"
 	FREERDP_API BOOL freerdp_assistance_get_encrypted_pass_stub(rdpAssistanceFile* file,
 	                                                            const char** pwd, size_t* size);
 
-	FREERDP_API rdpAssistanceFile* freerdp_assistance_file_new(void);
 	FREERDP_API void freerdp_assistance_file_free(rdpAssistanceFile* file);
+
+	WINPR_ATTR_MALLOC(freerdp_assistance_file_free, 1)
+	FREERDP_API rdpAssistanceFile* freerdp_assistance_file_new(void);
 
 	FREERDP_API void freerdp_assistance_print_file(rdpAssistanceFile* file, wLog* log, DWORD level);
 

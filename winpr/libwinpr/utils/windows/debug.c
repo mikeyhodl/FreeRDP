@@ -79,7 +79,6 @@ char** winpr_win_backtrace_symbols(void* buffer, size_t* used)
 		return NULL;
 
 	{
-		size_t i;
 		size_t line_len = 1024;
 		HANDLE process = GetCurrentProcess();
 		t_win_stack* data = (t_win_stack*)buffer;
@@ -102,10 +101,10 @@ char** winpr_win_backtrace_symbols(void* buffer, size_t* used)
 		symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
 
 		/* Set the pointers in the allocated buffer's initial array section */
-		for (i = 0; i < data->used; i++)
+		for (size_t i = 0; i < data->used; i++)
 			vlines[i] = (char*)vlines + array_size + i * line_len;
 
-		for (i = 0; i < data->used; i++)
+		for (size_t i = 0; i < data->used; i++)
 		{
 			DWORD64 address = (DWORD64)(data->stack[i]);
 			DWORD displacement;
@@ -141,8 +140,8 @@ char* winpr_win_strerror(DWORD dw, char* dmsg, size_t size)
 	alloc = TRUE;
 	dwFlags |= FORMAT_MESSAGE_ALLOCATE_BUFFER;
 #else
-	nSize = (DWORD)(size * 2);
-	msg = (LPTSTR)calloc(nSize, sizeof(TCHAR));
+	nSize = (DWORD)(size * sizeof(WCHAR));
+	msg = (LPTSTR)calloc(nSize, sizeof(WCHAR));
 #endif
 	rc = FormatMessage(dwFlags, NULL, dw, 0, alloc ? (LPTSTR)&msg : msg, nSize, NULL);
 

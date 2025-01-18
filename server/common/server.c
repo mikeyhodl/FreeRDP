@@ -24,6 +24,9 @@
 #include <freerdp/codec/dsp.h>
 
 #include <freerdp/server/server-common.h>
+#include <freerdp/log.h>
+
+#define TAG FREERDP_TAG("server.common")
 
 size_t server_audin_get_formats(AUDIO_FORMAT** dst_formats)
 {
@@ -89,7 +92,7 @@ size_t server_audin_get_formats(AUDIO_FORMAT** dst_formats)
 		{ WAVE_FORMAT_ALAW, 1, 22050, 22050, 2, 8, 0, NULL }
 	};
 	const size_t nrDefaultFormatsMax = ARRAYSIZE(default_supported_audio_formats);
-	size_t x, nr_formats = 0;
+	size_t nr_formats = 0;
 	AUDIO_FORMAT* formats = audio_formats_new(nrDefaultFormatsMax);
 
 	if (!dst_formats)
@@ -100,7 +103,7 @@ size_t server_audin_get_formats(AUDIO_FORMAT** dst_formats)
 	if (!formats)
 		goto fail;
 
-	for (x = 0; x < nrDefaultFormatsMax; x++)
+	for (size_t x = 0; x < nrDefaultFormatsMax; x++)
 	{
 		const AUDIO_FORMAT* format = &default_supported_audio_formats[x];
 
@@ -122,7 +125,6 @@ fail:
 
 size_t server_rdpsnd_get_formats(AUDIO_FORMAT** dst_formats)
 {
-	size_t x, y = 0;
 	/* Default supported audio formats */
 	static const AUDIO_FORMAT default_supported_audio_formats[] = {
 		{ WAVE_FORMAT_AAC_MS, 2, 44100, 176400, 4, 16, 0, NULL },
@@ -140,7 +142,8 @@ size_t server_rdpsnd_get_formats(AUDIO_FORMAT** dst_formats)
 	if (!supported_audio_formats)
 		goto fail;
 
-	for (x = 0; x < ARRAYSIZE(default_supported_audio_formats); x++)
+	size_t y = 0;
+	for (size_t x = 0; x < ARRAYSIZE(default_supported_audio_formats); x++)
 	{
 		const AUDIO_FORMAT* format = &default_supported_audio_formats[x];
 
@@ -158,4 +161,76 @@ fail:
 		*dst_formats = NULL;
 
 	return 0;
+}
+
+void freerdp_server_warn_unmaintained(int argc, char* argv[])
+{
+	const char* app = (argc > 0) ? argv[0] : "INVALID_ARGV";
+	const DWORD log_level = WLOG_WARN;
+	wLog* log = WLog_Get(TAG);
+	WINPR_ASSERT(log);
+
+	if (!WLog_IsLevelActive(log, log_level))
+		return;
+
+	WLog_Print_unchecked(log, log_level, "[unmaintained] %s server is currently unmaintained!",
+	                     app);
+	WLog_Print_unchecked(
+	    log, log_level,
+	    " If problems occur please check https://github.com/FreeRDP/FreeRDP/issues for "
+	    "known issues!");
+	WLog_Print_unchecked(
+	    log, log_level,
+	    "Be prepared to fix issues yourself though as nobody is actively working on this.");
+	WLog_Print_unchecked(
+	    log, log_level,
+	    " Developers hang out in https://matrix.to/#/#FreeRDP:matrix.org?via=matrix.org "
+	    "- dont hesitate to ask some questions. (replies might take some time depending "
+	    "on your timezone) - if you intend using this component write us a message");
+}
+
+void freerdp_server_warn_experimental(int argc, char* argv[])
+{
+	const char* app = (argc > 0) ? argv[0] : "INVALID_ARGV";
+	const DWORD log_level = WLOG_WARN;
+	wLog* log = WLog_Get(TAG);
+	WINPR_ASSERT(log);
+
+	if (!WLog_IsLevelActive(log, log_level))
+		return;
+
+	WLog_Print_unchecked(log, log_level, "[experimental] %s server is currently experimental!",
+	                     app);
+	WLog_Print_unchecked(
+	    log, log_level,
+	    " If problems occur please check https://github.com/FreeRDP/FreeRDP/issues for "
+	    "known issues or create a new one!");
+	WLog_Print_unchecked(
+	    log, log_level,
+	    " Developers hang out in https://matrix.to/#/#FreeRDP:matrix.org?via=matrix.org "
+	    "- dont hesitate to ask some questions. (replies might take some time depending "
+	    "on your timezone)");
+}
+
+void freerdp_server_warn_deprecated(int argc, char* argv[])
+{
+	const char* app = (argc > 0) ? argv[0] : "INVALID_ARGV";
+	const DWORD log_level = WLOG_WARN;
+	wLog* log = WLog_Get(TAG);
+	WINPR_ASSERT(log);
+
+	if (!WLog_IsLevelActive(log, log_level))
+		return;
+
+	WLog_Print_unchecked(log, log_level, "[deprecated] %s server has been deprecated", app);
+	WLog_Print_unchecked(log, log_level, "As replacement there is a SDL based client available.");
+	WLog_Print_unchecked(
+	    log, log_level,
+	    "If you are interested in keeping %s alive get in touch with the developers", app);
+	WLog_Print_unchecked(
+	    log, log_level,
+	    "The project is hosted at https://github.com/freerdp/freerdp and "
+	    " developers hang out in https://matrix.to/#/#FreeRDP:matrix.org?via=matrix.org "
+	    "- dont hesitate to ask some questions. (replies might take some time depending "
+	    "on your timezone)");
 }

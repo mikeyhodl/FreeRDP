@@ -99,6 +99,8 @@
 #define INPUT_FLAG_FASTPATH_INPUT 0x0008
 #define INPUT_FLAG_UNICODE 0x0010
 #define INPUT_FLAG_FASTPATH_INPUT2 0x0020
+#define INPUT_FLAG_UNUSED1 0x0040
+#define INPUT_FLAG_MOUSE_RELATIVE 0x0080
 #define TS_INPUT_FLAG_MOUSE_HWHEEL 0x0100
 #define TS_INPUT_FLAG_QOE_TIMESTAMPS 0x0200
 
@@ -116,11 +118,6 @@
 /* Bitmap Cache V2 Flags */
 #define PERSISTENT_KEYS_EXPECTED_FLAG 0x0001
 #define ALLOW_CACHE_WAITING_LIST_FLAG 0x0002
-
-/* Virtual Channel Flags */
-#define VCCAPS_NO_COMPR 0x00000000
-#define VCCAPS_COMPR_SC 0x00000001
-#define VCCAPS_COMPR_CS_8K 0x00000002
 
 /* Draw Nine Grid Support Level */
 #define DRAW_NINEGRID_NO_SUPPORT 0x00000000
@@ -144,15 +141,6 @@
 #define COMPDESK_NOT_SUPPORTED 0x0000
 #define COMPDESK_SUPPORTED 0x0001
 
-/* Large Pointer Support Flags */
-#define LARGE_POINTER_FLAG_96x96 0x00000001
-#define LARGE_POINTER_FLAG_384x384 0x00000002
-
-/* Surface Commands Flags */
-#define SURFCMDS_SET_SURFACE_BITS 0x00000002
-#define SURFCMDS_FRAME_MARKER 0x00000010
-#define SURFCMDS_STREAM_SURFACE_BITS 0x00000040
-
 /* Bitmap Codec Constants */
 #define CARDP_CAPS_CAPTURE_NON_CAC 0x00000001
 #define CBY_CAPS 0xCBC0
@@ -167,11 +155,14 @@
 
 FREERDP_LOCAL BOOL rdp_recv_get_active_header(rdpRdp* rdp, wStream* s, UINT16* pChannelId,
                                               UINT16* length);
-FREERDP_LOCAL BOOL rdp_recv_demand_active(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL BOOL rdp_recv_demand_active(rdpRdp* rdp, wStream* s, UINT16 pduSource, UINT16 length);
 FREERDP_LOCAL BOOL rdp_send_demand_active(rdpRdp* rdp);
 FREERDP_LOCAL BOOL rdp_recv_confirm_active(rdpRdp* rdp, wStream* s, UINT16 pduLength);
 FREERDP_LOCAL BOOL rdp_send_confirm_active(rdpRdp* rdp);
 
-BOOL rdp_read_capability_set(wStream* sub, UINT16 type, rdpSettings* settings, BOOL isServer);
+FREERDP_LOCAL BOOL rdp_read_capability_set(wStream* sub, UINT16 type, rdpSettings* settings,
+                                           BOOL isServer);
+
+FREERDP_LOCAL const char* rdp_input_flag_string(UINT16 flags, char* buffer, size_t len);
 
 #endif /* FREERDP_LIB_CORE_CAPABILITIES_H */

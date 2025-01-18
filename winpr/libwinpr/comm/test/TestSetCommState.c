@@ -37,14 +37,14 @@ static void init_empty_dcb(DCB* pDcb)
 
 static BOOL test_fParity(HANDLE hComm)
 {
-	DCB dcb;
-	BOOL result;
+	DCB dcb = { 0 };
+	BOOL result = 0;
 
 	init_empty_dcb(&dcb);
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
@@ -53,7 +53,7 @@ static BOOL test_fParity(HANDLE hComm)
 	result = SetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "SetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "SetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
@@ -61,13 +61,13 @@ static BOOL test_fParity(HANDLE hComm)
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
 	if (!dcb.fParity)
 	{
-		fprintf(stderr, "unexpected fParity: %" PRIu32 " instead of TRUE\n", dcb.fParity);
+		(void)fprintf(stderr, "unexpected fParity: %" PRIu32 " instead of TRUE\n", dcb.fParity);
 		return FALSE;
 	}
 
@@ -76,7 +76,7 @@ static BOOL test_fParity(HANDLE hComm)
 	result = SetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "SetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "SetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
@@ -84,13 +84,13 @@ static BOOL test_fParity(HANDLE hComm)
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
 	if (dcb.fParity)
 	{
-		fprintf(stderr, "unexpected fParity: %" PRIu32 " instead of FALSE\n", dcb.fParity);
+		(void)fprintf(stderr, "unexpected fParity: %" PRIu32 " instead of FALSE\n", dcb.fParity);
 		return FALSE;
 	}
 
@@ -99,7 +99,7 @@ static BOOL test_fParity(HANDLE hComm)
 	result = SetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "SetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "SetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
@@ -107,13 +107,13 @@ static BOOL test_fParity(HANDLE hComm)
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%08" PRIx32 "\n", GetLastError());
 		return FALSE;
 	}
 
 	if (!dcb.fParity)
 	{
-		fprintf(stderr, "unexpected fParity: %" PRIu32 " instead of TRUE\n", dcb.fParity);
+		(void)fprintf(stderr, "unexpected fParity: %" PRIu32 " instead of TRUE\n", dcb.fParity);
 		return FALSE;
 	}
 
@@ -122,14 +122,14 @@ static BOOL test_fParity(HANDLE hComm)
 
 static BOOL test_SerialSys(HANDLE hComm)
 {
-	DCB dcb;
-	BOOL result;
+	DCB dcb = { 0 };
+	BOOL result = 0;
 
 	init_empty_dcb(&dcb);
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
 		return FALSE;
 	}
 
@@ -138,7 +138,7 @@ static BOOL test_SerialSys(HANDLE hComm)
 	result = SetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "SetCommState failure: 0x%08x\n", GetLastError());
+		(void)fprintf(stderr, "SetCommState failure: 0x%08x\n", GetLastError());
 		return FALSE;
 	}
 
@@ -146,23 +146,23 @@ static BOOL test_SerialSys(HANDLE hComm)
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
 		return FALSE;
 	}
 	if (dcb.BaudRate != CBR_115200)
 	{
-		fprintf(stderr, "SetCommState failure: could not set BaudRate=%d (CBR_115200)\n",
-		        CBR_115200);
+		(void)fprintf(stderr, "SetCommState failure: could not set BaudRate=%d (CBR_115200)\n",
+		              CBR_115200);
 		return FALSE;
 	}
 
-	/* Test 2 using a defferent baud rate */
+	/* Test 2 using a different baud rate */
 
 	dcb.BaudRate = CBR_57600;
 	result = SetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "SetCommState failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "SetCommState failure: 0x%x\n", GetLastError());
 		return FALSE;
 	}
 
@@ -170,12 +170,13 @@ static BOOL test_SerialSys(HANDLE hComm)
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
 		return FALSE;
 	}
 	if (dcb.BaudRate != CBR_57600)
 	{
-		fprintf(stderr, "SetCommState failure: could not set BaudRate=%d (CBR_57600)\n", CBR_57600);
+		(void)fprintf(stderr, "SetCommState failure: could not set BaudRate=%d (CBR_57600)\n",
+		              CBR_57600);
 		return FALSE;
 	}
 
@@ -184,8 +185,9 @@ static BOOL test_SerialSys(HANDLE hComm)
 	result = SetCommState(hComm, &dcb);
 	if (result)
 	{
-		fprintf(stderr, "SetCommState failure: unexpected support of BaudRate=%d (CBR_128000)\n",
-		        CBR_128000);
+		(void)fprintf(stderr,
+		              "SetCommState failure: unexpected support of BaudRate=%d (CBR_128000)\n",
+		              CBR_128000);
 		return FALSE;
 	}
 
@@ -206,14 +208,15 @@ static BOOL test_SerCx2Sys(HANDLE hComm)
 
 static BOOL test_generic(HANDLE hComm)
 {
-	DCB dcb, dcb2;
-	BOOL result;
+	DCB dcb = { 0 };
+	DCB dcb2 = { 0 };
+	BOOL result = 0;
 
 	init_empty_dcb(&dcb);
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
 		return FALSE;
 	}
 
@@ -222,21 +225,21 @@ static BOOL test_generic(HANDLE hComm)
 	result = SetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "SetCommState failure: 0x%08x\n", GetLastError());
+		(void)fprintf(stderr, "SetCommState failure: 0x%08x\n", GetLastError());
 		return FALSE;
 	}
 
 	result = GetCommState(hComm, &dcb);
 	if (!result)
 	{
-		fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "GetCommState failure: 0x%x\n", GetLastError());
 		return FALSE;
 	}
 
 	if (memcmp(&dcb, &dcb2, sizeof(DCB)) != 0)
 	{
-		fprintf(stderr,
-		        "DCB is different after SetCommState() whereas it should have not changed\n");
+		(void)fprintf(stderr,
+		              "DCB is different after SetCommState() whereas it should have not changed\n");
 		return FALSE;
 	}
 
@@ -247,7 +250,7 @@ static BOOL test_generic(HANDLE hComm)
 	/* fParity tests */
 	if (!test_fParity(hComm))
 	{
-		fprintf(stderr, "test_fParity failure\n");
+		(void)fprintf(stderr, "test_fParity failure\n");
 		return FALSE;
 	}
 
@@ -256,75 +259,75 @@ static BOOL test_generic(HANDLE hComm)
 
 int TestSetCommState(int argc, char* argv[])
 {
-	struct stat statbuf;
-	BOOL result;
-	HANDLE hComm;
+	struct stat statbuf = { 0 };
+	BOOL result = 0;
+	HANDLE hComm = NULL;
 
 	if (stat("/dev/ttyS0", &statbuf) < 0)
 	{
-		fprintf(stderr, "/dev/ttyS0 not available, making the test to succeed though\n");
+		(void)fprintf(stderr, "/dev/ttyS0 not available, making the test to succeed though\n");
 		return EXIT_SUCCESS;
 	}
 
 	result = DefineCommDevice("COM1", "/dev/ttyS0");
 	if (!result)
 	{
-		fprintf(stderr, "DefineCommDevice failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "DefineCommDevice failure: 0x%x\n", GetLastError());
 		return EXIT_FAILURE;
 	}
 
 	hComm = CreateFile("COM1", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	if (hComm == INVALID_HANDLE_VALUE)
 	{
-		fprintf(stderr, "CreateFileA failure: 0x%x\n", GetLastError());
+		(void)fprintf(stderr, "CreateFileA failure: 0x%x\n", GetLastError());
 		return EXIT_FAILURE;
 	}
 
 	if (!test_generic(hComm))
 	{
-		fprintf(stderr, "test_generic failure (SerialDriverUnknown)\n");
+		(void)fprintf(stderr, "test_generic failure (SerialDriverUnknown)\n");
 		return EXIT_FAILURE;
 	}
 
 	_comm_setServerSerialDriver(hComm, SerialDriverSerialSys);
 	if (!test_generic(hComm))
 	{
-		fprintf(stderr, "test_generic failure (SerialDriverSerialSys)\n");
+		(void)fprintf(stderr, "test_generic failure (SerialDriverSerialSys)\n");
 		return EXIT_FAILURE;
 	}
 	if (!test_SerialSys(hComm))
 	{
-		fprintf(stderr, "test_SerialSys failure\n");
+		(void)fprintf(stderr, "test_SerialSys failure\n");
 		return EXIT_FAILURE;
 	}
 
 	_comm_setServerSerialDriver(hComm, SerialDriverSerCxSys);
 	if (!test_generic(hComm))
 	{
-		fprintf(stderr, "test_generic failure (SerialDriverSerCxSys)\n");
+		(void)fprintf(stderr, "test_generic failure (SerialDriverSerCxSys)\n");
 		return EXIT_FAILURE;
 	}
 	if (!test_SerCxSys(hComm))
 	{
-		fprintf(stderr, "test_SerCxSys failure\n");
+		(void)fprintf(stderr, "test_SerCxSys failure\n");
 		return EXIT_FAILURE;
 	}
 
 	_comm_setServerSerialDriver(hComm, SerialDriverSerCx2Sys);
 	if (!test_generic(hComm))
 	{
-		fprintf(stderr, "test_generic failure (SerialDriverSerCx2Sys)\n");
+		(void)fprintf(stderr, "test_generic failure (SerialDriverSerCx2Sys)\n");
 		return EXIT_FAILURE;
 	}
 	if (!test_SerCx2Sys(hComm))
 	{
-		fprintf(stderr, "test_SerCx2Sys failure\n");
+		(void)fprintf(stderr, "test_SerCx2Sys failure\n");
 		return EXIT_FAILURE;
 	}
 
 	if (!CloseHandle(hComm))
 	{
-		fprintf(stderr, "CloseHandle failure, GetLastError()=%08x\n", GetLastError());
+		(void)fprintf(stderr, "CloseHandle failure, GetLastError()=%08x\n", GetLastError());
 		return EXIT_FAILURE;
 	}
 

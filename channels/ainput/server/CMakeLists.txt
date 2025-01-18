@@ -18,10 +18,7 @@
 
 define_channel_server("ainput")
 
-set(${MODULE_PREFIX}_SRCS
-	ainput_main.c)
+set(${MODULE_PREFIX}_SRCS ainput_main.c)
 
+set(${MODULE_PREFIX}_LIBS freerdp)
 add_channel_server_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} FALSE "DVCPluginEntry")
-
-target_link_libraries(${MODULE_NAME} freerdp)
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Channels/${CHANNEL_NAME}/Server")

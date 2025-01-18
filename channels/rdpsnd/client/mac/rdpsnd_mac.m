@@ -316,7 +316,7 @@ static UINT rdpsnd_mac_play(rdpsndDevicePlugin *device, const BYTE *data, size_t
 		AVAudioPCMBuffer *buffer;
 		AVAudioFormat *format;
 		float *const *db;
-		size_t pos, step, x;
+		size_t step;
 		AVAudioFrameCount count;
 		UINT64 start = GetTickCount64();
 
@@ -349,10 +349,10 @@ static UINT rdpsnd_mac_play(rdpsndDevicePlugin *device, const BYTE *data, size_t
 		buffer.frameLength = buffer.frameCapacity;
 		db = buffer.floatChannelData;
 
-		for (pos = 0; pos < count; pos++)
+		for (size_t pos = 0; pos < count; pos++)
 		{
 			const BYTE *d = &data[pos * step];
-			for (x = 0; x < mac->format.nChannels; x++)
+			for (size_t x = 0; x < mac->format.nChannels; x++)
 			{
 				const float val = (int16_t)((uint16_t)d[0] | ((uint16_t)d[1] << 8)) / 32768.0f;
 				db[x][pos] = val;
@@ -382,7 +382,8 @@ static UINT rdpsnd_mac_play(rdpsndDevicePlugin *device, const BYTE *data, size_t
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT mac_freerdp_rdpsnd_client_subsystem_entry(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE mac_freerdp_rdpsnd_client_subsystem_entry(
+    PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	rdpsndMacPlugin *mac;
 	mac = (rdpsndMacPlugin *)calloc(1, sizeof(rdpsndMacPlugin));

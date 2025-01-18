@@ -19,6 +19,7 @@
 
 #include <freerdp/config.h>
 
+#include "../settings.h"
 #include "ncacn_http.h"
 
 #include <winpr/crt.h>
@@ -32,13 +33,13 @@
 
 #define AUTH_PKG NTLM_SSP_NAME
 
-static wStream* rpc_auth_http_request(HttpContext* http, const char* method, int contentLength,
+static wStream* rpc_auth_http_request(HttpContext* http, const char* method, size_t contentLength,
                                       const SecBuffer* authToken, const char* auth_scheme)
 {
 	wStream* s = NULL;
 	HttpRequest* request = NULL;
 	char* base64AuthToken = NULL;
-	const char* uri;
+	const char* uri = NULL;
 
 	if (!http || !method)
 		goto fail;
@@ -74,13 +75,12 @@ fail:
 
 BOOL rpc_ncacn_http_send_in_channel_request(RpcChannel* inChannel)
 {
-	wStream* s;
-	SSIZE_T status;
-	int contentLength;
-	rdpCredsspAuth* auth;
-	HttpContext* http;
-	const SecBuffer* buffer;
-	int rc;
+	wStream* s = NULL;
+	SSIZE_T status = 0;
+	rdpCredsspAuth* auth = NULL;
+	HttpContext* http = NULL;
+	const SecBuffer* buffer = NULL;
+	int rc = 0;
 
 	if (!inChannel || !inChannel->auth || !inChannel->http)
 		return FALSE;
@@ -92,7 +92,7 @@ BOOL rpc_ncacn_http_send_in_channel_request(RpcChannel* inChannel)
 	if (rc < 0)
 		return FALSE;
 
-	contentLength = (rc == 0) ? 0 : 0x40000000;
+	const size_t contentLength = (rc == 0) ? 0 : 0x40000000;
 	buffer = credssp_auth_have_output_token(auth) ? credssp_auth_get_output_buffer(auth) : NULL;
 	s = rpc_auth_http_request(http, "RPC_IN_DATA", contentLength, buffer,
 	                          credssp_auth_pkg_name(auth));
@@ -107,23 +107,25 @@ BOOL rpc_ncacn_http_send_in_channel_request(RpcChannel* inChannel)
 
 BOOL rpc_ncacn_http_recv_in_channel_response(RpcChannel* inChannel, HttpResponse* response)
 {
-	const char* token64 = NULL;
 	size_t authTokenLength = 0;
 	BYTE* authTokenData = NULL;
-	rdpCredsspAuth* auth;
-	SecBuffer buffer = { 0 };
 
 	if (!inChannel || !response || !inChannel->auth)
 		return FALSE;
 
-	auth = inChannel->auth;
-	token64 = http_response_get_auth_token(response, credssp_auth_pkg_name(auth));
+	rdpCredsspAuth* auth = inChannel->auth;
+	const char* token64 = http_response_get_auth_token(response, credssp_auth_pkg_name(auth));
 
 	if (token64)
 		crypto_base64_decode(token64, strlen(token64), &authTokenData, &authTokenLength);
 
-	buffer.pvBuffer = authTokenData;
-	buffer.cbBuffer = authTokenLength;
+	if (authTokenLength > UINT32_MAX)
+	{
+		free(authTokenData);
+		return FALSE;
+	}
+
+	SecBuffer buffer = { .pvBuffer = authTokenData, .cbBuffer = (UINT32)authTokenLength };
 
 	if (authTokenData && authTokenLength)
 	{
@@ -137,11 +139,11 @@ BOOL rpc_ncacn_http_recv_in_channel_response(RpcChannel* inChannel, HttpResponse
 
 BOOL rpc_ncacn_http_auth_init(rdpContext* context, RpcChannel* channel)
 {
-	rdpTls* tls;
-	rdpCredsspAuth* auth;
-	rdpSettings* settings;
-	freerdp* instance;
-	auth_status rc;
+	rdpTls* tls = NULL;
+	rdpCredsspAuth* auth = NULL;
+	rdpSettings* settings = NULL;
+	freerdp* instance = NULL;
+	auth_status rc = AUTH_FAILED;
 	SEC_WINNT_AUTH_IDENTITY identity = { 0 };
 
 	if (!context || !channel)
@@ -161,29 +163,33 @@ BOOL rpc_ncacn_http_auth_init(rdpContext* context, RpcChannel* channel)
 		case AUTH_SUCCESS:
 		case AUTH_SKIP:
 			break;
+		case AUTH_CANCELLED:
+			freerdp_set_last_error_log(instance->context, FREERDP_ERROR_CONNECT_CANCELLED);
+			return FALSE;
 		case AUTH_NO_CREDENTIALS:
-			freerdp_set_last_error_log(instance->context,
-			                           FREERDP_ERROR_CONNECT_NO_OR_MISSING_CREDENTIALS);
-			return TRUE;
+			WLog_INFO(TAG, "No credentials provided - using NULL identity");
+			break;
 		case AUTH_FAILED:
 		default:
 			return FALSE;
 	}
 
 	if (!credssp_auth_init(auth, AUTH_PKG, tls->Bindings))
-		return TRUE;
+		return FALSE;
 
-	if (sspi_SetAuthIdentityA(&identity, settings->GatewayUsername, settings->GatewayDomain,
-	                          settings->GatewayPassword) < 0)
-		return TRUE;
+	if (!identity_set_from_settings(&identity, settings, FreeRDP_GatewayUsername,
+	                                FreeRDP_GatewayDomain, FreeRDP_GatewayPassword))
+		return FALSE;
 
-	credssp_auth_setup_client(auth, "HTTP", settings->GatewayHostname, &identity, NULL);
+	SEC_WINNT_AUTH_IDENTITY* identityArg = (settings->GatewayUsername ? &identity : NULL);
+	const BOOL res =
+	    credssp_auth_setup_client(auth, "HTTP", settings->GatewayHostname, identityArg, NULL);
 
 	sspi_FreeAuthIdentity(&identity);
 
 	credssp_auth_set_flags(auth, ISC_REQ_CONFIDENTIALITY);
 
-	return TRUE;
+	return res;
 }
 
 void rpc_ncacn_http_auth_uninit(RpcChannel* channel)
@@ -198,12 +204,12 @@ void rpc_ncacn_http_auth_uninit(RpcChannel* channel)
 BOOL rpc_ncacn_http_send_out_channel_request(RpcChannel* outChannel, BOOL replacement)
 {
 	BOOL status = TRUE;
-	wStream* s;
-	int contentLength;
-	rdpCredsspAuth* auth;
-	HttpContext* http;
-	const SecBuffer* buffer;
-	int rc;
+	wStream* s = NULL;
+	size_t contentLength = 0;
+	rdpCredsspAuth* auth = NULL;
+	HttpContext* http = NULL;
+	const SecBuffer* buffer = NULL;
+	int rc = 0;
 
 	if (!outChannel || !outChannel->auth || !outChannel->http)
 		return FALSE;
@@ -236,23 +242,24 @@ BOOL rpc_ncacn_http_send_out_channel_request(RpcChannel* outChannel, BOOL replac
 
 BOOL rpc_ncacn_http_recv_out_channel_response(RpcChannel* outChannel, HttpResponse* response)
 {
-	const char* token64 = NULL;
 	size_t authTokenLength = 0;
 	BYTE* authTokenData = NULL;
-	rdpCredsspAuth* auth;
-	SecBuffer buffer = { 0 };
 
 	if (!outChannel || !response || !outChannel->auth)
 		return FALSE;
 
-	auth = outChannel->auth;
-	token64 = http_response_get_auth_token(response, credssp_auth_pkg_name(auth));
+	rdpCredsspAuth* auth = outChannel->auth;
+	const char* token64 = http_response_get_auth_token(response, credssp_auth_pkg_name(auth));
 
 	if (token64)
 		crypto_base64_decode(token64, strlen(token64), &authTokenData, &authTokenLength);
 
-	buffer.pvBuffer = authTokenData;
-	buffer.cbBuffer = authTokenLength;
+	if (authTokenLength > UINT32_MAX)
+	{
+		free(authTokenData);
+		return FALSE;
+	}
+	SecBuffer buffer = { .pvBuffer = authTokenData, .cbBuffer = (UINT32)authTokenLength };
 
 	if (authTokenData && authTokenLength)
 	{

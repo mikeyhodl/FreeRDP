@@ -20,82 +20,11 @@
 #define WINPR_H
 
 #include <winpr/platform.h>
+#include <winpr/cast.h>
 
-#ifdef WINPR_DLL
-#if defined _WIN32 || defined __CYGWIN__
-#ifdef WINPR_EXPORTS
-#ifdef __GNUC__
-#define WINPR_API __attribute__((dllexport))
-#else
-#define WINPR_API __declspec(dllexport)
-#endif
-#else
-#ifdef __GNUC__
-#define WINPR_API __attribute__((dllimport))
-#else
-#define WINPR_API __declspec(dllimport)
-#endif
-#endif
-#else
-#if __GNUC__ >= 4
-#define WINPR_API __attribute__((visibility("default")))
-#else
-#define WINPR_API
-#endif
-#endif
-#else /* WINPR_DLL */
-#define WINPR_API
-#endif
-
-#if defined(WIN32) && !defined(__CYGWIN__)
-#define WINPR_DEPRECATED(obj) __declspec(deprecated) obj
-#define WINPR_DEPRECATED_VAR(text, obj) __declspec(deprecated(text)) obj
-#define WINPR_NORETURN(obj) __declspec(noreturn) obj
-#elif defined(__GNUC__)
-#define WINPR_DEPRECATED(obj) obj __attribute__((deprecated))
-#define WINPR_DEPRECATED_VAR(text, obj) obj __attribute__((deprecated(text)))
-#define WINPR_NORETURN(obj) __attribute__((__noreturn__)) obj
-#else
-#define WINPR_DEPRECATED(obj) obj
-#define WINPR_DEPRECATED_VAR(text, obj) obj
-#define WINPR_NORETURN(obj) obj
-#endif
-
-#if defined(EXPORT_ALL_SYMBOLS)
-#define WINPR_LOCAL WINPR_API
-#else
-#if defined _WIN32 || defined __CYGWIN__
-#define WINPR_LOCAL
-#else
-#if __GNUC__ >= 4
-#define WINPR_LOCAL __attribute__((visibility("hidden")))
-#else
-#define WINPR_LOCAL
-#endif
-#endif
-#endif
-
-// WARNING: *do not* use thread-local storage for new code because it is not portable
-// It is only used for VirtualChannelInit, and all FreeRDP channels use VirtualChannelInitEx
-// The old virtual channel API is only realistically used on Windows where TLS is available
-#if defined _WIN32 || defined __CYGWIN__
-#ifdef __GNUC__
-#define WINPR_TLS __thread
-#else
-#define WINPR_TLS __declspec(thread)
-#endif
-#elif !defined(__IOS__)
-#define WINPR_TLS __thread
-#else
-// thread-local storage is not supported on iOS
-// don't warn because it isn't actually used on iOS
-#define WINPR_TLS
-#endif
-
-#ifdef _WIN32
-#define INLINE __inline
-#else
-#define INLINE inline
+#ifdef __cplusplus
+extern "C"
+{
 #endif
 
 WINPR_API void winpr_get_version(int* major, int* minor, int* revision);
@@ -103,6 +32,8 @@ WINPR_API const char* winpr_get_version_string(void);
 WINPR_API const char* winpr_get_build_revision(void);
 WINPR_API const char* winpr_get_build_config(void);
 
-#define WINPR_UNUSED(x) (void)(x)
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* WINPR_H */

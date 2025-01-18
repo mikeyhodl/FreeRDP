@@ -24,21 +24,12 @@
 #include <freerdp/gdi/gfx.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/log.h>
+#include <freerdp/locale/keyboard.h>
 #include <winpr/wtypes.h>
 #include <uwac/uwac.h>
 
 typedef struct wlf_clipboard wfClipboard;
 typedef struct s_wlfDispContext wlfDispContext;
-
-#define MAX_CONTACTS 20
-
-typedef struct
-{
-	int id;
-	double pos_x;
-	double pos_y;
-	BOOL emulate_mouse;
-} touchContact;
 
 typedef struct
 {
@@ -59,8 +50,7 @@ typedef struct
 	wLog* log;
 	CRITICAL_SECTION critical;
 	wArrayList* events;
-
-	touchContact contacts[MAX_CONTACTS];
+	FREERDP_REMAP_TABLE* remap_table;
 } wlfContext;
 
 BOOL wlf_scale_coordinates(rdpContext* context, UINT32* px, UINT32* py, BOOL fromLocalToRDP);

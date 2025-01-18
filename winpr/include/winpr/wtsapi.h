@@ -27,6 +27,11 @@
 
 #include <winpr/file.h>
 
+#define CHANNEL_CHUNK_MAX_LENGTH 16256
+
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
+
 #ifdef _WIN32
 
 #define CurrentTime _CurrentTime /* Workaround for X11 "CurrentTime" header conflict */
@@ -760,8 +765,9 @@ typedef enum
 {
 	WTSVirtualClientData,
 	WTSVirtualFileHandle,
-	WTSVirtualEventHandle, /* Extended */
-	WTSVirtualChannelReady /* Extended */
+	WTSVirtualEventHandle,      /* Extended */
+	WTSVirtualChannelReady,     /* Extended */
+	WTSVirtualChannelOpenStatus /* Extended */
 } WTS_VIRTUAL_CLASS;
 
 typedef struct
@@ -999,13 +1005,19 @@ extern "C"
 	WINPR_API BOOL WINAPI WTSEnumerateServersA(LPSTR pDomainName, DWORD Reserved, DWORD Version,
 	                                           PWTS_SERVER_INFOA* ppServerInfo, DWORD* pCount);
 
+	WINPR_API VOID WINAPI WTSCloseServer(HANDLE hServer);
+
+	WINPR_ATTR_MALLOC(WTSCloseServer, 1)
 	WINPR_API HANDLE WINAPI WTSOpenServerW(LPWSTR pServerName);
+
+	WINPR_ATTR_MALLOC(WTSCloseServer, 1)
 	WINPR_API HANDLE WINAPI WTSOpenServerA(LPSTR pServerName);
 
+	WINPR_ATTR_MALLOC(WTSCloseServer, 1)
 	WINPR_API HANDLE WINAPI WTSOpenServerExW(LPWSTR pServerName);
-	WINPR_API HANDLE WINAPI WTSOpenServerExA(LPSTR pServerName);
 
-	WINPR_API VOID WINAPI WTSCloseServer(HANDLE hServer);
+	WINPR_ATTR_MALLOC(WTSCloseServer, 1)
+	WINPR_API HANDLE WINAPI WTSOpenServerExA(LPSTR pServerName);
 
 	WINPR_API BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
 	                                            PWTS_SESSION_INFOW* ppSessionInfo, DWORD* pCount);
@@ -1062,13 +1074,15 @@ extern "C"
 
 	WINPR_API BOOL WINAPI WTSWaitSystemEvent(HANDLE hServer, DWORD EventMask, DWORD* pEventFlags);
 
+	WINPR_API BOOL WINAPI WTSVirtualChannelClose(HANDLE hChannelHandle);
+
+	WINPR_ATTR_MALLOC(WTSVirtualChannelClose, 1)
 	WINPR_API HANDLE WINAPI WTSVirtualChannelOpen(HANDLE hServer, DWORD SessionId,
 	                                              LPSTR pVirtualName);
 
+	WINPR_ATTR_MALLOC(WTSVirtualChannelClose, 1)
 	WINPR_API HANDLE WINAPI WTSVirtualChannelOpenEx(DWORD SessionId, LPSTR pVirtualName,
 	                                                DWORD flags);
-
-	WINPR_API BOOL WINAPI WTSVirtualChannelClose(HANDLE hChannelHandle);
 
 	WINPR_API BOOL WINAPI WTSVirtualChannelRead(HANDLE hChannelHandle, ULONG TimeOut, PCHAR Buffer,
 	                                            ULONG BufferSize, PULONG pBytesRead);
@@ -1505,5 +1519,7 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
+
+WINPR_PRAGMA_DIAG_POP
 
 #endif /* WINPR_WTSAPI_H */

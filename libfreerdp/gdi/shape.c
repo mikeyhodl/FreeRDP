@@ -41,9 +41,13 @@
 
 static void Ellipse_Bresenham(HGDI_DC hdc, int x1, int y1, int x2, int y2)
 {
-	INT32 e, e2;
-	INT32 dx, dy;
-	INT32 a, b, c;
+	INT32 e = 0;
+	INT32 e2 = 0;
+	INT32 dx = 0;
+	INT32 dy = 0;
+	INT32 a = 0;
+	INT32 b = 0;
+	INT32 c = 0;
 	a = (x1 < x2) ? x2 - x1 : x1 - x2;
 	b = (y1 < y2) ? y2 - y1 : y1 - y2;
 	c = b & 1;
@@ -67,10 +71,14 @@ static void Ellipse_Bresenham(HGDI_DC hdc, int x1, int y1, int x2, int y2)
 
 	do
 	{
-		gdi_SetPixel(hdc, x2, y1, 0);
-		gdi_SetPixel(hdc, x1, y1, 0);
-		gdi_SetPixel(hdc, x1, y2, 0);
-		gdi_SetPixel(hdc, x2, y2, 0);
+		gdi_SetPixel(hdc, WINPR_ASSERTING_INT_CAST(UINT32, x2),
+		             WINPR_ASSERTING_INT_CAST(UINT32, y1), 0);
+		gdi_SetPixel(hdc, WINPR_ASSERTING_INT_CAST(UINT32, x1),
+		             WINPR_ASSERTING_INT_CAST(UINT32, y1), 0);
+		gdi_SetPixel(hdc, WINPR_ASSERTING_INT_CAST(UINT32, x1),
+		             WINPR_ASSERTING_INT_CAST(UINT32, y2), 0);
+		gdi_SetPixel(hdc, WINPR_ASSERTING_INT_CAST(UINT32, x2),
+		             WINPR_ASSERTING_INT_CAST(UINT32, y2), 0);
 		e2 = 2 * e;
 
 		if (e2 >= dx)
@@ -90,19 +98,26 @@ static void Ellipse_Bresenham(HGDI_DC hdc, int x1, int y1, int x2, int y2)
 
 	while (y1 - y2 < b)
 	{
-		gdi_SetPixel(hdc, x1 - 1, ++y1, 0);
-		gdi_SetPixel(hdc, x1 - 1, --y2, 0);
+		y1++;
+		y2--;
+
+		gdi_SetPixel(hdc, WINPR_ASSERTING_INT_CAST(uint32_t, x1 - 1),
+		             WINPR_ASSERTING_INT_CAST(uint32_t, y1), 0);
+		gdi_SetPixel(hdc, WINPR_ASSERTING_INT_CAST(uint32_t, x1 - 1),
+		             WINPR_ASSERTING_INT_CAST(uint32_t, y2), 0);
 	}
 }
 
 /**
  * Draw an ellipse
- * @msdn{dd162510}
+ * msdn{dd162510}
+ *
  * @param hdc device context
  * @param nLeftRect x1
  * @param nTopRect y1
  * @param nRightRect x2
  * @param nBottomRect y2
+ *
  * @return nonzero if successful, 0 otherwise
  */
 BOOL gdi_Ellipse(HGDI_DC hdc, int nLeftRect, int nTopRect, int nRightRect, int nBottomRect)
@@ -112,23 +127,27 @@ BOOL gdi_Ellipse(HGDI_DC hdc, int nLeftRect, int nTopRect, int nRightRect, int n
 }
 
 /**
- * Fill a rectangle with the given brush.\n
- * @msdn{dd162719}
+ * Fill a rectangle with the given brush.
+ * msdn{dd162719}
+ *
  * @param hdc device context
  * @param rect rectangle
  * @param hbr brush
+ *
  * @return nonzero if successful, 0 otherwise
  */
 
 BOOL gdi_FillRect(HGDI_DC hdc, const HGDI_RECT rect, HGDI_BRUSH hbr)
 {
-	INT32 x, y;
-	UINT32 color, dstColor;
+	UINT32 color = 0;
+	UINT32 dstColor = 0;
 	BOOL monochrome = FALSE;
-	INT32 nXDest, nYDest;
-	INT32 nWidth, nHeight;
-	const BYTE* srcp;
-	DWORD formatSize;
+	INT32 nXDest = 0;
+	INT32 nYDest = 0;
+	INT32 nWidth = 0;
+	INT32 nHeight = 0;
+	const BYTE* srcp = NULL;
+	DWORD formatSize = 0;
 	gdi_RectToCRgn(rect, &nXDest, &nYDest, &nWidth, &nHeight);
 
 	if (!hdc || !hbr)
@@ -142,7 +161,7 @@ BOOL gdi_FillRect(HGDI_DC hdc, const HGDI_RECT rect, HGDI_BRUSH hbr)
 		case GDI_BS_SOLID:
 			color = hbr->color;
 
-			for (x = 0; x < nWidth; x++)
+			for (INT32 x = 0; x < nWidth; x++)
 			{
 				BYTE* dstp = gdi_get_bitmap_pointer(hdc, nXDest + x, nYDest);
 
@@ -153,10 +172,10 @@ BOOL gdi_FillRect(HGDI_DC hdc, const HGDI_RECT rect, HGDI_BRUSH hbr)
 			srcp = gdi_get_bitmap_pointer(hdc, nXDest, nYDest);
 			formatSize = FreeRDPGetBytesPerPixel(hdc->format);
 
-			for (y = 1; y < nHeight; y++)
+			for (INT32 y = 1; y < nHeight; y++)
 			{
 				BYTE* dstp = gdi_get_bitmap_pointer(hdc, nXDest, nYDest + y);
-				memcpy(dstp, srcp, nWidth * formatSize * 1ULL);
+				memcpy(dstp, srcp, 1ull * WINPR_ASSERTING_INT_CAST(size_t, nWidth) * formatSize);
 			}
 
 			break;
@@ -166,18 +185,21 @@ BOOL gdi_FillRect(HGDI_DC hdc, const HGDI_RECT rect, HGDI_BRUSH hbr)
 			monochrome = (hbr->pattern->format == PIXEL_FORMAT_MONO);
 			formatSize = FreeRDPGetBytesPerPixel(hbr->pattern->format);
 
-			for (y = 0; y < nHeight; y++)
+			for (INT32 y = 0; y < nHeight; y++)
 			{
-				for (x = 0; x < nWidth; x++)
+				for (INT32 x = 0; x < nWidth; x++)
 				{
-					const UINT32 yOffset =
-					    ((nYDest + y) * hbr->pattern->width % hbr->pattern->height) * formatSize;
-					const UINT32 xOffset = ((nXDest + x) % hbr->pattern->width) * formatSize;
+					const size_t yOffset =
+					    ((1ULL * WINPR_ASSERTING_INT_CAST(size_t, nYDest) +
+					      WINPR_ASSERTING_INT_CAST(size_t, y)) *
+					     WINPR_ASSERTING_INT_CAST(size_t, hbr->pattern->width) %
+					     WINPR_ASSERTING_INT_CAST(size_t, hbr->pattern->height)) *
+					    formatSize;
+					const size_t xOffset = ((1ULL * WINPR_ASSERTING_INT_CAST(size_t, nXDest) +
+					                         WINPR_ASSERTING_INT_CAST(size_t, x)) %
+					                        WINPR_ASSERTING_INT_CAST(size_t, hbr->pattern->width)) *
+					                       formatSize;
 					const BYTE* patp = &hbr->pattern->data[yOffset + xOffset];
-					BYTE* dstp = gdi_get_bitmap_pointer(hdc, nXDest + x, nYDest + y);
-
-					if (!patp)
-						return FALSE;
 
 					if (monochrome)
 					{
@@ -193,6 +215,7 @@ BOOL gdi_FillRect(HGDI_DC hdc, const HGDI_RECT rect, HGDI_BRUSH hbr)
 						    FreeRDPConvertColor(dstColor, hbr->pattern->format, hdc->format, NULL);
 					}
 
+					BYTE* dstp = gdi_get_bitmap_pointer(hdc, nXDest + x, nYDest + y);
 					if (dstp)
 						FreeRDPWriteColor(dstp, hdc->format, dstColor);
 				}
@@ -212,7 +235,7 @@ BOOL gdi_FillRect(HGDI_DC hdc, const HGDI_RECT rect, HGDI_BRUSH hbr)
 
 /**
  * Draw a polygon
- * @msdn{dd162814}
+ * msdn{dd162814}
  * @param hdc device context
  * @param lpPoints array of points
  * @param nCount number of points
@@ -226,7 +249,7 @@ BOOL gdi_Polygon(HGDI_DC hdc, GDI_POINT* lpPoints, int nCount)
 
 /**
  * Draw a series of closed polygons
- * @msdn{dd162818}
+ * msdn{dd162818}
  * @param hdc device context
  * @param lpPoints array of series of points
  * @param lpPolyCounts array of number of points in each series
@@ -241,15 +264,14 @@ BOOL gdi_PolyPolygon(HGDI_DC hdc, GDI_POINT* lpPoints, int* lpPolyCounts, int nC
 
 BOOL gdi_Rectangle(HGDI_DC hdc, INT32 nXDst, INT32 nYDst, INT32 nWidth, INT32 nHeight)
 {
-	INT32 x, y;
-	UINT32 color;
+	UINT32 color = 0;
 
 	if (!gdi_ClipCoords(hdc, &nXDst, &nYDst, &nWidth, &nHeight, NULL, NULL))
 		return TRUE;
 
 	color = hdc->textColor;
 
-	for (y = 0; y < nHeight; y++)
+	for (INT32 y = 0; y < nHeight; y++)
 	{
 		BYTE* dstLeft = gdi_get_bitmap_pointer(hdc, nXDst, nYDst + y);
 		BYTE* dstRight = gdi_get_bitmap_pointer(hdc, nXDst + nWidth - 1, nYDst + y);
@@ -261,7 +283,7 @@ BOOL gdi_Rectangle(HGDI_DC hdc, INT32 nXDst, INT32 nYDst, INT32 nWidth, INT32 nH
 			FreeRDPWriteColor(dstRight, hdc->format, color);
 	}
 
-	for (x = 0; x < nWidth; x++)
+	for (INT32 x = 0; x < nWidth; x++)
 	{
 		BYTE* dstTop = gdi_get_bitmap_pointer(hdc, nXDst + x, nYDst);
 		BYTE* dstBottom = gdi_get_bitmap_pointer(hdc, nXDst + x, nYDst + nHeight - 1);

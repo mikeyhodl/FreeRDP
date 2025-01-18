@@ -2,8 +2,8 @@
  * FreeRDP: A Remote Desktop Protocol Implementation
  * FreeRDP Proxy Server
  *
- * Copyright 2021 Armin Novak <armin.novak@thincast.com>
- * Copyright 2021 Thincast Technologies GmbH
+ * Copyright 2021-2023 Armin Novak <armin.novak@thincast.com>
+ * Copyright 2021-2023 Thincast Technologies GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,80 +26,98 @@
 #include <freerdp/api.h>
 #include <freerdp/server/proxy/proxy_modules_api.h>
 
-typedef struct proxy_config proxyConfig;
-
-struct proxy_config
-{
-	/* server */
-	char* Host;
-	UINT16 Port;
-
-	/* target */
-	BOOL FixedTarget;
-	char* TargetHost;
-	UINT16 TargetPort;
-	char* TargetUser;
-	char* TargetDomain;
-	char* TargetPassword;
-
-	/* input */
-	BOOL Keyboard;
-	BOOL Mouse;
-	BOOL Multitouch;
-
-	/* server security */
-	BOOL ServerTlsSecurity;
-	BOOL ServerRdpSecurity;
-	BOOL ServerNlaSecurity;
-
-	/* client security */
-	BOOL ClientNlaSecurity;
-	BOOL ClientTlsSecurity;
-	BOOL ClientRdpSecurity;
-	BOOL ClientAllowFallbackToTls;
-
-	/* channels */
-	BOOL GFX;
-	BOOL DisplayControl;
-	BOOL Clipboard;
-	BOOL AudioOutput;
-	BOOL AudioInput;
-	BOOL RemoteApp;
-	BOOL DeviceRedirection;
-	BOOL VideoRedirection;
-	BOOL CameraRedirection;
-
-	BOOL PassthroughIsBlacklist;
-	char** Passthrough;
-	size_t PassthroughCount;
-	char** Intercept;
-	size_t InterceptCount;
-
-	/* clipboard specific settings */
-	BOOL TextOnly;
-	UINT32 MaxTextLength;
-
-	/* gfx settings */
-	BOOL DecodeGFX;
-
-	/* modules */
-	char** Modules; /* module file names to load */
-	size_t ModulesCount;
-
-	char** RequiredPlugins; /* required plugin names */
-	size_t RequiredPluginsCount;
-
-	char* CertificateFile;
-	char* CertificateContent;
-
-	char* PrivateKeyFile;
-	char* PrivateKeyContent;
-};
+/** @defgroup proxy_config Proxy Configuration
+ * @ingroup proxy
+ * @{
+ */
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+	typedef struct proxy_config proxyConfig;
+
+	struct proxy_config
+	{
+		/* server */
+		char* Host;
+		UINT16 Port;
+
+		/* target */
+		BOOL FixedTarget;
+		char* TargetHost;
+		UINT16 TargetPort;
+		char* TargetUser;
+		char* TargetDomain;
+		char* TargetPassword;
+
+		/* input */
+		BOOL Keyboard;
+		BOOL Mouse;
+		BOOL Multitouch;
+
+		/* server security */
+		BOOL ServerTlsSecurity;
+		BOOL ServerRdpSecurity;
+		BOOL ServerNlaSecurity;
+
+		/* client security */
+		BOOL ClientNlaSecurity;
+		BOOL ClientTlsSecurity;
+		BOOL ClientRdpSecurity;
+		BOOL ClientAllowFallbackToTls;
+
+		/* channels */
+		BOOL GFX;
+		BOOL DisplayControl;
+		BOOL Clipboard;
+		BOOL AudioOutput;
+		BOOL AudioInput;
+		BOOL RemoteApp;
+		BOOL DeviceRedirection;
+		BOOL VideoRedirection;
+		BOOL CameraRedirection;
+
+		BOOL PassthroughIsBlacklist;
+		char** Passthrough;
+		size_t PassthroughCount;
+		char** Intercept;
+		size_t InterceptCount;
+
+		/* clipboard specific settings */
+		WINPR_DEPRECATED_VAR("[since 3.6.0] Unused, ignore", BOOL TextOnly);
+		WINPR_DEPRECATED_VAR("[since 3.6.0] Unused, ignore", UINT32 MaxTextLength);
+
+		/* gfx settings */
+		WINPR_DEPRECATED_VAR("[since 3.6.0] Unused, ignore", BOOL DecodeGFX);
+
+		/* modules */
+		char** Modules; /* module file names to load */
+		size_t ModulesCount;
+
+		char** RequiredPlugins; /* required plugin names */
+		size_t RequiredPluginsCount;
+
+		char* CertificateFile;
+		char* CertificateContent;
+
+		char* PrivateKeyFile;
+		char* PrivateKeyContent;
+
+		/* Data extracted from CertificateContent or CertificateFile  (evaluation in this order) */
+		char* CertificatePEM;
+		size_t CertificatePEMLength;
+
+		/* Data extracted from PrivateKeyContent or PrivateKeyFile  (evaluation in this order) */
+		char* PrivateKeyPEM;
+		size_t PrivateKeyPEMLength;
+
+		wIniFile* ini;
+
+		/* target continued */
+		UINT32 TargetTlsSecLevel; /** @since version 3.2.0 */
+	};
 
 	/**
 	 * @brief pf_server_config_dump Dumps a default INI configuration file
@@ -109,6 +127,13 @@ extern "C"
 	FREERDP_API BOOL pf_server_config_dump(const char* file);
 
 	/**
+	 * @brief pf_server_config_free Releases all resources associated with proxyConfig
+	 *
+	 * @param config A pointer to the proxyConfig to clean up. Might be NULL.
+	 */
+	FREERDP_API void pf_server_config_free(proxyConfig* config);
+
+	/**
 	 * @brief server_config_load_ini Create a proxyConfig from a already loaded
 	 * INI file.
 	 *
@@ -116,6 +141,7 @@ extern "C"
 	 *
 	 * @return A proxyConfig or NULL in case of failure.
 	 */
+	WINPR_ATTR_MALLOC(pf_server_config_free, 1)
 	FREERDP_API proxyConfig* server_config_load_ini(wIniFile* ini);
 	/**
 	 * @brief pf_server_config_load_file Create a proxyConfig from a INI file found at path.
@@ -124,6 +150,7 @@ extern "C"
 	 *
 	 * @return A proxyConfig or NULL in case of failure.
 	 */
+	WINPR_ATTR_MALLOC(pf_server_config_free, 1)
 	FREERDP_API proxyConfig* pf_server_config_load_file(const char* path);
 
 	/**
@@ -134,6 +161,7 @@ extern "C"
 	 *
 	 * @return A proxyConfig or NULL in case of failure.
 	 */
+	WINPR_ATTR_MALLOC(pf_server_config_free, 1)
 	FREERDP_API proxyConfig* pf_server_config_load_buffer(const char* buffer);
 
 	/**
@@ -142,13 +170,6 @@ extern "C"
 	 * @param config A pointer to the configuration to print. Must NOT be NULL.
 	 */
 	FREERDP_API void pf_server_config_print(const proxyConfig* config);
-
-	/**
-	 * @brief pf_server_config_free Releases all resources associated with proxyConfig
-	 *
-	 * @param config A pointer to the proxyConfig to clean up. Might be NULL.
-	 */
-	FREERDP_API void pf_server_config_free(proxyConfig* config);
 
 	/**
 	 * @brief pf_config_required_plugins_count
@@ -205,7 +226,21 @@ extern "C"
 	 */
 	FREERDP_API BOOL pf_config_plugin(proxyPluginsManager* plugins_manager, void* userdata);
 
+	/**
+	 * @brief pf_config_get get a value for a section/key
+	 * @param config A pointer to the proxyConfig. Must NOT be NULL.
+	 * @param section The name of the section the key is in, must not be \b NULL
+	 * @param key The name of the key to look for. Must not be \b NULL
+	 *
+	 * @return A pointer to the value for \b section/key or \b NULL if not found
+	 */
+	FREERDP_API const char* pf_config_get(const proxyConfig* config, const char* section,
+	                                      const char* key);
+
 #ifdef __cplusplus
-};
+}
 #endif
+
+/** @} */
+
 #endif /* FREERDP_SERVER_PROXY_CONFIG_H */

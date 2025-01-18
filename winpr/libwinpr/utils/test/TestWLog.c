@@ -6,11 +6,11 @@
 
 int TestWLog(int argc, char* argv[])
 {
-	wLog* root;
-	wLog* logA;
-	wLog* logB;
-	wLogLayout* layout;
-	wLogAppender* appender;
+	wLog* root = NULL;
+	wLog* logA = NULL;
+	wLog* logB = NULL;
+	wLogLayout* layout = NULL;
+	wLogAppender* appender = NULL;
 	char* tmp_path = NULL;
 	char* wlog_file = NULL;
 	int result = 1;
@@ -20,7 +20,7 @@ int TestWLog(int argc, char* argv[])
 
 	if (!(tmp_path = GetKnownPath(KNOWN_PATH_TEMP)))
 	{
-		fprintf(stderr, "Failed to get temporary directory!\n");
+		(void)fprintf(stderr, "Failed to get temporary directory!\n");
 		goto out;
 	}
 

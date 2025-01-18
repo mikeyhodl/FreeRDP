@@ -23,7 +23,13 @@
 
 #include <winpr/windows.h>
 
+#include <freerdp/api.h>
 #include <freerdp/types.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #define RAIL_SVC_CHANNEL_NAME "rail"
 
@@ -88,7 +94,7 @@ enum SPI_MASK
 	SPI_MASK_SET_CARET_WIDTH = 0x00000400,
 	SPI_MASK_SET_STICKY_KEYS = 0x00000800,
 	SPI_MASK_SET_TOGGLE_KEYS = 0x00001000,
-	SPI_MASK_SET_FILTER_KEYS = 0x00002000,
+	SPI_MASK_SET_FILTER_KEYS = 0x00002000
 };
 
 /* Client System Parameters Update PDU
@@ -341,9 +347,9 @@ typedef struct
 typedef struct
 {
 	UINT16 flags;
-	char* RemoteApplicationProgram;
-	char* RemoteApplicationWorkingDir;
-	char* RemoteApplicationArguments;
+	const char* RemoteApplicationProgram;
+	const char* RemoteApplicationWorkingDir;
+	const char* RemoteApplicationArguments;
 } RAIL_EXEC_ORDER;
 
 typedef struct
@@ -573,14 +579,21 @@ typedef enum
 	TS_RAIL_ORDER_EXEC_RESULT = 0x0080
 } ORDER_TYPE;
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 	FREERDP_API BOOL rail_read_unicode_string(wStream* s, RAIL_UNICODE_STRING* unicode_string);
 	FREERDP_API BOOL utf8_string_to_rail_string(const char* string,
 	                                            RAIL_UNICODE_STRING* unicode_string);
+
+	/** @brief convert rails handshake flags to a string representation
+	 *
+	 *  @param flags The flags to stringify
+	 *  @param buffer a string buffer to write to
+	 *  @param len the size in bytes of the string buffer
+	 *
+	 *  @return A pointer to buffer or \b NULL in case of failure
+	 *  @since version 3.5.0
+	 */
+	FREERDP_API const char* rail_handshake_ex_flags_to_string(UINT32 flags, char* buffer,
+	                                                          size_t len);
 
 #ifdef __cplusplus
 }

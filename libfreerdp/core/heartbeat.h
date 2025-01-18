@@ -29,10 +29,14 @@
 
 #include <winpr/stream.h>
 
-int rdp_recv_heartbeat_packet(rdpRdp* rdp, wStream* s);
+#include "state.h"
 
-FREERDP_LOCAL rdpHeartbeat* heartbeat_new(void);
+FREERDP_LOCAL state_run_t rdp_recv_heartbeat_packet(rdpRdp* rdp, wStream* s);
+
 FREERDP_LOCAL void heartbeat_free(rdpHeartbeat* heartbeat);
+
+WINPR_ATTR_MALLOC(heartbeat_free, 1)
+FREERDP_LOCAL rdpHeartbeat* heartbeat_new(void);
 
 #define HEARTBEAT_TAG FREERDP_TAG("core.heartbeat")
 

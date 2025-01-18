@@ -20,26 +20,15 @@ set(MODULE_PREFIX "FREERDP_GDI")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-set(${MODULE_PREFIX}_SRCS
-	bitmap.c
-	brush.c
-	clipping.c
-	dc.c
-	drawing.c
-	line.c
-	pen.c
-	region.c
-	shape.c
-	graphics.c
-	graphics.h
-	gfx.c
-	video.c
-	gdi.c
-	gdi.h)
+option(WITH_GFX_FRAME_DUMP "Dump GFX commands to directory" OFF)
+if(WITH_GFX_FRAME_DUMP)
+  freerdp_definition_add(WITH_GFX_FRAME_DUMP)
+endif()
+
+file(GLOB ${MODULE_PREFIX}_SRCS LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "*.[ch]")
 
 freerdp_module_add(${${MODULE_PREFIX}_SRCS})
 
-if(BUILD_TESTING)
-	add_subdirectory(test)
+if(BUILD_TESTING_INTERNAL)
+  add_subdirectory(test)
 endif()
-

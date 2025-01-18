@@ -22,17 +22,16 @@ static BOOL run_encode_decode_single(UINT16 bpp, BITMAP_INTERLEAVED_CONTEXT* enc
 )
 {
 	BOOL rc2 = FALSE;
-	BOOL rc;
-	UINT32 i, j;
+	BOOL rc = 0;
 	const UINT32 w = 64;
 	const UINT32 h = 64;
 	const UINT32 x = 0;
 	const UINT32 y = 0;
 	const UINT32 format = PIXEL_FORMAT_RGBX32;
 	const UINT32 bstep = FreeRDPGetBytesPerPixel(format);
-	const size_t step = (w + 13) * 4;
+	const size_t step = (13ULL + w) * 4ULL;
 	const size_t SrcSize = step * h;
-	const float maxDiff = 4.0f * ((bpp < 24) ? 2.0f : 1.0f);
+	const int maxDiff = 4 * ((bpp < 24) ? 2 : 1);
 	UINT32 DstSize = SrcSize;
 	BYTE* pSrcData = calloc(1, SrcSize);
 	BYTE* pDstData = calloc(1, SrcSize);
@@ -46,42 +45,47 @@ static BOOL run_encode_decode_single(UINT16 bpp, BITMAP_INTERLEAVED_CONTEXT* enc
 	if (!bitmap_interleaved_context_reset(encoder) || !bitmap_interleaved_context_reset(decoder))
 		goto fail;
 
-	PROFILER_ENTER(profiler_comp);
+	PROFILER_ENTER(profiler_comp)
 	rc =
 	    interleaved_compress(encoder, tmp, &DstSize, w, h, pSrcData, format, step, x, y, NULL, bpp);
-	PROFILER_EXIT(profiler_comp);
+	PROFILER_EXIT(profiler_comp)
 
 	if (!rc)
 		goto fail;
 
-	PROFILER_ENTER(profiler_decomp);
+	PROFILER_ENTER(profiler_decomp)
 	rc = interleaved_decompress(decoder, tmp, DstSize, w, h, bpp, pDstData, format, step, x, y, w,
 	                            h, NULL);
-	PROFILER_EXIT(profiler_decomp);
+	PROFILER_EXIT(profiler_decomp)
 
 	if (!rc)
 		goto fail;
 
-	for (i = 0; i < h; i++)
+	for (UINT32 i = 0; i < h; i++)
 	{
 		const BYTE* srcLine = &pSrcData[i * step];
 		const BYTE* dstLine = &pDstData[i * step];
 
-		for (j = 0; j < w; j++)
+		for (UINT32 j = 0; j < w; j++)
 		{
-			BYTE r, g, b, dr, dg, db;
-			const UINT32 srcColor = FreeRDPReadColor(&srcLine[j * bstep], format);
-			const UINT32 dstColor = FreeRDPReadColor(&dstLine[j * bstep], format);
+			BYTE r = 0;
+			BYTE g = 0;
+			BYTE b = 0;
+			BYTE dr = 0;
+			BYTE dg = 0;
+			BYTE db = 0;
+			const UINT32 srcColor = FreeRDPReadColor(&srcLine[1ULL * j * bstep], format);
+			const UINT32 dstColor = FreeRDPReadColor(&dstLine[1ULL * j * bstep], format);
 			FreeRDPSplitColor(srcColor, format, &r, &g, &b, NULL, NULL);
 			FreeRDPSplitColor(dstColor, format, &dr, &dg, &db, NULL, NULL);
 
-			if (fabsf((float)r - dr) > maxDiff)
+			if (abs(r - dr) > maxDiff)
 				goto fail;
 
-			if (fabsf((float)g - dg) > maxDiff)
+			if (abs(g - dg) > maxDiff)
 				goto fail;
 
-			if (fabsf((float)b - db) > maxDiff)
+			if (abs(b - db) > maxDiff)
 				goto fail;
 		}
 	}
@@ -125,13 +129,12 @@ static BOOL run_encode_decode(UINT16 bpp, BITMAP_INTERLEAVED_CONTEXT* encoder,
                               BITMAP_INTERLEAVED_CONTEXT* decoder)
 {
 	BOOL rc = FALSE;
-	UINT32 x;
-	PROFILER_DEFINE(profiler_comp);
-	PROFILER_DEFINE(profiler_decomp);
+	PROFILER_DEFINE(profiler_comp)
+	PROFILER_DEFINE(profiler_decomp)
 	PROFILER_CREATE(profiler_comp, get_profiler_name(TRUE, bpp))
 	PROFILER_CREATE(profiler_decomp, get_profiler_name(FALSE, bpp))
 
-	for (x = 0; x < 50; x++)
+	for (UINT32 x = 0; x < 50; x++)
 	{
 		if (!run_encode_decode_single(bpp, encoder, decoder
 #if defined(WITH_PROFILER)
@@ -145,11 +148,11 @@ static BOOL run_encode_decode(UINT16 bpp, BITMAP_INTERLEAVED_CONTEXT* encoder,
 	rc = TRUE;
 fail:
 	PROFILER_PRINT_HEADER
-	PROFILER_PRINT(profiler_comp);
-	PROFILER_PRINT(profiler_decomp);
+	PROFILER_PRINT(profiler_comp)
+	PROFILER_PRINT(profiler_decomp)
 	PROFILER_PRINT_FOOTER
-	PROFILER_FREE(profiler_comp);
-	PROFILER_FREE(profiler_decomp);
+	PROFILER_FREE(profiler_comp)
+	PROFILER_FREE(profiler_decomp)
 	return rc;
 }
 
@@ -157,10 +160,9 @@ static BOOL TestColorConversion(void)
 {
 	const UINT32 formats[] = { PIXEL_FORMAT_RGB15,  PIXEL_FORMAT_BGR15, PIXEL_FORMAT_ABGR15,
 		                       PIXEL_FORMAT_ARGB15, PIXEL_FORMAT_BGR16, PIXEL_FORMAT_RGB16 };
-	UINT32 x;
 
 	/* Check color conversion 15/16 -> 32bit maps to proper values */
-	for (x = 0; x < ARRAYSIZE(formats); x++)
+	for (UINT32 x = 0; x < ARRAYSIZE(formats); x++)
 	{
 		const UINT32 dstFormat = PIXEL_FORMAT_RGBA32;
 		const UINT32 format = formats[x];
@@ -168,7 +170,10 @@ static BOOL TestColorConversion(void)
 		const UINT32 colorHigh = FreeRDPGetColor(format, 255, 255, 255, 255);
 		const UINT32 colorLow32 = FreeRDPConvertColor(colorLow, format, dstFormat, NULL);
 		const UINT32 colorHigh32 = FreeRDPConvertColor(colorHigh, format, dstFormat, NULL);
-		BYTE r, g, b, a;
+		BYTE r = 0;
+		BYTE g = 0;
+		BYTE b = 0;
+		BYTE a = 0;
 		FreeRDPSplitColor(colorLow32, dstFormat, &r, &g, &b, &a, NULL);
 		if ((r != 0) || (g != 0) || (b != 0))
 			return FALSE;
@@ -183,7 +188,8 @@ static BOOL TestColorConversion(void)
 
 int TestFreeRDPCodecInterleaved(int argc, char* argv[])
 {
-	BITMAP_INTERLEAVED_CONTEXT *encoder, *decoder;
+	BITMAP_INTERLEAVED_CONTEXT* encoder = NULL;
+	BITMAP_INTERLEAVED_CONTEXT* decoder = NULL;
 	int rc = -1;
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);

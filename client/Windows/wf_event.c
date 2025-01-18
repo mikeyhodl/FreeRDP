@@ -50,12 +50,20 @@ static BOOL wf_scale_mouse_event_ex(wfContext* wfc, UINT16 flags, UINT16 buttonM
                                     INT32 y);
 #endif
 
-static BOOL g_flipping_in;
-static BOOL g_flipping_out;
+static BOOL g_flipping_in = FALSE;
+static BOOL g_flipping_out = FALSE;
 
-static BOOL alt_ctrl_down()
+static BOOL g_keystates[256] = { 0 };
+
+static BOOL ctrl_down(void)
 {
-	return ((GetAsyncKeyState(VK_CONTROL) & 0x8000) || (GetAsyncKeyState(VK_MENU) & 0x8000));
+	return g_keystates[VK_CONTROL] || g_keystates[VK_LCONTROL] || g_keystates[VK_RCONTROL];
+}
+
+static BOOL alt_ctrl_down(void)
+{
+	const BOOL altDown = g_keystates[VK_MENU] || g_keystates[VK_LMENU] || g_keystates[VK_RMENU];
+	return altDown && ctrl_down();
 }
 
 LRESULT CALLBACK wf_ll_kbd_proc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -64,8 +72,10 @@ LRESULT CALLBACK wf_ll_kbd_proc(int nCode, WPARAM wParam, LPARAM lParam)
 
 	wfContext* wfc = NULL;
 	DWORD rdp_scancode;
+	BOOL keystate;
 	rdpInput* input;
 	PKBDLLHOOKSTRUCT p;
+
 	DEBUG_KBD("Low-level keyboard hook, hWnd %X nCode %X wParam %X", g_focus_hWnd, nCode, wParam);
 
 	if (g_flipping_in)
@@ -110,18 +120,32 @@ LRESULT CALLBACK wf_ll_kbd_proc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				input = wfc->common.context.input;
 				rdp_scancode = MAKE_RDP_SCANCODE((BYTE)p->scanCode, p->flags & LLKHF_EXTENDED);
+				keystate = g_keystates[p->scanCode & 0xFF];
+
+				switch (wParam)
+				{
+					case WM_KEYDOWN:
+					case WM_SYSKEYDOWN:
+						g_keystates[p->scanCode & 0xFF] = TRUE;
+						break;
+					case WM_KEYUP:
+					case WM_SYSKEYUP:
+					default:
+						g_keystates[p->scanCode & 0xFF] = FALSE;
+						break;
+				}
 				DEBUG_KBD("keydown %d scanCode 0x%08lX flags 0x%08lX vkCode 0x%08lX",
 				          (wParam == WM_KEYDOWN), p->scanCode, p->flags, p->vkCode);
 
-				if (wfc->fullscreen_toggle &&
-				    ((p->vkCode == VK_RETURN) || (p->vkCode == VK_CANCEL)) &&
-				    (GetAsyncKeyState(VK_CONTROL) & 0x8000) &&
-				    (GetAsyncKeyState(VK_MENU) & 0x8000)) /* could also use flags & LLKHF_ALTDOWN */
+				if (wfc->fullscreen_toggle && (p->vkCode == VK_RETURN || p->vkCode == VK_CANCEL))
 				{
-					if (wParam == WM_KEYDOWN)
+					if (alt_ctrl_down())
 					{
-						wf_toggle_fullscreen(wfc);
-						return 1;
+						if (wParam == WM_KEYDOWN)
+						{
+							wf_toggle_fullscreen(wfc);
+							return 1;
+						}
 					}
 				}
 
@@ -138,10 +162,14 @@ LRESULT CALLBACK wf_ll_kbd_proc(int nCode, WPARAM wParam, LPARAM lParam)
 					if (wParam == WM_KEYDOWN)
 					{
 						DEBUG_KBD("Pause, sent as Ctrl+NumLock");
-						freerdp_input_send_keyboard_event_ex(input, TRUE, RDP_SCANCODE_LCONTROL);
-						freerdp_input_send_keyboard_event_ex(input, TRUE, RDP_SCANCODE_NUMLOCK);
-						freerdp_input_send_keyboard_event_ex(input, FALSE, RDP_SCANCODE_LCONTROL);
-						freerdp_input_send_keyboard_event_ex(input, FALSE, RDP_SCANCODE_NUMLOCK);
+						freerdp_input_send_keyboard_event_ex(input, TRUE, FALSE,
+						                                     RDP_SCANCODE_LCONTROL);
+						freerdp_input_send_keyboard_event_ex(input, TRUE, FALSE,
+						                                     RDP_SCANCODE_NUMLOCK);
+						freerdp_input_send_keyboard_event_ex(input, FALSE, FALSE,
+						                                     RDP_SCANCODE_LCONTROL);
+						freerdp_input_send_keyboard_event_ex(input, FALSE, FALSE,
+						                                     RDP_SCANCODE_NUMLOCK);
 					}
 					else
 					{
@@ -156,7 +184,8 @@ LRESULT CALLBACK wf_ll_kbd_proc(int nCode, WPARAM wParam, LPARAM lParam)
 					rdp_scancode = RDP_SCANCODE_RSHIFT;
 				}
 
-				freerdp_input_send_keyboard_event_ex(input, !(p->flags & LLKHF_UP), rdp_scancode);
+				freerdp_input_send_keyboard_event_ex(input, !(p->flags & LLKHF_UP), keystate,
+				                                     rdp_scancode);
 
 				if (p->vkCode == VK_NUMLOCK || p->vkCode == VK_CAPITAL || p->vkCode == VK_SCROLL ||
 				    p->vkCode == VK_KANA)
@@ -165,6 +194,8 @@ LRESULT CALLBACK wf_ll_kbd_proc(int nCode, WPARAM wParam, LPARAM lParam)
 				else
 					return 1;
 
+				break;
+			default:
 				break;
 		}
 	}
@@ -249,8 +280,9 @@ static void wf_sizing(wfContext* wfc, WPARAM wParam, LPARAM lParam)
 	// Holding the CTRL key down while resizing the window will force the desktop aspect ratio.
 	LPRECT rect;
 
-	if ((settings->SmartSizing || settings->DynamicResolutionUpdate) &&
-	    (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+	if ((freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) ||
+	     freerdp_settings_get_bool(settings, FreeRDP_DynamicResolutionUpdate)) &&
+	    ctrl_down())
 	{
 		rect = (LPRECT)wParam;
 
@@ -260,23 +292,29 @@ static void wf_sizing(wfContext* wfc, WPARAM wParam, LPARAM lParam)
 			case WMSZ_RIGHT:
 			case WMSZ_BOTTOMRIGHT:
 				// Adjust height
-				rect->bottom = rect->top + settings->DesktopHeight * (rect->right - rect->left) /
-				                               settings->DesktopWidth;
+				rect->bottom =
+				    rect->top + freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) *
+				                    (rect->right - rect->left) /
+				                    freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 				break;
 
 			case WMSZ_TOP:
 			case WMSZ_BOTTOM:
 			case WMSZ_TOPRIGHT:
 				// Adjust width
-				rect->right = rect->left + settings->DesktopWidth * (rect->bottom - rect->top) /
-				                               settings->DesktopHeight;
+				rect->right =
+				    rect->left + freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) *
+				                     (rect->bottom - rect->top) /
+				                     freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 				break;
 
 			case WMSZ_BOTTOMLEFT:
 			case WMSZ_TOPLEFT:
 				// adjust width
-				rect->left = rect->right - (settings->DesktopWidth * (rect->bottom - rect->top) /
-				                            settings->DesktopHeight);
+				rect->left =
+				    rect->right - (freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) *
+				                   (rect->bottom - rect->top) /
+				                   freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight));
 				break;
 		}
 	}
@@ -289,7 +327,7 @@ static void wf_send_resize(wfContext* wfc)
 	int targetHeight = wfc->client_height;
 	rdpSettings* settings = wfc->common.context.settings;
 
-	if (settings->DynamicResolutionUpdate && wfc->disp != NULL)
+	if (freerdp_settings_get_bool(settings, FreeRDP_DynamicResolutionUpdate) && wfc->disp != NULL)
 	{
 		if (GetTickCount64() - wfc->lastSentDate > RESIZE_MIN_DELAY)
 		{
@@ -299,8 +337,8 @@ static void wf_send_resize(wfContext* wfc)
 				targetWidth = windowRect.right - windowRect.left;
 				targetHeight = windowRect.bottom - windowRect.top;
 			}
-			if (settings->SmartSizingWidth != targetWidth ||
-			    settings->SmartSizingHeight != targetHeight)
+			if (freerdp_settings_get_uint32(settings, FreeRDP_SmartSizingWidth) != targetWidth ||
+			    freerdp_settings_get_uint32(settings, FreeRDP_SmartSizingHeight) != targetHeight)
 			{
 				DISPLAY_CONTROL_MONITOR_LAYOUT layout = { 0 };
 
@@ -308,9 +346,12 @@ static void wf_send_resize(wfContext* wfc)
 				layout.Top = layout.Left = 0;
 				layout.Width = targetWidth;
 				layout.Height = targetHeight;
-				layout.Orientation = settings->DesktopOrientation;
-				layout.DesktopScaleFactor = settings->DesktopScaleFactor;
-				layout.DeviceScaleFactor = settings->DeviceScaleFactor;
+				layout.Orientation =
+				    freerdp_settings_get_uint16(settings, FreeRDP_DesktopOrientation);
+				layout.DesktopScaleFactor =
+				    freerdp_settings_get_uint32(settings, FreeRDP_DesktopScaleFactor);
+				layout.DeviceScaleFactor =
+				    freerdp_settings_get_uint32(settings, FreeRDP_DeviceScaleFactor);
 				layout.PhysicalWidth = targetWidth;
 				layout.PhysicalHeight = targetHeight;
 
@@ -319,8 +360,9 @@ static void wf_send_resize(wfContext* wfc)
 				{
 					WLog_ERR("", "SendMonitorLayout failed.");
 				}
-				settings->SmartSizingWidth = targetWidth;
-				settings->SmartSizingHeight = targetHeight;
+				(void)freerdp_settings_set_uint32(settings, FreeRDP_SmartSizingWidth, targetWidth);
+				(void)freerdp_settings_set_uint32(settings, FreeRDP_SmartSizingHeight,
+				                                  targetHeight);
 			}
 			wfc->lastSentDate = GetTickCount64();
 		}
@@ -329,18 +371,15 @@ static void wf_send_resize(wfContext* wfc)
 
 LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-	HDC hdc;
-	LONG_PTR ptr;
-	wfContext* wfc;
-	int x, y, w, h;
-	PAINTSTRUCT ps;
-	BOOL processed;
-	RECT windowRect;
-	MINMAXINFO* minmax;
-	SCROLLINFO si;
+	HDC hdc = { 0 };
+	PAINTSTRUCT ps = { 0 };
+	BOOL processed = FALSE;
+	RECT windowRect = { 0 };
+	MINMAXINFO* minmax = NULL;
+	SCROLLINFO si = { 0 };
 	processed = TRUE;
-	ptr = GetWindowLongPtr(hWnd, GWLP_USERDATA);
-	wfc = (wfContext*)ptr;
+	LONG_PTR ptr = GetWindowLongPtr(hWnd, GWLP_USERDATA);
+	wfContext* wfc = (wfContext*)ptr;
 
 	if (wfc != NULL)
 	{
@@ -367,8 +406,8 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 				break;
 
 			case WM_GETMINMAXINFO:
-				if (wfc->common.context.settings->SmartSizing ||
-				    wfc->common.context.settings->DynamicResolutionUpdate)
+				if (freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) ||
+				    (freerdp_settings_get_bool(settings, FreeRDP_DynamicResolutionUpdate)))
 				{
 					processed = FALSE;
 				}
@@ -384,8 +423,12 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 					if (!wfc->fullscreen)
 					{
 						// add window decoration
-						minmax->ptMaxTrackSize.x = settings->DesktopWidth + wfc->diff.x;
-						minmax->ptMaxTrackSize.y = settings->DesktopHeight + wfc->diff.y;
+						minmax->ptMaxTrackSize.x =
+						    freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) +
+						    wfc->diff.x;
+						minmax->ptMaxTrackSize.y =
+						    freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) +
+						    wfc->diff.y;
 					}
 				}
 
@@ -430,6 +473,10 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 						wfc->wasMaximized = FALSE;
 						wf_send_resize(wfc);
 					}
+					else if (wParam == SIZE_MINIMIZED)
+					{
+						g_focus_hWnd = NULL;
+					}
 				}
 
 				break;
@@ -444,16 +491,18 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 				return (LRESULT)1;
 
 			case WM_PAINT:
+			{
 				hdc = BeginPaint(hWnd, &ps);
-				x = ps.rcPaint.left;
-				y = ps.rcPaint.top;
-				w = ps.rcPaint.right - ps.rcPaint.left + 1;
-				h = ps.rcPaint.bottom - ps.rcPaint.top + 1;
+				const int x = ps.rcPaint.left;
+				const int y = ps.rcPaint.top;
+				const int w = ps.rcPaint.right - ps.rcPaint.left + 1;
+				const int h = ps.rcPaint.bottom - ps.rcPaint.top + 1;
 				wf_scale_blt(wfc, hdc, x, y, w, h, wfc->primary->hdc,
 				             x - wfc->offset_x + wfc->xCurrentScroll,
 				             y - wfc->offset_y + wfc->yCurrentScroll, SRCCOPY);
 				EndPaint(hWnd, &ps);
-				break;
+			}
+			break;
 #if (_WIN32_WINNT >= 0x0500)
 
 			case WM_XBUTTONDOWN:
@@ -676,16 +725,19 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 				if (wParam == SYSCOMMAND_ID_SMARTSIZING)
 				{
 					HMENU hMenu = GetSystemMenu(wfc->hwnd, FALSE);
-					freerdp_settings_set_bool(wfc->common.context.settings, FreeRDP_SmartSizing,
-					                          !wfc->common.context.settings->SmartSizing);
+					const BOOL rc = freerdp_settings_get_bool(settings, FreeRDP_SmartSizing);
+					(void)freerdp_settings_set_bool(settings, FreeRDP_SmartSizing, !rc);
 					CheckMenuItem(hMenu, SYSCOMMAND_ID_SMARTSIZING,
-					              wfc->common.context.settings->SmartSizing ? MF_CHECKED
-					                                                        : MF_UNCHECKED);
-					if (!wfc->common.context.settings->SmartSizing)
+					              freerdp_settings_get_bool(settings, FreeRDP_SmartSizing)
+					                  ? MF_CHECKED
+					                  : MF_UNCHECKED);
+					if (!freerdp_settings_get_bool(settings, FreeRDP_SmartSizing))
 					{
 						SetWindowPos(wfc->hwnd, HWND_TOP, -1, -1,
-						             wfc->common.context.settings->DesktopWidth + wfc->diff.x,
-						             wfc->common.context.settings->DesktopHeight + wfc->diff.y,
+						             freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) +
+						                 wfc->diff.x,
+						             freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) +
+						                 wfc->diff.y,
 						             SWP_NOMOVE);
 					}
 					else
@@ -727,7 +779,8 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 		case WM_SETFOCUS:
 			DEBUG_KBD("getting focus %X", hWnd);
 
-			freerdp_settings_set_bool(wfc->common.context.settings, FreeRDP_SuspendInput, FALSE);
+			(void)freerdp_settings_set_bool(wfc->common.context.settings, FreeRDP_SuspendInput,
+			                                FALSE);
 
 			if (alt_ctrl_down())
 				g_flipping_in = TRUE;
@@ -737,11 +790,12 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 			break;
 
 		case WM_KILLFOCUS:
-			freerdp_settings_set_bool(wfc->common.context.settings, FreeRDP_SuspendInput, TRUE);
+			(void)freerdp_settings_set_bool(wfc->common.context.settings, FreeRDP_SuspendInput,
+			                                TRUE);
 
 			if (g_focus_hWnd == hWnd && wfc && !wfc->fullscreen)
 			{
-				DEBUG_KBD("loosing focus %X", hWnd);
+				DEBUG_KBD("losing focus %X", hWnd);
 
 				if (alt_ctrl_down())
 					g_flipping_out = TRUE;
@@ -754,8 +808,9 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 		case WM_ACTIVATE:
 		{
 			int activate = (int)(short)LOWORD(wParam);
+			BOOL minimized_flag = (BOOL)HIWORD(wParam);
 
-			if (activate != WA_INACTIVE)
+			if (activate != WA_INACTIVE && !minimized_flag)
 			{
 				if (alt_ctrl_down())
 					g_flipping_in = TRUE;
@@ -782,23 +837,22 @@ LRESULT CALLBACK wf_event_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 BOOL wf_scale_blt(wfContext* wfc, HDC hdc, int x, int y, int w, int h, HDC hdcSrc, int x1, int y1,
                   DWORD rop)
 {
-	rdpSettings* settings;
 	UINT32 ww, wh, dw, dh;
 	WINPR_ASSERT(wfc);
 
-	settings = wfc->common.context.settings;
+	rdpSettings* settings = wfc->common.context.settings;
 	WINPR_ASSERT(settings);
 
 	if (!wfc->client_width)
-		wfc->client_width = settings->DesktopWidth;
+		wfc->client_width = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 
 	if (!wfc->client_height)
-		wfc->client_height = settings->DesktopHeight;
+		wfc->client_height = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
 	ww = wfc->client_width;
 	wh = wfc->client_height;
-	dw = settings->DesktopWidth;
-	dh = settings->DesktopHeight;
+	dw = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+	dh = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
 	if (!ww)
 		ww = dw;
@@ -806,7 +860,8 @@ BOOL wf_scale_blt(wfContext* wfc, HDC hdc, int x, int y, int w, int h, HDC hdcSr
 	if (!wh)
 		wh = dh;
 
-	if (wfc->fullscreen || !settings->SmartSizing || (ww == dw && wh == dh))
+	if (wfc->fullscreen || !freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) ||
+	    (ww == dw && wh == dh))
 	{
 		return BitBlt(hdc, x, y, w, h, wfc->primary->hdc, x1, y1, SRCCOPY);
 	}
@@ -834,17 +889,17 @@ static BOOL wf_scale_mouse_pos(wfContext* wfc, INT32 x, INT32 y, UINT16* px, UIN
 		return FALSE;
 
 	if (!wfc->client_width)
-		wfc->client_width = settings->DesktopWidth;
+		wfc->client_width = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 
 	if (!wfc->client_height)
-		wfc->client_height = settings->DesktopHeight;
+		wfc->client_height = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
 	ww = wfc->client_width;
 	wh = wfc->client_height;
-	dw = settings->DesktopWidth;
-	dh = settings->DesktopHeight;
+	dw = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+	dh = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 
-	if (!settings->SmartSizing || ((ww == dw) && (wh == dh)))
+	if (!freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) || ((ww == dw) && (wh == dh)))
 	{
 		x += wfc->xCurrentScroll;
 		y += wfc->yCurrentScroll;

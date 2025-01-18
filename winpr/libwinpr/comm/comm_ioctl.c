@@ -22,8 +22,6 @@
 
 #include <winpr/config.h>
 
-#if defined __linux__ && !defined ANDROID
-
 #include <winpr/assert.h>
 #include <errno.h>
 
@@ -50,28 +48,12 @@
  * found in [MSFT-W2KDDK] Volume 2, Part 2—Serial and Parallel
  * Drivers, and in [MSDN-PORTS].
  */
-
-const char* _comm_serial_ioctl_name(ULONG number)
-{
-	int i;
-
-	for (i = 0; _SERIAL_IOCTL_NAMES[i].number != 0; i++)
-	{
-		if (_SERIAL_IOCTL_NAMES[i].number == number)
-		{
-			return _SERIAL_IOCTL_NAMES[i].name;
-		}
-	}
-
-	return "(unknown ioctl name)";
-}
-
 static BOOL s_CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffer,
                                   DWORD nInBufferSize, LPVOID lpOutBuffer, DWORD nOutBufferSize,
                                   LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
 {
 	WINPR_COMM* pComm = (WINPR_COMM*)hDevice;
-	SERIAL_DRIVER* pServerSerialDriver = NULL;
+	const SERIAL_DRIVER* pServerSerialDriver = NULL;
 
 	if (!CommIsHandleValid(hDevice))
 		return FALSE;
@@ -84,14 +66,14 @@ static BOOL s_CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID 
 
 	if (lpBytesReturned == NULL)
 	{
-		SetLastError(ERROR_INVALID_PARAMETER); /* since we doesn't suppport lpOverlapped != NULL */
+		SetLastError(ERROR_INVALID_PARAMETER); /* since we doesn't support lpOverlapped != NULL */
 		return FALSE;
 	}
 
 	/* clear any previous last error */
 	SetLastError(ERROR_SUCCESS);
 
-	*lpBytesReturned = 0; /* will be ajusted if required ... */
+	*lpBytesReturned = 0; /* will be adjusted if required ... */
 
 	CommLog_Print(WLOG_DEBUG, "CommDeviceIoControl: IoControlCode: 0x%0.8x", dwIoControlCode);
 
@@ -613,6 +595,8 @@ static BOOL s_CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID 
 			}
 			break;
 		}
+		default:
+			break;
 	}
 
 	CommLog_Print(
@@ -639,7 +623,7 @@ BOOL CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffe
                          LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
 {
 	WINPR_COMM* pComm = (WINPR_COMM*)hDevice;
-	BOOL result;
+	BOOL result = 0;
 
 	if (hDevice == INVALID_HANDLE_VALUE)
 	{
@@ -686,7 +670,7 @@ BOOL CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffe
 
 int _comm_ioctl_tcsetattr(int fd, int optional_actions, const struct termios* termios_p)
 {
-	int result;
+	int result = 0;
 	struct termios currentState = { 0 };
 
 	if ((result = tcsetattr(fd, optional_actions, termios_p)) < 0)
@@ -702,6 +686,7 @@ int _comm_ioctl_tcsetattr(int fd, int optional_actions, const struct termios* te
 		return result;
 	}
 
+	// NOLINTNEXTLINE(bugprone-suspicious-memory-comparison,cert-exp42-c,cert-flp37-c)
 	if (memcmp(&currentState, termios_p, sizeof(struct termios)) != 0)
 	{
 		CommLog_Print(WLOG_DEBUG,
@@ -719,6 +704,7 @@ int _comm_ioctl_tcsetattr(int fd, int optional_actions, const struct termios* te
 			return result;
 		}
 
+		// NOLINTNEXTLINE(bugprone-suspicious-memory-comparison,cert-exp42-c,cert-flp37-c)
 		if (memcmp(&currentState, termios_p, sizeof(struct termios)) != 0)
 		{
 			CommLog_Print(WLOG_WARN,
@@ -729,5 +715,3 @@ int _comm_ioctl_tcsetattr(int fd, int optional_actions, const struct termios* te
 
 	return 0;
 }
-
-#endif /* __linux__ */

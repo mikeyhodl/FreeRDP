@@ -118,7 +118,7 @@ typedef struct xf_rail_icon_cache xfRailIconCache;
 
 typedef struct
 {
-	int button;
+	UINT32 button;
 	UINT16 flags;
 } button_map;
 
@@ -135,6 +135,7 @@ typedef struct touch_contact
 	double last_y;
 
 } touchContact;
+
 #endif
 
 struct xf_context
@@ -176,15 +177,10 @@ struct xf_context
 	BOOL UseXThreads;
 	BOOL cursorHidden;
 
-	HGDI_DC hdc;
 	UINT32 bitmap_size;
 	BYTE* bitmap_buffer;
 
 	BOOL frame_begin;
-	UINT16 frame_x1;
-	UINT16 frame_y1;
-	UINT16 frame_x2;
-	UINT16 frame_y2;
 
 	int XInputOpcode;
 
@@ -210,6 +206,7 @@ struct xf_context
 	wArrayList* xevents;
 	BOOL actionScriptExists;
 
+	int attribs_mask;
 	XSetWindowAttributes attribs;
 	BOOL complex_regions;
 	VIRTUAL_SCREEN vscreen;
@@ -226,6 +223,7 @@ struct xf_context
 
 	Atom _NET_WM_ICON;
 	Atom _MOTIF_WM_HINTS;
+	Atom _NET_NUMBER_OF_DESKTOPS;
 	Atom _NET_CURRENT_DESKTOP;
 	Atom _NET_WORKAREA;
 
@@ -233,11 +231,18 @@ struct xf_context
 	Atom _NET_SUPPORTING_WM_CHECK;
 
 	Atom _NET_WM_STATE;
-	Atom _NET_WM_STATE_FULLSCREEN;
-	Atom _NET_WM_STATE_MAXIMIZED_HORZ;
+	Atom _NET_WM_STATE_MODAL;
+	Atom _NET_WM_STATE_STICKY;
 	Atom _NET_WM_STATE_MAXIMIZED_VERT;
+	Atom _NET_WM_STATE_MAXIMIZED_HORZ;
+	Atom _NET_WM_STATE_SHADED;
 	Atom _NET_WM_STATE_SKIP_TASKBAR;
 	Atom _NET_WM_STATE_SKIP_PAGER;
+	Atom _NET_WM_STATE_HIDDEN;
+	Atom _NET_WM_STATE_FULLSCREEN;
+	Atom _NET_WM_STATE_ABOVE;
+	Atom _NET_WM_STATE_BELOW;
+	Atom _NET_WM_STATE_DEMANDS_ATTENTION;
 
 	Atom _NET_WM_FULLSCREEN_MONITORS;
 
@@ -258,6 +263,18 @@ struct xf_context
 	Atom WM_STATE;
 	Atom WM_PROTOCOLS;
 	Atom WM_DELETE_WINDOW;
+
+	/* Allow actions */
+	Atom NET_WM_ALLOWED_ACTIONS;
+
+	Atom NET_WM_ACTION_CLOSE;
+	Atom NET_WM_ACTION_MINIMIZE;
+	Atom NET_WM_ACTION_MOVE;
+	Atom NET_WM_ACTION_RESIZE;
+	Atom NET_WM_ACTION_MAXIMIZE_HORZ;
+	Atom NET_WM_ACTION_MAXIMIZE_VERT;
+	Atom NET_WM_ACTION_FULLSCREEN;
+	Atom NET_WM_ACTION_CHANGE_DESKTOP;
 
 	/* Channels */
 #if defined(CHANNEL_TSMF_CLIENT)
@@ -280,7 +297,7 @@ struct xf_context
 	button_map button_map[NUM_BUTTONS_MAPPED];
 	BYTE savedMaximizedState;
 	UINT32 locked;
-	BOOL firstPressRightCtrl;
+	BOOL wasRightCtrlAlreadyPressed;
 	BOOL ungrabKeyboardWithRightCtrl;
 
 #if defined(WITH_XI)
@@ -296,10 +313,14 @@ struct xf_context
 #endif
 	BOOL xi_rawevent;
 	BOOL xi_event;
+	HANDLE pipethread;
+	wLog* log;
 };
 
 BOOL xf_create_window(xfContext* xfc);
+BOOL xf_create_image(xfContext* xfc);
 void xf_toggle_fullscreen(xfContext* xfc);
+void xf_minimize(xfContext* xfc);
 
 enum XF_EXIT_CODE
 {
@@ -370,8 +391,8 @@ enum XF_EXIT_CODE
 	XF_EXIT_UNKNOWN = 255,
 };
 
-#define xf_lock_x11(xfc) xf_lock_x11_(xfc, __FUNCTION__)
-#define xf_unlock_x11(xfc) xf_unlock_x11_(xfc, __FUNCTION__)
+#define xf_lock_x11(xfc) xf_lock_x11_(xfc, __func__)
+#define xf_unlock_x11(xfc) xf_unlock_x11_(xfc, __func__)
 
 void xf_lock_x11_(xfContext* xfc, const char* fkt);
 void xf_unlock_x11_(xfContext* xfc, const char* fkt);
@@ -379,10 +400,12 @@ void xf_unlock_x11_(xfContext* xfc, const char* fkt);
 BOOL xf_picture_transform_required(xfContext* xfc);
 
 #define xf_draw_screen(_xfc, _x, _y, _w, _h) \
-	xf_draw_screen_((_xfc), (_x), (_y), (_w), (_h), __FUNCTION__, __FILE__, __LINE__)
+	xf_draw_screen_((_xfc), (_x), (_y), (_w), (_h), __func__, __FILE__, __LINE__)
 void xf_draw_screen_(xfContext* xfc, int x, int y, int w, int h, const char* fkt, const char* file,
                      int line);
 
-FREERDP_API DWORD xf_exit_code_from_disconnect_reason(DWORD reason);
+BOOL xf_keyboard_update_modifier_map(xfContext* xfc);
+
+int xf_exit_code_from_disconnect_reason(DWORD reason);
 
 #endif /* FREERDP_CLIENT_X11_FREERDP_H */

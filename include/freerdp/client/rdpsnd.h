@@ -22,6 +22,8 @@
 #define FREERDP_CHANNEL_RDPSND_CLIENT_RDPSND_H
 
 #include <freerdp/channels/rdpsnd.h>
+#include <freerdp/settings.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -39,11 +41,15 @@ extern "C"
 	typedef UINT32 (*pcGetVolume)(rdpsndDevicePlugin* device);
 	typedef BOOL (*pcSetVolume)(rdpsndDevicePlugin* device, UINT32 value);
 	typedef UINT (*pcPlay)(rdpsndDevicePlugin* device, const BYTE* data, size_t size);
+	typedef UINT (*pcPlayEx)(rdpsndDevicePlugin* device, const AUDIO_FORMAT* format,
+	                         const BYTE* data, size_t size);
 	typedef void (*pcStart)(rdpsndDevicePlugin* device);
 	typedef void (*pcClose)(rdpsndDevicePlugin* device);
 	typedef void (*pcFree)(rdpsndDevicePlugin* device);
 	typedef BOOL (*pcDefaultFormat)(rdpsndDevicePlugin* device, const AUDIO_FORMAT* desired,
 	                                AUDIO_FORMAT* defaultFormat);
+	typedef UINT (*pcServerFormatAnnounce)(rdpsndDevicePlugin* device, const AUDIO_FORMAT* formats,
+	                                       size_t count);
 
 	struct rdpsnd_device_plugin
 	{
@@ -58,6 +64,8 @@ extern "C"
 		pcClose Close;
 		pcFree Free;
 		pcDefaultFormat DefaultFormat;
+		pcServerFormatAnnounce ServerFormatAnnounce;
+		pcPlayEx PlayEx;
 	};
 
 #define RDPSND_DEVICE_EXPORT_FUNC_NAME "freerdp_rdpsnd_client_subsystem_entry"
@@ -72,7 +80,8 @@ typedef struct
 } FREERDP_RDPSND_DEVICE_ENTRY_POINTS;
 typedef FREERDP_RDPSND_DEVICE_ENTRY_POINTS* PFREERDP_RDPSND_DEVICE_ENTRY_POINTS;
 
-typedef UINT (*PFREERDP_RDPSND_DEVICE_ENTRY)(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints);
+typedef UINT(VCAPITYPE* PFREERDP_RDPSND_DEVICE_ENTRY)(
+	PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints);
 
 FREERDP_API rdpContext* freerdp_rdpsnd_get_context(rdpsndPlugin* plugin);
 

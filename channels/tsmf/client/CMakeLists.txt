@@ -20,91 +20,62 @@ define_channel_client("tsmf")
 
 message(DEPRECATION "TSMF channel is no longer maintained. Use [MS-RDPEVOR] (/video) instead.")
 
-set(GSTREAMER_0_10_FEATURE_TYPE "OPTIONAL")
-set(GSTREAMER_0_10_FEATURE_PURPOSE "multimedia")
-set(GSTREAMER_0_10_FEATURE_DESCRIPTION "multimedia redirection, audio and video playback, gstreamer 0.10 version")
-
-set(GSTREAMER_1_0_FEATURE_TYPE "RECOMMENDED")
-set(GSTREAMER_1_0_FEATURE_PURPOSE "multimedia")
-set(GSTREAMER_1_0_FEATURE_DESCRIPTION "multimedia redirection, audio and video playback")
-
-if (WIN32)
-	set(GSTREAMER_1_0_FEATURE_TYPE "DISABLED")
-	set(GSTREAMER_0_10_FEATURE_TYPE "OPTIONAL")
-endif()
-if (APPLE)
-	set(GSTREAMER_1_0_FEATURE_TYPE "OPTIONAL")
-
-	if (IOS)
-		set(GSTREAMER_1_0_FEATURE_TYPE "DISABLED")
-		set(GSTREAMER_0_10_FEATURE_TYPE "DISABLED")
-	endif()
-endif()
-if (ANDROID)
-	set(GSTREAMER_1_0_FEATURE_TYPE "DISABLED")
-	set(GSTREAMER_0_10_FEATURE_TYPE "DISABLED")
+find_package(PkgConfig)
+if(PkgConfig_FOUND)
+  pkg_check_modules(gstreamer gstreamer-1.0)
 endif()
 
-find_feature(GStreamer_0_10 ${GSTREAMER_0_10_FEATURE_TYPE} ${GSTREAMER_0_10_FEATURE_PURPOSE} ${GSTREAMER_0_10_FEATURE_DESCRIPTION})
-find_feature(GStreamer_1_0 ${GSTREAMER_1_0_FEATURE_TYPE} ${GSTREAMER_1_0_FEATURE_PURPOSE} ${GSTREAMER_1_0_FEATURE_DESCRIPTION})
-
-if (WITH_GSTREAMER_0_10 AND GSTREAMER_0_10_FOUND)
-	add_definitions(-DWITH_GSTREAMER_0_10)
-endif()
-if (WITH_GSTREAMER_1_0 AND GSTREAMER_1_0_FOUND)
-	add_definitions(-DWITH_GSTREAMER_1_0)
+if(WITH_GSTREAMER_1_0)
+  if(gstreamer_FOUND)
+    add_compile_definitions(WITH_GSTREAMER_1_0)
+  else()
+    message(WARNING "gstreamer not detected, disabling support")
+  endif()
 endif()
 
 set(${MODULE_PREFIX}_SRCS
-	tsmf_audio.c
-	tsmf_audio.h
-	tsmf_codec.c
-	tsmf_codec.h
-	tsmf_constants.h
-	tsmf_decoder.c
-	tsmf_decoder.h
-	tsmf_ifman.c
-	tsmf_ifman.h
-	tsmf_main.c
-	tsmf_main.h
-	tsmf_media.c
-	tsmf_media.h
-	tsmf_types.h)
+    tsmf_audio.c
+    tsmf_audio.h
+    tsmf_codec.c
+    tsmf_codec.h
+    tsmf_constants.h
+    tsmf_decoder.c
+    tsmf_decoder.h
+    tsmf_ifman.c
+    tsmf_ifman.h
+    tsmf_main.c
+    tsmf_main.h
+    tsmf_media.c
+    tsmf_media.h
+    tsmf_types.h
+)
 
+set(${MODULE_PREFIX}_LIBS winpr freerdp)
 include_directories(..)
 
 add_channel_client_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} TRUE "DVCPluginEntry")
 
-
-
-target_link_libraries(${MODULE_NAME} freerdp winpr)
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Channels/${CHANNEL_NAME}/Client")
-
 if(WITH_VIDEO_FFMPEG)
-	add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "ffmpeg" "decoder")
+  add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "ffmpeg" "decoder")
 endif()
 
-if(WITH_GSTREAMER_0_10 OR WITH_GSTREAMER_1_0)
-	set(XRANDR_FEATURE_TYPE "REQUIRED")
-	set(XRANDR_FEATURE_PURPOSE "X11 randr")
-	set(XRANDR_FEATURE_DESCRIPTION "X11 randr extension")
-	find_feature(XRandR ${XRANDR_FEATURE_TYPE} ${XRANDR_FEATURE_PURPOSE} ${XRANDR_FEATURE_DESCRIPTION})
-	if (WITH_XRANDR)
-		add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "gstreamer" "decoder")
-	else()
-		message(WARNING "Disabling tsmf gstreamer because XRandR wasn't found")
-	endif()
+if(WITH_GSTREAMER_1_0)
+  find_package(X11)
+  if(X11_Xrandr_FOUND)
+    add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "gstreamer" "decoder")
+  else()
+    message(WARNING "Disabling tsmf gstreamer because XRandR wasn't found")
+  endif()
 endif()
 
 if(WITH_OSS)
-	add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "oss" "audio")
+  add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "oss" "audio")
 endif()
 
 if(WITH_ALSA)
-	add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "alsa" "audio")
+  add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "alsa" "audio")
 endif()
 
 if(WITH_PULSE)
-	add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "pulse" "audio")
+  add_channel_client_subsystem(${MODULE_PREFIX} ${CHANNEL_NAME} "pulse" "audio")
 endif()

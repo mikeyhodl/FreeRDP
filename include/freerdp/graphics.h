@@ -22,19 +22,18 @@
 #ifndef FREERDP_GRAPHICS_H
 #define FREERDP_GRAPHICS_H
 
-typedef struct rdp_bitmap rdpBitmap;
-typedef struct rdp_pointer rdpPointer;
-typedef struct rdp_glyph rdpGlyph;
-
 #include <stdlib.h>
 #include <freerdp/api.h>
 #include <freerdp/types.h>
-#include <freerdp/freerdp.h>
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+	typedef struct rdp_bitmap rdpBitmap;
+	typedef struct rdp_pointer rdpPointer;
+	typedef struct rdp_glyph rdpGlyph;
 
 	/* Bitmap Class */
 	typedef BOOL (*pBitmap_New)(rdpContext* context, rdpBitmap* bitmap);
@@ -158,13 +157,16 @@ extern "C"
 		rdpGlyph* Glyph_Prototype;     /* 3 */
 		UINT32 paddingA[16 - 4];       /* 4 */
 	};
+	typedef struct rdp_graphics rdpGraphics;
 
 	FREERDP_API void graphics_register_bitmap(rdpGraphics* graphics, const rdpBitmap* bitmap);
 	FREERDP_API void graphics_register_pointer(rdpGraphics* graphics, const rdpPointer* pointer);
 	FREERDP_API void graphics_register_glyph(rdpGraphics* graphics, const rdpGlyph* glyph);
 
-	FREERDP_API rdpGraphics* graphics_new(rdpContext* context);
 	FREERDP_API void graphics_free(rdpGraphics* graphics);
+
+	WINPR_ATTR_MALLOC(graphics_free, 1)
+	FREERDP_API rdpGraphics* graphics_new(rdpContext* context);
 
 #ifdef __cplusplus
 }

@@ -73,6 +73,7 @@
 #include <sys/system_properties.h>
 #include <unistd.h>
 #include <winpr/wtypes.h>
+#include <winpr/debug.h>
 
 static pthread_once_t g_once;
 static int g_inited;
@@ -144,7 +145,8 @@ static int get_file_size(const char* pathname)
 
 	if (fd < 0)
 	{
-		D("Can't open %s: %s\n", pathname, strerror(errno));
+		char ebuffer[256] = { 0 };
+		D("Can't open %s: %s\n", pathname, winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		return -1;
 	}
 
@@ -154,10 +156,12 @@ static int get_file_size(const char* pathname)
 
 		if (ret < 0)
 		{
+			char ebuffer[256] = { 0 };
 			if (errno == EINTR)
 				continue;
 
-			D("Error while reading %s: %s\n", pathname, strerror(errno));
+			D("Error while reading %s: %s\n", pathname,
+			  winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 			break;
 		}
 
@@ -183,7 +187,8 @@ static int read_file(const char* pathname, char* buffer, size_t buffsize)
 
 	if (fd < 0)
 	{
-		D("Could not open %s: %s\n", pathname, strerror(errno));
+		char ebuffer[256] = { 0 };
+		D("Could not open %s: %s\n", pathname, winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		return -1;
 	}
 
@@ -195,10 +200,12 @@ static int read_file(const char* pathname, char* buffer, size_t buffsize)
 
 		if (ret < 0)
 		{
+			char ebuffer[256] = { 0 };
 			if (errno == EINTR)
 				continue;
 
-			D("Error while reading from %s: %s\n", pathname, strerror(errno));
+			D("Error while reading from %s: %s\n", pathname,
+			  winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 
 			if (count == 0)
 				count = -1;
@@ -217,7 +224,7 @@ static int read_file(const char* pathname, char* buffer, size_t buffsize)
 }
 
 #ifdef __arm__
-/* Extract the content of a the first occurence of a given field in
+/* Extract the content of a the first occurrence of a given field in
  * the content of /proc/cpuinfo and return it as a heap-allocated
  * string that must be freed by the caller.
  *
@@ -230,7 +237,7 @@ static char* extract_cpuinfo_field(const char* buffer, int buflen, const char* f
 	char* result = NULL;
 	int len;
 	const char *p, *q;
-	/* Look for first field occurence, and ensures it starts the line. */
+	/* Look for first field occurrence, and ensures it starts the line. */
 	p = buffer;
 
 	for (;;)
@@ -422,7 +429,8 @@ static void cpulist_parse(CpuList* list, const char* line, int line_len)
 	 */
 	while (p < end && *p != '\n')
 	{
-		int val, start_value, end_value;
+		int start_value = 0;
+		int end_value = 0;
 		/* Find the end of current item, and put it into 'q' */
 		q = memchr(p, ',', end - p);
 
@@ -451,7 +459,7 @@ static void cpulist_parse(CpuList* list, const char* line, int line_len)
 		}
 
 		/* Set bits CPU list bits */
-		for (val = start_value; val <= end_value; val++)
+		for (int val = start_value; val <= end_value; val++)
 		{
 			cpulist_set(list, val);
 		}
@@ -476,7 +484,8 @@ static void cpulist_read_from(CpuList* list, const char* filename)
 
 	if (filelen < 0)
 	{
-		D("Could not read %s: %s\n", filename, strerror(errno));
+		char ebuffer[256] = { 0 };
+		D("Could not read %s: %s\n", filename, winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		return;
 	}
 
@@ -536,7 +545,7 @@ static void cpulist_read_from(CpuList* list, const char* filename)
 //
 // This code does *NOT* check for '__ANDROID_API__ >= 20' to support the
 // edge case where some NDK developers use headers for a platform that is
-// newer than the one really targetted by their application.
+// newer than the one really targeted by their application.
 // This is typically done to use newer native APIs only when running on more
 // recent Android versions, and requires careful symbol management.
 //
@@ -586,7 +595,8 @@ static uint32_t get_elf_hwcap_from_proc_self_auxv(void)
 
 	if (fd < 0)
 	{
-		D("Could not open %s: %s\n", filepath, strerror(errno));
+		char ebuffer[256] = { 0 };
+		D("Could not open %s: %s\n", filepath, winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		return 0;
 	}
 
@@ -604,7 +614,9 @@ static uint32_t get_elf_hwcap_from_proc_self_auxv(void)
 
 		if (ret < 0)
 		{
-			D("Error while reading %s: %s\n", filepath, strerror(errno));
+			char ebuffer[256] = { 0 };
+			D("Error while reading %s: %s\n", filepath,
+			  winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 			break;
 		}
 
@@ -963,10 +975,9 @@ static void android_cpuInit(void)
 			{ "CPU part", 'x', 4, 12 },
 			{ "CPU revision", 'd', 0, 4 },
 		};
-		size_t i;
 		D("Parsing /proc/cpuinfo to recover CPUID\n");
 
-		for (i = 0; i < sizeof(cpu_id_entries) / sizeof(cpu_id_entries[0]); ++i)
+		for (size_t i = 0; i < sizeof(cpu_id_entries) / sizeof(cpu_id_entries[0]); ++i)
 		{
 			const struct CpuIdEntry* entry = &cpu_id_entries[i];
 			char* value = extract_cpuinfo_field(cpuinfo, cpuinfo_len, entry->field);
@@ -1012,9 +1023,8 @@ static void android_cpuInit(void)
 			{ 0x510006f2, ANDROID_CPU_ARM_FEATURE_IDIV_ARM | ANDROID_CPU_ARM_FEATURE_IDIV_THUMB2 },
 			{ 0x510006f3, ANDROID_CPU_ARM_FEATURE_IDIV_ARM | ANDROID_CPU_ARM_FEATURE_IDIV_THUMB2 },
 		};
-		size_t n;
 
-		for (n = 0; n < sizeof(cpu_fixes) / sizeof(cpu_fixes[0]); ++n)
+		for (size_t n = 0; n < sizeof(cpu_fixes) / sizeof(cpu_fixes[0]); ++n)
 		{
 			const struct CpuFix* entry = &cpu_fixes[n];
 
@@ -1363,11 +1373,11 @@ int android_setCpuArm(int cpu_count, uint64_t cpu_features, uint32_t cpu_id)
  *   |
  * ARCH_NEON_FP16 (+EXT_FP16)
  *
- * -fpu=<name> values and their correspondance with FPU architectures above:
+ * -fpu=<name> values and their correspondence with FPU architectures above:
  *
  *   {"vfp",               FPU_ARCH_VFP_V2},
  *   {"vfp9",              FPU_ARCH_VFP_V2},
- *   {"vfp3",              FPU_ARCH_VFP_V3}, // For backwards compatbility.
+ *   {"vfp3",              FPU_ARCH_VFP_V3}, // For backwards compatibility.
  *   {"vfp10",             FPU_ARCH_VFP_V2},
  *   {"vfp10-r0",          FPU_ARCH_VFP_V1},
  *   {"vfpxd",             FPU_ARCH_VFP_V1xD},

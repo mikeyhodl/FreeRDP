@@ -22,24 +22,17 @@
 
 #include <winpr/wtypes.h>
 #include <winpr/stream.h>
-#include <winpr/collections.h>
-#include <winpr/interlocked.h>
+#include <winpr/winpr.h>
 
-#include <freerdp/log.h>
-#include <freerdp/utils/ringbuffer.h>
-#include <freerdp/api.h>
-
-#include <freerdp/freerdp.h>
-#include <freerdp/crypto/tls.h>
-#include <freerdp/types.h>
-#include <freerdp/settings.h>
+/* needed for BIO */
+#include <openssl/ssl.h>
 
 typedef struct rdp_rdg rdpRdg;
 
-#include "http.h"
-
-FREERDP_LOCAL rdpRdg* rdg_new(rdpContext* context);
 FREERDP_LOCAL void rdg_free(rdpRdg* rdg);
+
+WINPR_ATTR_MALLOC(rdg_free, 1)
+FREERDP_LOCAL rdpRdg* rdg_new(rdpContext* context);
 
 FREERDP_LOCAL BIO* rdg_get_front_bio_and_take_ownership(rdpRdg* rdg);
 

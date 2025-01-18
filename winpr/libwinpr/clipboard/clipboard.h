@@ -72,11 +72,6 @@ WINPR_LOCAL BOOL ClipboardInitSynthesizers(wClipboard* clipboard);
 
 WINPR_LOCAL char* parse_uri_to_local_file(const char* uri, size_t uri_len);
 
-extern const char* mime_utf8_string;
-extern const char* mime_uri_list;
-extern const char* mime_FileGroupDescriptorW;
-extern const char* mime_nautilus_clipboard;
-extern const char* mime_gnome_copied_files;
-extern const char* mime_mate_copied_files;
+extern const char* mime_text_plain;
 
 #endif /* WINPR_CLIPBOARD_PRIVATE_H */

@@ -19,6 +19,8 @@
 #include <freerdp/config.h>
 
 #include <winpr/assert.h>
+#include <winpr/cast.h>
+
 #include <rdtk/rdtk.h>
 
 #include "shadow.h"
@@ -27,27 +29,26 @@
 
 BOOL shadow_client_init_lobby(rdpShadowServer* server)
 {
-	int width;
-	int height;
-	rdtkEngine* engine;
-	rdtkSurface* surface;
+	BOOL rc = FALSE;
+	int width = 0;
+	int height = 0;
+	rdtkSurface* surface = NULL;
 	RECTANGLE_16 invalidRect;
 	rdpShadowSurface* lobby = server->lobby;
 
 	if (!lobby)
 		return FALSE;
 
-	if (!(engine = rdtk_engine_new()))
-	{
+	rdtkEngine* engine = rdtk_engine_new();
+	if (!engine)
 		return FALSE;
-	}
 
-	if (!(surface =
-	          rdtk_surface_new(engine, lobby->data, lobby->width, lobby->height, lobby->scanline)))
-	{
-		rdtk_engine_free(engine);
-		return FALSE;
-	}
+	EnterCriticalSection(&lobby->lock);
+	surface =
+	    rdtk_surface_new(engine, lobby->data, WINPR_ASSERTING_INT_CAST(uint16_t, lobby->width),
+	                     WINPR_ASSERTING_INT_CAST(uint16_t, lobby->height), lobby->scanline);
+	if (!surface)
+		goto fail;
 
 	invalidRect.left = 0;
 	invalidRect.top = 0;
@@ -77,9 +78,11 @@ BOOL shadow_client_init_lobby(rdpShadowServer* server)
 
 	rdtk_surface_free(surface);
 
-	rdtk_engine_free(engine);
-
 	region16_union_rect(&(lobby->invalidRegion), &(lobby->invalidRegion), &invalidRect);
 
-	return TRUE;
+	rc = TRUE;
+fail:
+	LeaveCriticalSection(&lobby->lock);
+	rdtk_engine_free(engine);
+	return rc;
 }

@@ -35,14 +35,17 @@
 
 #include "rfx_decode.h"
 
-void rfx_decode_component(RFX_CONTEXT* context, const UINT32* quantization_values, const BYTE* data,
-                          int size, INT16* buffer)
+static INLINE void rfx_decode_component(RFX_CONTEXT* WINPR_RESTRICT context,
+                                        const UINT32* WINPR_RESTRICT quantization_values,
+                                        const BYTE* WINPR_RESTRICT data, size_t size,
+                                        INT16* WINPR_RESTRICT buffer)
 {
-	INT16* dwt_buffer;
+	INT16* dwt_buffer = NULL;
 	dwt_buffer = BufferPool_Take(context->priv->BufferPool, -1); /* dwt_buffer */
 	PROFILER_ENTER(context->priv->prof_rfx_decode_component)
 	PROFILER_ENTER(context->priv->prof_rfx_rlgr_decode)
-	context->rlgr_decode(context->mode, data, size, buffer, 4096);
+	WINPR_ASSERT(size <= UINT32_MAX);
+	context->rlgr_decode(context->mode, data, (UINT32)size, buffer, 4096);
 	PROFILER_EXIT(context->priv->prof_rfx_rlgr_decode)
 	PROFILER_ENTER(context->priv->prof_rfx_differential_decode)
 	rfx_differential_decode(buffer + 4032, 64);
@@ -60,7 +63,8 @@ void rfx_decode_component(RFX_CONTEXT* context, const UINT32* quantization_value
 /* rfx_decode_ycbcr_to_rgb code now resides in the primitives library. */
 
 /* stride is bytes between rows in the output buffer. */
-BOOL rfx_decode_rgb(RFX_CONTEXT* context, const RFX_TILE* tile, BYTE* rgb_buffer, UINT32 stride)
+BOOL rfx_decode_rgb(RFX_CONTEXT* WINPR_RESTRICT context, const RFX_TILE* WINPR_RESTRICT tile,
+                    BYTE* WINPR_RESTRICT rgb_buffer, UINT32 stride)
 {
 	union
 	{
@@ -68,19 +72,21 @@ BOOL rfx_decode_rgb(RFX_CONTEXT* context, const RFX_TILE* tile, BYTE* rgb_buffer
 		INT16** pv;
 	} cnv;
 	BOOL rc = TRUE;
-	BYTE* pBuffer;
+	BYTE* pBuffer = NULL;
 	INT16* pSrcDst[3];
-	UINT32 *y_quants, *cb_quants, *cr_quants;
+	UINT32* y_quants = NULL;
+	UINT32* cb_quants = NULL;
+	UINT32* cr_quants = NULL;
 	static const prim_size_t roi_64x64 = { 64, 64 };
 	const primitives_t* prims = primitives_get();
 	PROFILER_ENTER(context->priv->prof_rfx_decode_rgb)
-	y_quants = context->quants + (tile->quantIdxY * 10);
-	cb_quants = context->quants + (tile->quantIdxCb * 10);
-	cr_quants = context->quants + (tile->quantIdxCr * 10);
+	y_quants = context->quants + (10ULL * tile->quantIdxY);
+	cb_quants = context->quants + (10ULL * tile->quantIdxCb);
+	cr_quants = context->quants + (10ULL * tile->quantIdxCr);
 	pBuffer = (BYTE*)BufferPool_Take(context->priv->BufferPool, -1);
-	pSrcDst[0] = (INT16*)((BYTE*)(&pBuffer[((8192 + 32) * 0) + 16]));             /* y_r_buffer */
-	pSrcDst[1] = (INT16*)((BYTE*)(&pBuffer[((8192 + 32) * 1) + 16]));             /* cb_g_buffer */
-	pSrcDst[2] = (INT16*)((BYTE*)(&pBuffer[((8192 + 32) * 2) + 16]));             /* cr_b_buffer */
+	pSrcDst[0] = (INT16*)((&pBuffer[((8192ULL + 32ULL) * 0ULL) + 16ULL]));        /* y_r_buffer */
+	pSrcDst[1] = (INT16*)((&pBuffer[((8192ULL + 32ULL) * 1ULL) + 16ULL]));        /* cb_g_buffer */
+	pSrcDst[2] = (INT16*)((&pBuffer[((8192ULL + 32ULL) * 2ULL) + 16ULL]));        /* cr_b_buffer */
 	rfx_decode_component(context, y_quants, tile->YData, tile->YLen, pSrcDst[0]); /* YData */
 	rfx_decode_component(context, cb_quants, tile->CbData, tile->CbLen, pSrcDst[1]); /* CbData */
 	rfx_decode_component(context, cr_quants, tile->CrData, tile->CrLen, pSrcDst[2]); /* CrData */

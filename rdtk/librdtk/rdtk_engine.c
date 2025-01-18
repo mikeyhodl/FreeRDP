@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+#include <winpr/assert.h>
+
 #include <rdtk/config.h>
 
 #include "rdtk_font.h"
@@ -25,21 +27,27 @@
 
 #include "rdtk_engine.h"
 
-rdtkEngine* rdtk_engine_new()
+rdtkEngine* rdtk_engine_new(void)
 {
-	rdtkEngine* engine;
-
-	engine = (rdtkEngine*)calloc(1, sizeof(rdtkEngine));
+	rdtkEngine* engine = (rdtkEngine*)calloc(1, sizeof(rdtkEngine));
 
 	if (!engine)
 		return NULL;
 
-	rdtk_font_engine_init(engine);
-	rdtk_nine_patch_engine_init(engine);
-	rdtk_button_engine_init(engine);
-	rdtk_text_field_engine_init(engine);
+	if (rdtk_font_engine_init(engine) < 0)
+		goto fail;
+	if (rdtk_nine_patch_engine_init(engine) < 0)
+		goto fail;
+	if (rdtk_button_engine_init(engine) < 0)
+		goto fail;
+	if (rdtk_text_field_engine_init(engine) < 0)
+		goto fail;
 
 	return engine;
+
+fail:
+	rdtk_engine_free(engine);
+	return NULL;
 }
 
 void rdtk_engine_free(rdtkEngine* engine)

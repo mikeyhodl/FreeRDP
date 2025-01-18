@@ -78,7 +78,16 @@ public class LibFreeRDP
 		try
 		{
 			System.loadLibrary("freerdp-android");
+
+			/* Load dependent libraries too to trigger JNI_OnLoad calls */
 			String version = freerdp_get_jni_version();
+			String[] versions = version.split("[\\.-]");
+			if (versions.length > 0)
+			{
+				System.loadLibrary("freerdp-client" + versions[0]);
+				System.loadLibrary("freerdp" + versions[0]);
+				System.loadLibrary("winpr" + versions[0]);
+			}
 			Pattern pattern = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+).*");
 			Matcher matcher = pattern.matcher(version);
 			if (!matcher.matches() || (matcher.groupCount() < 3))
@@ -281,13 +290,13 @@ public class LibFreeRDP
 		switch (advanced.getSecurity())
 		{
 			case 3: // NLA
-				args.add("/sec-nla");
+				args.add("/sec:nla");
 				break;
 			case 2: // TLS
-				args.add("/sec-tls");
+				args.add("/sec:tls");
 				break;
 			case 1: // RDP
-				args.add("/sec-rdp");
+				args.add("/sec:rdp");
 				break;
 			default:
 				break;
@@ -320,7 +329,6 @@ public class LibFreeRDP
 		args.add(addFlag("themes", flags.getTheming()));
 		args.add(addFlag("fonts", flags.getFontSmoothing()));
 		args.add(addFlag("aero", flags.getDesktopComposition()));
-		args.add(addFlag("glyph-cache", false));
 
 		if (!advanced.getRemoteProgram().isEmpty())
 		{
@@ -383,7 +391,8 @@ public class LibFreeRDP
 			args.add("/microphone");
 		}
 
-		args.add("/cert-ignore");
+		args.add("/kbd:unicode:on");
+		args.add("/cert:ignore");
 		args.add("/log-level:" + debug.getDebugLevel());
 		String[] arrayArgs = args.toArray(new String[0]);
 		return freerdp_parse_arguments(inst, arrayArgs);

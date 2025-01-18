@@ -24,19 +24,13 @@
 #define UWAC_UTILS_H_
 
 #include <stdlib.h>
+#include <string.h>
 
-#define min(a, b)               \
-	({                          \
-		__typeof__(a) _a = (a); \
-		__typeof__(b) _b = (b); \
-		_a < _b ? _a : _b;      \
-	})
+#include <uwac/config.h>
 
-#define container_of(ptr, type, member)                       \
-	({                                                        \
-		const __typeof__(((type*)0)->member)* __mptr = (ptr); \
-		(type*)((char*)__mptr - offsetof(type, member));      \
-	})
+#define min(a, b) (a) < (b) ? (a) : (b)
+
+#define container_of(ptr, type, member) (type*)((char*)(ptr)-offsetof(type, member))
 
 #define ARRAY_LENGTH(a) (sizeof(a) / sizeof(a)[0])
 
@@ -52,5 +46,17 @@ void* xzalloc(size_t s);
 char* xstrdup(const char* s);
 
 void* xrealloc(void* p, size_t s);
+
+static inline char* uwac_strerror(int dw, char* dmsg, size_t size)
+{
+#ifdef __STDC_LIB_EXT1__
+	(void)strerror_s(dw, dmsg, size);
+#elif defined(UWAC_HAVE_STRERROR_R)
+	(void)strerror_r(dw, dmsg, size);
+#else
+	(void)_snprintf(dmsg, size, "%s", strerror(dw));
+#endif
+	return dmsg;
+}
 
 #endif /* UWAC_UTILS_H_ */

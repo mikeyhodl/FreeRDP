@@ -24,15 +24,28 @@
 #include <freerdp/dvc.h>
 #include <freerdp/types.h>
 
+/** The command line name of the channel
+ *
+ *  \since version 3.0.0
+ */
+#define TELEMETRY_CHANNEL_NAME "telemetry"
 #define TELEMETRY_DVC_CHANNEL_NAME "Microsoft::Windows::RDS::Telemetry"
 
-struct _TELEMETRY_RDP_TELEMETRY_PDU
+#ifdef __cplusplus
+extern "C"
 {
-	UINT32 PromptForCredentialsMillis;
-	UINT32 PromptForCredentialsDoneMillis;
-	UINT32 GraphicsChannelOpenedMillis;
-	UINT32 FirstGraphicsReceivedMillis;
-};
-typedef struct _TELEMETRY_RDP_TELEMETRY_PDU TELEMETRY_RDP_TELEMETRY_PDU;
+#endif
+
+	typedef struct
+	{
+		UINT32 PromptForCredentialsMillis;
+		UINT32 PromptForCredentialsDoneMillis;
+		UINT32 GraphicsChannelOpenedMillis;
+		UINT32 FirstGraphicsReceivedMillis;
+	} TELEMETRY_RDP_TELEMETRY_PDU;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FREERDP_CHANNEL_TELEMETRY_H */

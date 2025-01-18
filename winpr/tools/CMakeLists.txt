@@ -32,100 +32,99 @@ set(WINPR_TOOLS_LIBS "")
 set(WINPR_TOOLS_INCLUDES "")
 set(WINPR_TOOLS_DEFINITIONS "")
 
-macro (winpr_tools_module_add)
-    file (RELATIVE_PATH _relPath "${WINPR_TOOLS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
-    foreach (_src ${ARGN})
-        if (_relPath)
-            list (APPEND WINPR_TOOLS_SRCS "${_relPath}/${_src}")
-        else()
-            list (APPEND WINPR_TOOLS_SRCS "${_src}")
-        endif()
-    endforeach()
-    if (_relPath)
-        set (WINPR_TOOLS_SRCS ${WINPR_TOOLS_SRCS} PARENT_SCOPE)
+macro(winpr_tools_module_add)
+  file(RELATIVE_PATH _relPath "${WINPR_TOOLS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+  foreach(_src ${ARGN})
+    if(_relPath)
+      list(APPEND WINPR_TOOLS_SRCS "${_relPath}/${_src}")
+    else()
+      list(APPEND WINPR_TOOLS_SRCS "${_src}")
     endif()
+  endforeach()
+  if(_relPath)
+    set(WINPR_TOOLS_SRCS ${WINPR_TOOLS_SRCS} PARENT_SCOPE)
+  endif()
 endmacro()
 
-macro (winpr_tools_include_directory_add)
-    file (RELATIVE_PATH _relPath "${WINPR_TOOLS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
-    foreach (_inc ${ARGN})
-                if (IS_ABSOLUTE ${_inc})
-                            list (APPEND WINPR_TOOLS_INCLUDES "${_inc}")
-                else()
-                    if (_relPath)
-                            list (APPEND WINPR_TOOLS_INCLUDES "${_relPath}/${_inc}")
-                    else()
-                            list (APPEND WINPR_TOOLS_INCLUDES "${_inc}")
-                    endif()
-                endif()
-    endforeach()
-    if (_relPath)
-        set (WINPR_TOOLS_INCLUDES ${WINPR_TOOLS_INCLUDES} PARENT_SCOPE)
+macro(winpr_tools_include_directory_add)
+  file(RELATIVE_PATH _relPath "${WINPR_TOOLS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+  foreach(_inc ${ARGN})
+    if(IS_ABSOLUTE ${_inc})
+      list(APPEND WINPR_TOOLS_INCLUDES "${_inc}")
+    else()
+      if(_relPath)
+        list(APPEND WINPR_TOOLS_INCLUDES "${_relPath}/${_inc}")
+      else()
+        list(APPEND WINPR_TOOLS_INCLUDES "${_inc}")
+      endif()
     endif()
+  endforeach()
+  if(_relPath)
+    set(WINPR_TOOLS_INCLUDES ${WINPR_TOOLS_INCLUDES} PARENT_SCOPE)
+  endif()
 endmacro()
 
-macro (winpr_tools_library_add)
-    foreach (_lib ${ARGN})
-            list (APPEND WINPR_TOOLS_LIBS "${_lib}")
-    endforeach()
-     set (WINPR_TOOLS_LIBS ${WINPR_TOOLS_LIBS} PARENT_SCOPE)
+macro(winpr_tools_library_add)
+  foreach(_lib ${ARGN})
+    list(APPEND WINPR_TOOLS_LIBS "${_lib}")
+  endforeach()
+  set(WINPR_TOOLS_LIBS ${WINPR_TOOLS_LIBS} PARENT_SCOPE)
 endmacro()
 
-macro (winpr_tools_definition_add)
-    foreach (_define ${ARGN})
-            list (APPEND WINPR_TOOLS_DEFINITONS "${_define}")
-    endforeach()
-     set (WINPR_TOOLS_DEFINITONS ${WINPR_TOOLS_DEFINITONS} PARENT_SCOPE)
+macro(winpr_tools_definition_add)
+  foreach(_define ${ARGN})
+    list(APPEND WINPR_TOOLS_DEFINITONS "${_define}")
+  endforeach()
+  set(WINPR_TOOLS_DEFINITONS ${WINPR_TOOLS_DEFINITONS} PARENT_SCOPE)
 endmacro()
 
 add_subdirectory(makecert)
 
 set(MODULE_NAME winpr-tools)
 list(REMOVE_DUPLICATES WINPR_TOOLS_DEFINITIONS)
-list(REMOVE_DUPLICATES WINPR_TOOLS_LIBS)
 list(REMOVE_DUPLICATES WINPR_TOOLS_INCLUDES)
 include_directories(${WINPR_TOOLS_INCLUDES})
 
-# On windows create dll version information.
-# Vendor, product and year are already set in top level CMakeLists.txt
-if (WIN32)
-  set (RC_VERSION_MAJOR ${WINPR_VERSION_MAJOR})
-  set (RC_VERSION_MINOR ${WINPR_VERSION_MINOR})
-  set (RC_VERSION_BUILD ${WINPR_VERSION_REVISION})
-  set (RC_VERSION_FILE "${CMAKE_SHARED_LIBRARY_PREFIX}${MODULE_NAME}${WINPR_TOOLS_API_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}" )
+addtargetwithresourcefile(${MODULE_NAME} FALSE "${WINPR_VERSION}" WINPR_TOOLS_SRCS)
 
-  configure_file(
-    ${PROJECT_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/version.rc
-    @ONLY)
-
-  set (WINPR_TOOLS_SRCS ${WINPR_TOOLS_SRCS} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-endif()
-
-add_library(${MODULE_NAME} ${WINPR_TOOLS_SRCS})
-set_target_properties(${MODULE_NAME} PROPERTIES LINKER_LANGUAGE C)
-set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${MODULE_NAME}${WINPR_TOOLS_API_VERSION})
-if (WITH_LIBRARY_VERSIONING)
-    set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${WINPR_TOOLS_VERSION} SOVERSION ${WINPR_TOOLS_API_VERSION})
-endif()
-
-add_definitions(${WINPR_DEFINITIONS})
+add_compile_definitions(${WINPR_DEFINITIONS})
+target_include_directories(${MODULE_NAME} INTERFACE $<INSTALL_INTERFACE:include/winpr${WINPR_VERSION_MAJOR}>)
 target_link_libraries(${MODULE_NAME} PRIVATE ${WINPR_TOOLS_LIBS})
 
-install(TARGETS ${MODULE_NAME} COMPONENT libraries EXPORT WinPRTargets
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS ${MODULE_NAME} COMPONENT libraries EXPORT WinPR-toolsTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 
-if (WITH_DEBUG_SYMBOLS AND MSVC AND BUILD_SHARED_LIBS)
-    get_target_property(OUTPUT_FILENAME ${MODULE_NAME} OUTPUT_NAME)
-    install(FILES ${CMAKE_PDB_BINARY_DIR}/${OUTPUT_FILENAME}.pdb DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT symbols)
-endif()
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "WinPR/Tools")
 
 # Add all command line utilities
 add_subdirectory(makecert-cli)
 add_subdirectory(hash-cli)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/winpr-tools.pc.in ${CMAKE_CURRENT_BINARY_DIR}/winpr-tools${WINPR_TOOLS_VERSION_MAJOR}.pc @ONLY)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/winpr-tools${WINPR_TOOLS_VERSION_MAJOR}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+include(pkg-config-install-prefix)
+cleaning_configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/winpr-tools.pc.in ${CMAKE_CURRENT_BINARY_DIR}/winpr-tools${WINPR_TOOLS_VERSION_MAJOR}.pc
+  @ONLY
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/winpr-tools${WINPR_TOOLS_VERSION_MAJOR}.pc
+        DESTINATION ${PKG_CONFIG_PC_INSTALL_DIR}
+)
+
+export(PACKAGE ${MODULE_NAME})
+
+setfreerdpcmakeinstalldir(WINPR_CMAKE_INSTALL_DIR "WinPR-tools${WINPR_VERSION_MAJOR}")
+
+configure_package_config_file(
+  WinPR-toolsConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/WinPR-toolsConfig.cmake
+  INSTALL_DESTINATION ${WINPR_CMAKE_INSTALL_DIR} PATH_VARS WINPR_INCLUDE_DIR
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/WinPR-toolsConfigVersion.cmake VERSION ${WINPR_VERSION} COMPATIBILITY SameMajorVersion
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/WinPR-toolsConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/WinPR-toolsConfigVersion.cmake DESTINATION ${WINPR_CMAKE_INSTALL_DIR}
+)
+
+install(EXPORT WinPR-toolsTargets DESTINATION ${WINPR_CMAKE_INSTALL_DIR})

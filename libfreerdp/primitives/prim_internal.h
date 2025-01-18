@@ -17,10 +17,17 @@
 #ifndef FREERDP_LIB_PRIM_INTERNAL_H
 #define FREERDP_LIB_PRIM_INTERNAL_H
 
+#include <winpr/platform.h>
 #include <freerdp/config.h>
 
 #include <freerdp/primitives.h>
 #include <freerdp/api.h>
+
+#include <freerdp/log.h>
+
+#include "../core/simd.h"
+
+#define PRIM_TAG FREERDP_TAG("primitives")
 
 #ifdef __GNUC__
 #define PRIM_ALIGN_128 __attribute__((aligned(16)))
@@ -30,15 +37,42 @@
 #endif
 #endif
 
-#if defined(WITH_SSE2) || defined(WITH_NEON) || defined(WITH_OPENCL)
+#if defined(SSE_AVX_INTRINSICS_ENABLED) || defined(NEON_INTRINSICS_ENABLED) || defined(WITH_OPENCL)
 #define HAVE_OPTIMIZED_PRIMITIVES 1
 #endif
 
-#if defined(WITH_SSE2) || defined(WITH_NEON)
+#if defined(SSE_AVX_INTRINSICS_ENABLED) || defined(NEON_INTRINSICS_ENABLED)
 #define HAVE_CPU_OPTIMIZED_PRIMITIVES 1
 #endif
 
-#if defined(WITH_SSE2)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
+#include <emmintrin.h>
+static inline __m128i mm_set_epu32(uint32_t val1, uint32_t val2, uint32_t val3, uint32_t val4)
+{
+	return _mm_set_epi32((int32_t)val1, (int32_t)val2, (int32_t)val3, (int32_t)val4);
+}
+
+static inline __m128i mm_set_epu8(uint8_t val1, uint8_t val2, uint8_t val3, uint8_t val4,
+                                  uint8_t val5, uint8_t val6, uint8_t val7, uint8_t val8,
+                                  uint8_t val9, uint8_t val10, uint8_t val11, uint8_t val12,
+                                  uint8_t val13, uint8_t val14, uint8_t val15, uint8_t val16)
+{
+	return _mm_set_epi8((int8_t)val1, (int8_t)val2, (int8_t)val3, (int8_t)val4, (int8_t)val5,
+	                    (int8_t)val6, (int8_t)val7, (int8_t)val8, (int8_t)val9, (int8_t)val10,
+	                    (int8_t)val11, (int8_t)val12, (int8_t)val13, (int8_t)val14, (int8_t)val15,
+	                    (int8_t)val16);
+}
+
+static inline __m128i mm_set1_epu32(uint32_t val)
+{
+	return _mm_set1_epi32((int32_t)val);
+}
+
+static inline __m128i mm_set1_epu8(uint8_t val)
+{
+	return _mm_set1_epi8((int8_t)val);
+}
+
 /* Use lddqu for unaligned; load for 16-byte aligned. */
 #define LOAD_SI128(_ptr_)                                                       \
 	(((const ULONG_PTR)(_ptr_)&0x0f) ? _mm_lddqu_si128((const __m128i*)(_ptr_)) \
@@ -209,6 +243,19 @@ static INLINE BYTE CLIP(INT64 X)
 	return (BYTE)X;
 }
 
+static INLINE BYTE CONDITIONAL_CLIP(INT32 in, BYTE original)
+{
+	BYTE out = CLIP(in);
+	BYTE diff = 0;
+	if (out > original)
+		diff = out - original;
+	else
+		diff = original - out;
+	if (diff < 30)
+		return original;
+	return out;
+}
+
 /**
  * | R |   ( | 256     0    403 | |    Y    | )
  * | G | = ( | 256   -48   -120 | | U - 128 | ) >> 8
@@ -250,35 +297,69 @@ static INLINE BYTE YUV2B(INT32 Y, INT32 U, INT32 V)
 	return CLIP(b8);
 }
 
-/* Function prototypes for all the init/deinit routines. */
-FREERDP_LOCAL void primitives_init_copy(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_set(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_add(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_andor(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_shift(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_sign(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_alphaComp(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_colors(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_YCoCg(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_YUV(primitives_t* prims);
+/**
+ * | Y |    ( |  54   183     18 | | R | )        |  0  |
+ * | U | =  ( | -29   -99    128 | | G | ) >> 8 + | 128 |
+ * | V |    ( | 128  -116    -12 | | B | )        | 128 |
+ */
+static INLINE BYTE RGB2Y(INT32 R, INT32 G, INT32 B)
+{
+	const INT32 val = ((54 * R + 183 * G + 18 * B) >> 8);
+	return WINPR_ASSERTING_INT_CAST(BYTE, val);
+}
 
-#if defined(WITH_SSE2) || defined(WITH_NEON)
-FREERDP_LOCAL void primitives_init_copy_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_set_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_add_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_andor_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_shift_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_sign_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_alphaComp_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_colors_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_YCoCg_opt(primitives_t* prims);
-FREERDP_LOCAL void primitives_init_YUV_opt(primitives_t* prims);
-#endif
+static INLINE BYTE RGB2U(INT32 R, INT32 G, INT32 B)
+{
+	const INT32 val = (((-29 * R - 99 * G + 128 * B) >> 8) + 128);
+	return WINPR_ASSERTING_INT_CAST(BYTE, val);
+}
+
+static INLINE BYTE RGB2V(INT32 R, INT32 G, INT32 B)
+{
+	const INT32 val = (((128 * R - 116 * G - 12 * B) >> 8) + 128);
+	return WINPR_ASSERTING_INT_CAST(BYTE, val);
+}
+
+FREERDP_LOCAL void general_RGBToAVC444YUV_BGRX_DOUBLE_ROW(
+    size_t offset, const BYTE* WINPR_RESTRICT srcEven, const BYTE* WINPR_RESTRICT srcOdd,
+    BYTE* WINPR_RESTRICT b1Even, BYTE* WINPR_RESTRICT b1Odd, BYTE* WINPR_RESTRICT b2,
+    BYTE* WINPR_RESTRICT b3, BYTE* WINPR_RESTRICT b4, BYTE* WINPR_RESTRICT b5,
+    BYTE* WINPR_RESTRICT b6, BYTE* WINPR_RESTRICT b7, UINT32 width);
+
+FREERDP_LOCAL void general_RGBToAVC444YUVv2_BGRX_DOUBLE_ROW(
+    size_t offset, const BYTE* WINPR_RESTRICT pSrcEven, const BYTE* WINPR_RESTRICT pSrcOdd,
+    BYTE* WINPR_RESTRICT yLumaDstEven, BYTE* WINPR_RESTRICT yLumaDstOdd,
+    BYTE* WINPR_RESTRICT uLumaDst, BYTE* WINPR_RESTRICT vLumaDst,
+    BYTE* WINPR_RESTRICT yEvenChromaDst1, BYTE* WINPR_RESTRICT yEvenChromaDst2,
+    BYTE* WINPR_RESTRICT yOddChromaDst1, BYTE* WINPR_RESTRICT yOddChromaDst2,
+    BYTE* WINPR_RESTRICT uChromaDst1, BYTE* WINPR_RESTRICT uChromaDst2,
+    BYTE* WINPR_RESTRICT vChromaDst1, BYTE* WINPR_RESTRICT vChromaDst2, UINT32 width);
+
+/* Function prototypes for all the init/deinit routines. */
+FREERDP_LOCAL void primitives_init_copy(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_set(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_add(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_andor(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_shift(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_sign(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_alphaComp(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_colors(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_YCoCg(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_YUV(primitives_t* WINPR_RESTRICT prims);
+
+FREERDP_LOCAL void primitives_init_copy_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_set_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_add_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_andor_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_shift_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_sign_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_alphaComp_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_colors_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_YCoCg_opt(primitives_t* WINPR_RESTRICT prims);
+FREERDP_LOCAL void primitives_init_YUV_opt(primitives_t* WINPR_RESTRICT prims);
 
 #if defined(WITH_OPENCL)
-FREERDP_LOCAL BOOL primitives_init_opencl(primitives_t* prims);
+FREERDP_LOCAL BOOL primitives_init_opencl(primitives_t* WINPR_RESTRICT prims);
 #endif
-
-FREERDP_LOCAL primitives_t* primitives_get_by_type(DWORD type);
 
 #endif /* FREERDP_LIB_PRIM_INTERNAL_H */

@@ -515,24 +515,23 @@ int win_shadow_wds_wnd_init(winShadowSubsystem* subsystem)
 
 int win_shadow_wds_init(winShadowSubsystem* subsystem)
 {
-	int status;
-	HRESULT hr;
-	DWORD dwCookie;
-	long left, top;
-	long right, bottom;
-	long width, height;
-	IUnknown* pUnknown;
-	rdpSettings* settings;
-	BSTR bstrAuthString;
-	BSTR bstrGroupName;
-	BSTR bstrPassword;
-	BSTR bstrPropertyName;
+	int status = -1;
+
+	long left = 0;
+	long top = 0;
+	long right = 0;
+	long bottom = 0;
+	BSTR bstrAuthString = NULL;
+	BSTR bstrGroupName = NULL;
+	BSTR bstrPassword = NULL;
+	BSTR bstrPropertyName = NULL;
 	VARIANT varPropertyValue;
-	rdpAssistanceFile* file;
-	IConnectionPoint* pCP;
-	IConnectionPointContainer* pCPC;
+	rdpAssistanceFile* file = NULL;
+	IConnectionPoint* pCP = NULL;
+	IConnectionPointContainer* pCPC = NULL;
+
 	win_shadow_wds_wnd_init(subsystem);
-	hr = OleInitialize(NULL);
+	HRESULT hr = OleInitialize(NULL);
 
 	if (FAILED(hr))
 	{
@@ -557,7 +556,7 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 		return -1;
 	}
 
-	pUnknown = (IUnknown*)subsystem->pSharingSession;
+	IUnknown* pUnknown = (IUnknown*)subsystem->pSharingSession;
 	hr = pUnknown->lpVtbl->QueryInterface(pUnknown, &IID_IConnectionPointContainer, (void**)&pCPC);
 
 	if (FAILED(hr))
@@ -577,7 +576,7 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 		return -1;
 	}
 
-	dwCookie = 0;
+	DWORD dwCookie = 0;
 	subsystem->pSessionEvents = &Shadow_IRDPSessionEvents;
 	subsystem->pSessionEvents->lpVtbl->AddRef(subsystem->pSessionEvents);
 	hr = pCP->lpVtbl->Advise(pCP, (IUnknown*)subsystem->pSessionEvents, &dwCookie);
@@ -605,8 +604,8 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 		return -1;
 	}
 
-	width = right - left;
-	height = bottom - top;
+	long width = right - left;
+	long height = bottom - top;
 	WLog_INFO(
 	    TAG,
 	    "GetDesktopSharedRect(): left: %ld top: %ld right: %ld bottom: %ld width: %ld height: %ld",
@@ -732,7 +731,7 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 	}
 
 	{
-		int status1 = -1, status2 = -1;
+		int status2 = -1;
 		char* ConnectionString2;
 		BSTR bstrConnectionString;
 		hr = subsystem->pInvitation->lpVtbl->get_ConnectionString(subsystem->pInvitation,
@@ -744,14 +743,12 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 			return -1;
 		}
 
-		status1 = ConvertFromUnicode(CP_UTF8, 0, (WCHAR*)bstrConnectionString,
-		                             ((UINT32*)bstrConnectionString)[-1], &(ConnectionString2), 0,
-		                             NULL, NULL);
+		ConnectionString2 = ConvertWCharToUtf8Alloc(bstrConnectionString, NULL);
 		SysFreeString(bstrConnectionString);
 		status2 = freerdp_assistance_set_connection_string2(file, ConnectionString2, "Shadow123!");
 		free(ConnectionString2);
 
-		if ((status1 < 1) || (status2 < 1))
+		if ((!ConnectionString2) || (status2 < 1))
 		{
 			WLog_ERR(TAG, "failed to convert connection string");
 			return -1;
@@ -767,13 +764,19 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 		return status;
 	}
 
-	settings = subsystem->shw->settings;
-	status = freerdp_assistance_populate_settings_from_assistance_file(file, settings);
-	freerdp_settings_set_string(settings, FreeRDP_Domain, "RDP");
-	freerdp_settings_set_string(settings, FreeRDP_Username, "Shadow");
-	freerdp_settings_set_bool(settings, FreeRDP_AutoLogonEnabled, TRUE);
-	freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth, width);
-	freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, height);
+	rdpSettings* settings = subsystem->shw->settings;
+	if (!freerdp_assistance_populate_settings_from_assistance_file(file, settings))
+		return -1;
+	if (!freerdp_settings_set_string(settings, FreeRDP_Domain, "RDP"))
+		return -1;
+	if (!freerdp_settings_set_string(settings, FreeRDP_Username, "Shadow"))
+		return -1;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AutoLogonEnabled, TRUE))
+		return -1;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth, width))
+		return -1;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, height))
+		return -1;
 	status = win_shadow_rdp_start(subsystem);
 
 	if (status < 0)

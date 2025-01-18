@@ -20,6 +20,7 @@
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
+#include <winpr/library.h>
 #include <freerdp/log.h>
 
 #include "win_dxgi.h"
@@ -288,7 +289,7 @@ static void win_shadow_d3d11_module_init()
 	if (!d3d11_module)
 		return;
 
-	pfnD3D11CreateDevice = (fnD3D11CreateDevice)GetProcAddress(d3d11_module, "D3D11CreateDevice");
+	pfnD3D11CreateDevice = GetProcAddressAs(d3d11_module, "D3D11CreateDevice", fnD3D11CreateDevice);
 }
 
 int win_shadow_dxgi_init_duplication(winShadowSubsystem* subsystem)
@@ -682,7 +683,6 @@ int win_shadow_dxgi_get_next_frame(winShadowSubsystem* subsystem)
 
 int win_shadow_dxgi_get_invalid_region(winShadowSubsystem* subsystem)
 {
-	UINT i;
 	HRESULT hr;
 	POINT* pSrcPt;
 	RECT* pDstRect;
@@ -761,7 +761,7 @@ int win_shadow_dxgi_get_invalid_region(winShadowSubsystem* subsystem)
 
 	numMoveRects = MoveRectsBufferSize / sizeof(DXGI_OUTDUPL_MOVE_RECT);
 
-	for (i = 0; i < numMoveRects; i++)
+	for (UINT i = 0; i < numMoveRects; i++)
 	{
 		pMoveRect = &pMoveRectBuffer[i];
 		pSrcPt = &(pMoveRect->SourcePoint);
@@ -777,7 +777,7 @@ int win_shadow_dxgi_get_invalid_region(winShadowSubsystem* subsystem)
 
 	numDirtyRects = DirtyRectsBufferSize / sizeof(RECT);
 
-	for (i = 0; i < numDirtyRects; i++)
+	for (UINT i = 0; i < numDirtyRects; i++)
 	{
 		pDirtyRect = &pDirtyRectsBuffer[i];
 

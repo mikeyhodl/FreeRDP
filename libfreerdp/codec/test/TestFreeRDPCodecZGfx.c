@@ -26,14 +26,14 @@ static const BYTE TEST_FOX_DATA_MULTIPART[] =
 static int test_ZGfxCompressFox(void)
 {
 	int rc = -1;
-	int status;
-	UINT32 Flags;
+	int status = 0;
+	UINT32 Flags = 0;
 	const BYTE* pSrcData = NULL;
-	UINT32 SrcSize;
-	UINT32 DstSize;
+	UINT32 SrcSize = 0;
+	UINT32 DstSize = 0;
 	BYTE* pDstData = NULL;
-	ZGFX_CONTEXT* zgfx;
-	UINT32 expectedSize;
+	ZGFX_CONTEXT* zgfx = NULL;
+	UINT32 expectedSize = 0;
 	zgfx = zgfx_context_new(TRUE);
 
 	if (!zgfx)
@@ -62,9 +62,9 @@ static int test_ZGfxCompressFox(void)
 	{
 		printf("test_ZGfxCompressFox: output mismatch\n");
 		printf("Actual\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData, DstSize * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData, DstSize * 8, 0);
 		printf("Expected\n");
-		BitDump(__FUNCTION__, WLOG_INFO, TEST_FOX_DATA_SINGLE, DstSize * 8, 0);
+		BitDump(__func__, WLOG_INFO, TEST_FOX_DATA_SINGLE, DstSize * 8, 0);
 		goto fail;
 	}
 
@@ -78,14 +78,14 @@ fail:
 static int test_ZGfxDecompressFoxSingle(void)
 {
 	int rc = -1;
-	int status;
-	UINT32 Flags;
-	const BYTE* pSrcData;
-	UINT32 SrcSize;
-	UINT32 DstSize;
+	int status = 0;
+	UINT32 Flags = 0;
+	const BYTE* pSrcData = NULL;
+	UINT32 SrcSize = 0;
+	UINT32 DstSize = 0;
 	BYTE* pDstData = NULL;
-	ZGFX_CONTEXT* zgfx;
-	UINT32 expectedSize;
+	ZGFX_CONTEXT* zgfx = NULL;
+	UINT32 expectedSize = 0;
 	zgfx = zgfx_context_new(TRUE);
 
 	if (!zgfx)
@@ -114,9 +114,9 @@ static int test_ZGfxDecompressFoxSingle(void)
 	{
 		printf("test_ZGfxDecompressFoxSingle: output mismatch\n");
 		printf("Actual\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData, DstSize * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData, DstSize * 8, 0);
 		printf("Expected\n");
-		BitDump(__FUNCTION__, WLOG_INFO, TEST_FOX_DATA, DstSize * 8, 0);
+		BitDump(__func__, WLOG_INFO, TEST_FOX_DATA, DstSize * 8, 0);
 		goto fail;
 	}
 
@@ -130,14 +130,14 @@ fail:
 static int test_ZGfxDecompressFoxMultipart(void)
 {
 	int rc = -1;
-	int status;
-	UINT32 Flags;
-	const BYTE* pSrcData;
-	UINT32 SrcSize;
-	UINT32 DstSize;
+	int status = 0;
+	UINT32 Flags = 0;
+	const BYTE* pSrcData = NULL;
+	UINT32 SrcSize = 0;
+	UINT32 DstSize = 0;
 	BYTE* pDstData = NULL;
-	ZGFX_CONTEXT* zgfx;
-	UINT32 expectedSize;
+	ZGFX_CONTEXT* zgfx = NULL;
+	UINT32 expectedSize = 0;
 	zgfx = zgfx_context_new(TRUE);
 
 	if (!zgfx)
@@ -166,9 +166,9 @@ static int test_ZGfxDecompressFoxMultipart(void)
 	{
 		printf("test_ZGfxDecompressFoxSingle: output mismatch\n");
 		printf("Actual\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData, DstSize * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData, DstSize * 8, 0);
 		printf("Expected\n");
-		BitDump(__FUNCTION__, WLOG_INFO, TEST_FOX_DATA, DstSize * 8, 0);
+		BitDump(__func__, WLOG_INFO, TEST_FOX_DATA, DstSize * 8, 0);
 		goto fail;
 	}
 
@@ -182,17 +182,17 @@ fail:
 static int test_ZGfxCompressConsistent(void)
 {
 	int rc = -1;
-	int status;
+	int status = 0;
 
-	UINT32 Flags;
-	const BYTE* pSrcData;
-	UINT32 SrcSize;
-	UINT32 DstSize;
+	UINT32 Flags = 0;
+	const BYTE* pSrcData = NULL;
+	UINT32 SrcSize = 0;
+	UINT32 DstSize = 0;
 	BYTE* pDstData = NULL;
-	UINT32 DstSize2;
+	UINT32 DstSize2 = 0;
 	BYTE* pDstData2 = NULL;
-	ZGFX_CONTEXT* zgfx;
-	UINT32 expectedSize;
+	ZGFX_CONTEXT* zgfx = NULL;
+	UINT32 expectedSize = 0;
 	BYTE BigBuffer[65536];
 	memset(BigBuffer, 0xaa, sizeof(BigBuffer));
 	memcpy(BigBuffer, TEST_FOX_DATA, sizeof(TEST_FOX_DATA) - 1);
@@ -231,17 +231,17 @@ static int test_ZGfxCompressConsistent(void)
 	{
 		printf("test_ZGfxDecompressFoxSingle: output mismatch\n");
 		printf("Actual\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData, 64 * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData, 64 * 8, 0);
 		printf("...\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData + DstSize - 64, 64 * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData + DstSize - 64, 64 * 8, 0);
 		printf("Expected\n");
-		BitDump(__FUNCTION__, WLOG_INFO, BigBuffer, 64 * 8, 0);
+		BitDump(__func__, WLOG_INFO, BigBuffer, 64 * 8, 0);
 		printf("...\n");
-		BitDump(__FUNCTION__, WLOG_INFO, BigBuffer + DstSize - 64, 64 * 8, 0);
+		BitDump(__func__, WLOG_INFO, BigBuffer + DstSize - 64, 64 * 8, 0);
 		printf("Middle Result\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData2, 64 * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData2, 64 * 8, 0);
 		printf("...\n");
-		BitDump(__FUNCTION__, WLOG_INFO, pDstData2 + DstSize2 - 64, 64 * 8, 0);
+		BitDump(__func__, WLOG_INFO, pDstData2 + DstSize2 - 64, 64 * 8, 0);
 		goto fail;
 	}
 

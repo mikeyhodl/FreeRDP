@@ -4,11 +4,12 @@
 #include "pollset.h"
 #include <winpr/handle.h>
 #include <winpr/sysinfo.h>
+#include <winpr/assert.h>
 #include "../log.h"
 
 #define TAG WINPR_TAG("sync.pollset")
 
-#ifdef HAVE_POLL_H
+#ifdef WINPR_HAVE_POLL_H
 static INT16 handle_mode_to_pollevent(ULONG mode)
 {
 	INT16 event = 0;
@@ -25,7 +26,8 @@ static INT16 handle_mode_to_pollevent(ULONG mode)
 
 BOOL pollset_init(WINPR_POLL_SET* set, size_t nhandles)
 {
-#ifdef HAVE_POLL_H
+	WINPR_ASSERT(set);
+#ifdef WINPR_HAVE_POLL_H
 	if (nhandles > MAXIMUM_WAIT_OBJECTS)
 	{
 		set->isStatic = FALSE;
@@ -58,7 +60,8 @@ BOOL pollset_init(WINPR_POLL_SET* set, size_t nhandles)
 
 void pollset_uninit(WINPR_POLL_SET* set)
 {
-#ifdef HAVE_POLL_H
+	WINPR_ASSERT(set);
+#ifdef WINPR_HAVE_POLL_H
 	if (!set->isStatic)
 		free(set->pollset);
 #else
@@ -68,7 +71,8 @@ void pollset_uninit(WINPR_POLL_SET* set)
 
 void pollset_reset(WINPR_POLL_SET* set)
 {
-#ifndef HAVE_POLL_H
+	WINPR_ASSERT(set);
+#ifndef WINPR_HAVE_POLL_H
 	FD_ZERO(&set->rset_base);
 	FD_ZERO(&set->wset_base);
 	set->maxFd = 0;
@@ -79,8 +83,9 @@ void pollset_reset(WINPR_POLL_SET* set)
 
 BOOL pollset_add(WINPR_POLL_SET* set, int fd, ULONG mode)
 {
-#ifdef HAVE_POLL_H
-	struct pollfd* item;
+	WINPR_ASSERT(set);
+#ifdef WINPR_HAVE_POLL_H
+	struct pollfd* item = NULL;
 	if (set->fillIndex == set->size)
 		return FALSE;
 
@@ -114,8 +119,10 @@ BOOL pollset_add(WINPR_POLL_SET* set, int fd, ULONG mode)
 
 int pollset_poll(WINPR_POLL_SET* set, DWORD dwMilliseconds)
 {
+	WINPR_ASSERT(set);
 	int ret = 0;
-	UINT64 dueTime, now;
+	UINT64 dueTime = 0;
+	UINT64 now = 0;
 
 	now = GetTickCount64();
 	if (dwMilliseconds == INFINITE)
@@ -123,8 +130,8 @@ int pollset_poll(WINPR_POLL_SET* set, DWORD dwMilliseconds)
 	else
 		dueTime = now + dwMilliseconds;
 
-#ifdef HAVE_POLL_H
-	int timeout;
+#ifdef WINPR_HAVE_POLL_H
+	int timeout = 0;
 
 	do
 	{
@@ -197,14 +204,15 @@ int pollset_poll(WINPR_POLL_SET* set, DWORD dwMilliseconds)
 
 BOOL pollset_isSignaled(WINPR_POLL_SET* set, size_t idx)
 {
+	WINPR_ASSERT(set);
+
 	if (idx > set->fillIndex)
 	{
-		WLog_ERR(TAG, "%s: index=%d out of pollset(fillIndex=%" PRIuz ")", __FUNCTION__, idx,
-		         set->fillIndex);
+		WLog_ERR(TAG, "index=%d out of pollset(fillIndex=%" PRIuz ")", idx, set->fillIndex);
 		return FALSE;
 	}
 
-#ifdef HAVE_POLL_H
+#ifdef WINPR_HAVE_POLL_H
 	return !!(set->pollset[idx].revents & set->pollset[idx].events);
 #else
 	FdIndex* fdIndex = &set->fdIndex[idx];
@@ -220,4 +228,47 @@ BOOL pollset_isSignaled(WINPR_POLL_SET* set, size_t idx)
 	return FALSE;
 #endif
 }
+
+BOOL pollset_isReadSignaled(WINPR_POLL_SET* set, size_t idx)
+{
+	WINPR_ASSERT(set);
+
+	if (idx > set->fillIndex)
+	{
+		WLog_ERR(TAG, "index=%d out of pollset(fillIndex=%" PRIuz ")", idx, set->fillIndex);
+		return FALSE;
+	}
+
+#ifdef WINPR_HAVE_POLL_H
+	return !!(set->pollset[idx].revents & POLLIN);
+#else
+	FdIndex* fdIndex = &set->fdIndex[idx];
+	if (fdIndex->fd < 0)
+		return FALSE;
+
+	return FD_ISSET(fdIndex->fd, &set->rset);
+#endif
+}
+
+BOOL pollset_isWriteSignaled(WINPR_POLL_SET* set, size_t idx)
+{
+	WINPR_ASSERT(set);
+
+	if (idx > set->fillIndex)
+	{
+		WLog_ERR(TAG, "index=%d out of pollset(fillIndex=%" PRIuz ")", idx, set->fillIndex);
+		return FALSE;
+	}
+
+#ifdef WINPR_HAVE_POLL_H
+	return !!(set->pollset[idx].revents & POLLOUT);
+#else
+	FdIndex* fdIndex = &set->fdIndex[idx];
+	if (fdIndex->fd < 0)
+		return FALSE;
+
+	return FD_ISSET(fdIndex->fd, &set->wset);
+#endif
+}
+
 #endif

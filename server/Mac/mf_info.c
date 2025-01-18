@@ -88,7 +88,7 @@ int mf_info_unlock(mfInfo* mfi)
 	return 1;
 }
 
-mfInfo* mf_info_init()
+static mfInfo* mf_info_init(void)
 {
 	mfInfo* mfi;
 
@@ -112,7 +112,7 @@ mfInfo* mf_info_init()
 	return mfi;
 }
 
-mfInfo* mf_info_get_instance()
+mfInfo* mf_info_get_instance(void)
 {
 	if (mfInfoInstance == NULL)
 		mfInfoInstance = mf_info_init();
@@ -124,7 +124,6 @@ void mf_info_peer_register(mfInfo* mfi, mfPeerContext* context)
 {
 	if (mf_info_lock(mfi) > 0)
 	{
-		int i;
 		int peerId;
 
 		if (mfi->peerCount == MF_INFO_MAXPEERS)
@@ -144,7 +143,7 @@ void mf_info_peer_register(mfInfo* mfi, mfPeerContext* context)
 
 		peerId = 0;
 
-		for (i = 0; i < MF_INFO_MAXPEERS; ++i)
+		for (int i = 0; i < MF_INFO_MAXPEERS; ++i)
 		{
 			// empty index will be our peer id
 			if (mfi->peers[i] == NULL)

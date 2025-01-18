@@ -15,248 +15,180 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+cmake_minimum_required(VERSION 3.13)
 
-set(MODULE_NAME "xfreerdp-client")
-set(MODULE_PREFIX "FREERDP_CLIENT_X11_CONTROL")
-
-include(FindDocBookXSL)
-include_directories(${X11_INCLUDE_DIRS})
-include_directories(${OPENSSL_INCLUDE_DIR})
-
-set(${MODULE_PREFIX}_SRCS
-	xf_gdi.c
-	xf_gdi.h
-	xf_gfx.c
-	xf_gfx.h
-	xf_rail.c
-	xf_rail.h	
-	xf_input.c
-	xf_input.h
-	xf_event.c
-	xf_event.h
-	xf_floatbar.c
-	xf_floatbar.h
-	xf_input.c
-	xf_input.h
-	xf_channels.c
-	xf_channels.h
-	xf_cliprdr.c
-	xf_cliprdr.h
-	xf_monitor.c
-	xf_monitor.h
-	xf_disp.c
-	xf_disp.h
-	xf_graphics.c
-	xf_graphics.h
-	xf_keyboard.c
-	xf_keyboard.h
-	xf_video.c
-	xf_video.h
-	xf_window.c
-	xf_window.h
-	xf_client.c
-	xf_client.h)
-
-if (CHANNEL_TSMF_CLIENT)
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS}
-	xf_tsmf.c
-	xf_tsmf.h)
+if(NOT FREERDP_DEFAULT_PROJECT_VERSION)
+  set(FREERDP_DEFAULT_PROJECT_VERSION "1.0.0.0")
 endif()
 
-if(WITH_CLIENT_INTERFACE)
-	if(CLIENT_INTERFACE_SHARED)
-		add_library(${MODULE_NAME} SHARED ${${MODULE_PREFIX}_SRCS})
-		if (WITH_LIBRARY_VERSIONING)
-			set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${FREERDP_VERSION} SOVERSION ${FREERDP_API_VERSION})
-		endif()
-	else()
-		add_library(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
-	endif()
-  
+project(xfreerdp-client LANGUAGES C VERSION ${FREERDP_DEFAULT_PROJECT_VERSION})
+
+message("project ${PROJECT_NAME} is using version ${PROJECT_VERSION}")
+
+set(MODULE_NAME "xfreerdp")
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/)
+include(CommonConfigOptions)
+
+include(ConfigureFreeRDP)
+
+find_package(X11 REQUIRED)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../resources)
+include_directories(SYSTEM ${X11_INCLUDE_DIRS})
+include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+
+set(SRCS
+    xf_utils.h
+    xf_utils.c
+    xf_gfx.c
+    xf_gfx.h
+    xf_rail.c
+    xf_rail.h
+    xf_input.c
+    xf_input.h
+    xf_event.c
+    xf_event.h
+    xf_floatbar.c
+    xf_floatbar.h
+    xf_input.c
+    xf_input.h
+    xf_channels.c
+    xf_channels.h
+    xf_cliprdr.c
+    xf_cliprdr.h
+    xf_monitor.c
+    xf_monitor.h
+    xf_disp.c
+    xf_disp.h
+    xf_graphics.c
+    xf_graphics.h
+    xf_keyboard.c
+    xf_keyboard.h
+    xf_video.c
+    xf_video.h
+    xf_window.c
+    xf_window.h
+    xf_client.c
+    xf_client.h
+)
+
+if(CHANNEL_TSMF_CLIENT)
+  list(APPEND SRCS xf_tsmf.c xf_tsmf.h)
+endif()
+
+if(CLIENT_INTERFACE_SHARED)
+  addtargetwithresourcefile(${PROJECT_NAME} "SHARED" "${PROJECT_VERSION}" SRCS)
 else()
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} cli/xfreerdp.c xfreerdp.h)
-	add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
-	set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "xfreerdp")
-	include_directories(..)
+  addtargetwithresourcefile(${PROJECT_NAME} "STATIC" "${PROJECT_VERSION}" SRCS)
+endif()
+target_include_directories(${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
+
+set(PRIV_LIBS ${X11_LIBRARIES})
+
+find_package(X11 REQUIRED)
+if(X11_XShm_FOUND)
+  add_compile_definitions(WITH_XSHM)
+  include_directories(SYSTEM ${X11_XShm_INCLUDE_PATH})
+  list(APPEND PRIV_LIBS ${X11_Xext_LIB})
 endif()
 
-set(${MODULE_PREFIX}_LIBS
-	${X11_LIBRARIES})
-
-if(WITH_MANPAGES)
-	find_program(XSLTPROC_EXECUTABLE NAMES xsltproc)
-
-	if(DOCBOOKXSL_FOUND AND XSLTPROC_EXECUTABLE)
-
-		# We need the variable ${MAN_TODAY} to contain the current date in ISO
-		# format to replace it in the configure_file step.
-		include(today)
-
-		TODAY(MAN_TODAY)
-
-		configure_file(xfreerdp.1.xml.in xfreerdp.1.xml @ONLY IMMEDIATE)
-
-		# Compile the helper tool with default compiler settings.
-		# We need the include paths though.
-		get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-		set(GENERATE_INCLUDES "")
-		foreach(dir ${dirs})
-			set(GENERATE_INCLUDES ${GENERATE_INCLUDES} -I${dir})
-		endforeach(dir)
-
-		add_custom_command(OUTPUT xfreerdp.1
-					COMMAND ${CMAKE_C_COMPILER} ${GENERATE_INCLUDES}
-						${CMAKE_CURRENT_SOURCE_DIR}/generate_argument_docbook.c
-						-o ${CMAKE_CURRENT_BINARY_DIR}/generate_argument_docbook
-					COMMAND ${CMAKE_CURRENT_BINARY_DIR}/generate_argument_docbook
-					COMMAND ${CMAKE_COMMAND} -E copy
-						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-channels.1.xml ${CMAKE_CURRENT_BINARY_DIR}
-					COMMAND ${CMAKE_COMMAND} -E copy
-						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-examples.1.xml ${CMAKE_CURRENT_BINARY_DIR}
-					COMMAND ${CMAKE_COMMAND} -E copy
-						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-envvar.1.xml ${CMAKE_CURRENT_BINARY_DIR}
-					COMMAND ${XSLTPROC_EXECUTABLE} ${DOCBOOKXSL_DIR}/manpages/docbook.xsl xfreerdp.1.xml
-					WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-					DEPENDS
-						${CMAKE_CURRENT_BINARY_DIR}/xfreerdp.1.xml
-						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-examples.1.xml
-						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-channels.1.xml
-						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-envvar.1.xml)
-
-		add_custom_target(xfreerdp.manpage ALL
-			DEPENDS xfreerdp.1)
-
-		install_freerdp_man(${CMAKE_CURRENT_BINARY_DIR}/xfreerdp.1 1)
-	else()
-		message(WARNING "WITH_MANPAGES was set, but xsltproc was not found. man-pages will not be installed")
-	endif()
-endif(WITH_MANPAGES)
-
-set(XSHM_FEATURE_TYPE "REQUIRED")
-set(XSHM_FEATURE_PURPOSE "X11 shared memory")
-set(XSHM_FEATURE_DESCRIPTION "X11 shared memory extension")
-
-set(XINERAMA_FEATURE_TYPE "RECOMMENDED")
-set(XINERAMA_FEATURE_PURPOSE "multi-monitor")
-set(XINERAMA_FEATURE_DESCRIPTION "X11 multi-monitor extension")
-
-set(XEXT_FEATURE_TYPE "RECOMMENDED")
-set(XEXT_FEATURE_PURPOSE "X11 extension")
-set(XEXT_FEATURE_DESCRIPTION "X11 core extensions")
-
-set(XCURSOR_FEATURE_TYPE "RECOMMENDED")
-set(XCURSOR_FEATURE_PURPOSE "cursor")
-set(XCURSOR_FEATURE_DESCRIPTION "X11 cursor extension")
-
-set(XV_FEATURE_TYPE "RECOMMENDED")
-set(XV_FEATURE_PURPOSE "video")
-set(XV_FEATURE_DESCRIPTION "X11 video extension")
-
-set(XI_FEATURE_TYPE "RECOMMENDED")
-set(XI_FEATURE_PURPOSE "input")
-set(XI_FEATURE_DESCRIPTION "X11 input extension") 
-
-set(XRENDER_FEATURE_TYPE "RECOMMENDED")
-set(XRENDER_FEATURE_PURPOSE "rendering")
-set(XRENDER_FEATURE_DESCRIPTION "X11 render extension") 
-
-set(XRANDR_FEATURE_TYPE "RECOMMENDED")
-set(XRANDR_FEATURE_PURPOSE "tracking output configuration")
-set(XRANDR_FEATURE_DESCRIPTION "X11 randr extension")
-
-set(XFIXES_FEATURE_TYPE "RECOMMENDED")
-set(XFIXES_FEATURE_PURPOSE "X11 xfixes extension")
-set(XFIXES_FEATURE_DESCRIPTION "Useful additions to the X11 core protocol")
-
-set(FUSE_FEATURE_TYPE "RECOMMENDED")
-set(FUSE_FEATURE_PURPOSE "Remote to local file copy")
-set(FUSE_FEATURE_DESCRIPTION "use -DWITH_FUSE2 or -DWITH_FUSE3 to specify fuse version")
-
-find_feature(XShm ${XSHM_FEATURE_TYPE} ${XSHM_FEATURE_PURPOSE} ${XSHM_FEATURE_DESCRIPTION})
-find_feature(Xinerama ${XINERAMA_FEATURE_TYPE} ${XINERAMA_FEATURE_PURPOSE} ${XINERAMA_FEATURE_DESCRIPTION})
-find_feature(Xext ${XEXT_FEATURE_TYPE} ${XEXT_FEATURE_PURPOSE} ${XEXT_FEATURE_DESCRIPTION})
-find_feature(Xcursor ${XCURSOR_FEATURE_TYPE} ${XCURSOR_FEATURE_PURPOSE} ${XCURSOR_FEATURE_DESCRIPTION})
-find_feature(Xv ${XV_FEATURE_TYPE} ${XV_FEATURE_PURPOSE} ${XV_FEATURE_DESCRIPTION})
-find_feature(Xi ${XI_FEATURE_TYPE} ${XI_FEATURE_PURPOSE} ${XI_FEATURE_DESCRIPTION})
-find_feature(Xrender ${XRENDER_FEATURE_TYPE} ${XRENDER_FEATURE_PURPOSE} ${XRENDER_FEATURE_DESCRIPTION})
-find_feature(XRandR ${XRANDR_FEATURE_TYPE} ${XRANDR_FEATURE_PURPOSE} ${XRANDR_FEATURE_DESCRIPTION})
-find_feature(Xfixes ${XFIXES_FEATURE_TYPE} ${XFIXES_FEATURE_PURPOSE} ${XFIXES_FEATURE_DESCRIPTION})
-find_feature(FUSE ${FUSE_FEATURE_TYPE} ${FUSE_FEATURE_PURPOSE} ${FUSE_FEATURE_DESCRIPTION} )
-
+option(WITH_XINERAMA "[X11] enable xinerama" ON)
 if(WITH_XINERAMA)
-	add_definitions(-DWITH_XINERAMA)
-	include_directories(${XINERAMA_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XINERAMA_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xinerama_FOUND)
+    add_compile_definitions(WITH_XINERAMA)
+    include_directories(SYSTEM ${X11_Xinerama_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xinerama_LIB})
+  endif()
 endif()
 
+option(WITH_XEXT "[X11] enable Xext" ON)
 if(WITH_XEXT)
-	add_definitions(-DWITH_XEXT)
-	include_directories(${XEXT_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XEXT_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xext_FOUND)
+    add_compile_definitions(WITH_XEXT)
+    list(APPEND PRIV_LIBS ${X11_Xext_LIB})
+  endif()
 endif()
 
+option(WITH_XCURSOR "[X11] enable Xcursor" ON)
 if(WITH_XCURSOR)
-	add_definitions(-DWITH_XCURSOR)
-	include_directories(${XCURSOR_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XCURSOR_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xcursor_FOUND)
+    add_compile_definitions(WITH_XCURSOR)
+    include_directories(SYSTEM ${X11_Xcursor_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xcursor_LIB})
+  endif()
 endif()
 
+option(WITH_XV "[X11] enable Xv" ON)
 if(WITH_XV)
-	add_definitions(-DWITH_XV)
-	include_directories(${XV_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XV_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xv_FOUND)
+    add_compile_definitions(WITH_XV)
+    include_directories(SYSTEM ${X11_Xv_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xv_LIB})
+  endif()
 endif()
 
+option(WITH_XI "[X11] enable Xi" ON)
 if(WITH_XI)
-	add_definitions(-DWITH_XI)
-	include_directories(${XI_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XI_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xi_FOUND)
+    add_compile_definitions(WITH_XI)
+    include_directories(SYSTEM ${X11_Xi_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xi_LIB})
+  endif()
 endif()
 
+option(WITH_XRENDER "[X11] enable XRender" ON)
 if(WITH_XRENDER)
-	add_definitions(-DWITH_XRENDER)
-	include_directories(${XRENDER_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XRENDER_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xrender_FOUND)
+    add_compile_definitions(WITH_XRENDER)
+    include_directories(SYSTEM ${X11_Xrender_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xrender_LIB})
+  endif()
 endif()
 
+option(WITH_XRANDR "[X11] enable XRandR" ON)
 if(WITH_XRANDR)
-	add_definitions(-DWITH_XRANDR)
-	include_directories(${XRandR_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XRandR_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xrandr_FOUND)
+    add_compile_definitions(WITH_XRANDR)
+    include_directories(SYSTEM ${X11_Xrandr_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xrandr_LIB})
+  endif()
 endif()
 
+option(WITH_XFIXES "[X11] enable Xfixes" ON)
 if(WITH_XFIXES)
-	add_definitions(-DWITH_XFIXES)
-	include_directories(${XFIXES_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XFIXES_LIBRARIES})
+  find_package(X11 REQUIRED)
+  if(X11_Xfixes_FOUND)
+    add_compile_definitions(WITH_XFIXES)
+    include_directories(SYSTEM ${X11_Xfixes_INCLUDE_PATH})
+    list(APPEND PRIV_LIBS ${X11_Xfixes_LIB})
+  endif()
 endif()
 
-if(WITH_FUSE)
-	add_definitions(-DWITH_FUSE)
-	add_definitions(-D_FILE_OFFSET_BITS=64)
-	add_definitions(-DFUSE_API_VERSION=${FUSE_API_VERSION})
-	include_directories(${FUSE_INCLUDE_DIR})
-	set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${FUSE_LIBRARIES})
-endif()
+list(APPEND PUB_LIBS freerdp-client)
 
-include_directories(${PROJECT_SOURCE_DIR}/resources)
-
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} freerdp-client freerdp m)
-if (NOT APPLE)
-	list(APPEND ${MODULE_PREFIX}_LIBS rt)
+list(APPEND PRIV_LIBS m)
+if(NOT APPLE)
+  list(APPEND PRIV_LIBS rt)
 endif()
-target_link_libraries(${MODULE_NAME} PRIVATE ${${MODULE_PREFIX}_LIBS})
-
-if(WITH_IPP)
-    target_link_libraries(${MODULE_NAME} PRIVATE ${IPP_LIBRARY_LIST})
-endif()
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PUB_LIBS})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PRIV_LIBS})
 
 if(WITH_CLIENT_INTERFACE)
-	install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
-	add_subdirectory(cli)
-else()
-	install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT client)
+  install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
 endif()
+add_subdirectory(cli)
+add_subdirectory(man)
 
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Client/X11")
-
+set_property(TARGET ${PROJECT_NAME} PROPERTY FOLDER "Client/X11")

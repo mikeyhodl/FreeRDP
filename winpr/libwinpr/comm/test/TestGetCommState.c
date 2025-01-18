@@ -27,8 +27,9 @@
 
 static BOOL test_generic(HANDLE hComm)
 {
-	DCB dcb, *pDcb;
-	BOOL result;
+	DCB dcb = { 0 };
+	DCB* pDcb = NULL;
+	BOOL result = 0;
 
 	ZeroMemory(&dcb, sizeof(DCB));
 	result = GetCommState(hComm, &dcb);
@@ -76,13 +77,13 @@ static BOOL test_generic(HANDLE hComm)
 
 int TestGetCommState(int argc, char* argv[])
 {
-	struct stat statbuf;
-	BOOL result;
-	HANDLE hComm;
+	struct stat statbuf = { 0 };
+	BOOL result = 0;
+	HANDLE hComm = NULL;
 
 	if (stat("/dev/ttyS0", &statbuf) < 0)
 	{
-		fprintf(stderr, "/dev/ttyS0 not available, making the test to succeed though\n");
+		(void)fprintf(stderr, "/dev/ttyS0 not available, making the test to succeed though\n");
 		return EXIT_SUCCESS;
 	}
 
@@ -130,7 +131,7 @@ int TestGetCommState(int argc, char* argv[])
 
 	if (!CloseHandle(hComm))
 	{
-		fprintf(stderr, "CloseHandle failure, GetLastError()=%08x\n", GetLastError());
+		(void)fprintf(stderr, "CloseHandle failure, GetLastError()=%08x\n", GetLastError());
 		return EXIT_FAILURE;
 	}
 

@@ -19,6 +19,7 @@
 #include <freerdp/primitives.h>
 
 #include "prim_internal.h"
+#include "prim_sign.h"
 
 /* ----------------------------------------------------------------------------
  * Set pDst to the sign-value of the 16-bit values in pSrc (-1, 0, or 1).
@@ -28,15 +29,20 @@ static pstatus_t general_sign_16s(const INT16* pSrc, INT16* pDst, UINT32 len)
 	while (len--)
 	{
 		INT16 src = *pSrc++;
-		*pDst++ = (src < 0) ? (-1) : ((src > 0) ? 1 : 0);
+		*pDst++ = WINPR_ASSERTING_INT_CAST(int16_t, (src < 0) ? (-1) : ((src > 0) ? 1 : 0));
 	}
 
 	return PRIMITIVES_SUCCESS;
 }
 
 /* ------------------------------------------------------------------------- */
-void primitives_init_sign(primitives_t* prims)
+void primitives_init_sign(primitives_t* WINPR_RESTRICT prims)
 {
 	/* Start with the default. */
 	prims->sign_16s = general_sign_16s;
+}
+
+void primitives_init_sign_opt(primitives_t* WINPR_RESTRICT prims)
+{
+	primitives_init_sign_ssse3(prims);
 }

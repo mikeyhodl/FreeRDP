@@ -19,6 +19,7 @@
 
 #include <freerdp/config.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/channels/log.h>
 #include <freerdp/server/telemetry.h>
 
@@ -73,10 +74,10 @@ static UINT telemetry_server_open_channel(telemetry_server* telemetry)
 {
 	TelemetryServerContext* context = &telemetry->context;
 	DWORD Error = ERROR_SUCCESS;
-	HANDLE hEvent;
+	HANDLE hEvent = NULL;
 	DWORD BytesReturned = 0;
 	PULONG pSessionId = NULL;
-	UINT32 channelId;
+	UINT32 channelId = 0;
 	BOOL status = TRUE;
 
 	WINPR_ASSERT(telemetry);
@@ -125,11 +126,8 @@ static UINT telemetry_server_recv_rdp_telemetry_pdu(TelemetryServerContext* cont
 	TELEMETRY_RDP_TELEMETRY_PDU pdu;
 	UINT error = CHANNEL_RC_OK;
 
-	if (Stream_GetRemainingLength(s) < 16)
-	{
-		WLog_ERR(TAG, "telemetry_server_recv_rdp_telemetry_pdu: Not enough data!");
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 16))
 		return ERROR_NO_DATA;
-	}
 
 	Stream_Read_UINT32(s, pdu.PromptForCredentialsMillis);
 	Stream_Read_UINT32(s, pdu.PromptForCredentialsDoneMillis);
@@ -145,12 +143,12 @@ static UINT telemetry_server_recv_rdp_telemetry_pdu(TelemetryServerContext* cont
 
 static UINT telemetry_process_message(telemetry_server* telemetry)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	UINT error = ERROR_INTERNAL_ERROR;
-	ULONG BytesReturned;
-	BYTE MessageId;
-	BYTE Length;
-	wStream* s;
+	ULONG BytesReturned = 0;
+	BYTE MessageId = 0;
+	BYTE Length = 0;
+	wStream* s = NULL;
 
 	WINPR_ASSERT(telemetry);
 	WINPR_ASSERT(telemetry->telemetry_channel);
@@ -176,7 +174,7 @@ static UINT telemetry_process_message(telemetry_server* telemetry)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(telemetry->telemetry_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(telemetry->telemetry_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -189,6 +187,8 @@ static UINT telemetry_process_message(telemetry_server* telemetry)
 
 	Stream_Read_UINT8(s, MessageId);
 	Stream_Read_UINT8(s, Length);
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, Length))
+		return ERROR_NO_DATA;
 
 	switch (MessageId)
 	{
@@ -227,6 +227,8 @@ static UINT telemetry_server_context_poll_int(TelemetryServerContext* context)
 		case TELEMETRY_OPENED:
 			error = telemetry_process_message(telemetry);
 			break;
+		default:
+			break;
 	}
 
 	return error;
@@ -244,7 +246,7 @@ static HANDLE telemetry_server_get_channel_handle(telemetry_server* telemetry)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -254,11 +256,11 @@ static HANDLE telemetry_server_get_channel_handle(telemetry_server* telemetry)
 
 static DWORD WINAPI telemetry_server_thread_func(LPVOID arg)
 {
-	DWORD nCount;
+	DWORD nCount = 0;
 	HANDLE events[2] = { 0 };
 	telemetry_server* telemetry = (telemetry_server*)arg;
 	UINT error = CHANNEL_RC_OK;
-	DWORD status;
+	DWORD status = 0;
 
 	WINPR_ASSERT(telemetry);
 
@@ -294,10 +296,12 @@ static DWORD WINAPI telemetry_server_thread_func(LPVOID arg)
 						break;
 				}
 				break;
+			default:
+				break;
 		}
 	}
 
-	WTSVirtualChannelClose(telemetry->telemetry_channel);
+	(void)WTSVirtualChannelClose(telemetry->telemetry_channel);
 	telemetry->telemetry_channel = NULL;
 
 	if (error && telemetry->context.rdpcontext)
@@ -327,7 +331,7 @@ static UINT telemetry_server_open(TelemetryServerContext* context)
 		if (!telemetry->thread)
 		{
 			WLog_ERR(TAG, "CreateThread failed!");
-			CloseHandle(telemetry->stopEvent);
+			(void)CloseHandle(telemetry->stopEvent);
 			telemetry->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -346,7 +350,7 @@ static UINT telemetry_server_close(TelemetryServerContext* context)
 
 	if (!telemetry->externalThread && telemetry->thread)
 	{
-		SetEvent(telemetry->stopEvent);
+		(void)SetEvent(telemetry->stopEvent);
 
 		if (WaitForSingleObject(telemetry->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -355,8 +359,8 @@ static UINT telemetry_server_close(TelemetryServerContext* context)
 			return error;
 		}
 
-		CloseHandle(telemetry->thread);
-		CloseHandle(telemetry->stopEvent);
+		(void)CloseHandle(telemetry->thread);
+		(void)CloseHandle(telemetry->stopEvent);
 		telemetry->thread = NULL;
 		telemetry->stopEvent = NULL;
 	}
@@ -364,7 +368,7 @@ static UINT telemetry_server_close(TelemetryServerContext* context)
 	{
 		if (telemetry->state != TELEMETRY_INITIAL)
 		{
-			WTSVirtualChannelClose(telemetry->telemetry_channel);
+			(void)WTSVirtualChannelClose(telemetry->telemetry_channel);
 			telemetry->telemetry_channel = NULL;
 			telemetry->state = TELEMETRY_INITIAL;
 		}
@@ -423,7 +427,10 @@ TelemetryServerContext* telemetry_server_context_new(HANDLE vcm)
 
 	return &telemetry->context;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	telemetry_server_context_free(&telemetry->context);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 

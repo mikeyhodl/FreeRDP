@@ -18,6 +18,7 @@
  */
 
 #include <winpr/config.h>
+#include <winpr/path.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -25,6 +26,7 @@
 #include <string.h>
 
 #include <winpr/wtypes.h>
+#include <winpr/string.h>
 #include <winpr/assert.h>
 #include <winpr/crt.h>
 #include <winpr/file.h>
@@ -33,8 +35,6 @@
 
 #include "../log.h"
 #define TAG WINPR_TAG("registry")
-
-#define WINPR_HKLM_HIVE "/etc/winpr/HKLM.reg"
 
 struct reg_data_type
 {
@@ -88,15 +88,17 @@ static char* reg_data_type_string(DWORD type)
 
 static BOOL reg_load_start(Reg* reg)
 {
-	char* buffer;
-	INT64 file_size;
+	char* buffer = NULL;
+	INT64 file_size = 0;
 
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(reg->fp);
 
-	_fseeki64(reg->fp, 0, SEEK_END);
+	if (_fseeki64(reg->fp, 0, SEEK_END) != 0)
+		return FALSE;
 	file_size = _ftelli64(reg->fp);
-	_fseeki64(reg->fp, 0, SEEK_SET);
+	if (_fseeki64(reg->fp, 0, SEEK_SET) != 0)
+		return FALSE;
 	reg->line = NULL;
 	reg->next_line = NULL;
 
@@ -114,7 +116,7 @@ static BOOL reg_load_start(Reg* reg)
 
 	reg->buffer[file_size] = '\n';
 	reg->buffer[file_size + 1] = '\0';
-	reg->next_line = strtok(reg->buffer, "\n");
+	reg->next_line = strtok_s(reg->buffer, "\n", &reg->saveptr);
 	return TRUE;
 }
 
@@ -132,12 +134,11 @@ static void reg_load_finish(Reg* reg)
 
 static RegVal* reg_load_value(const Reg* reg, RegKey* key)
 {
-	size_t index;
 	const char* p[5] = { 0 };
-	size_t length;
+	size_t length = 0;
 	char* name = NULL;
-	const char* type;
-	const char* data;
+	const char* type = NULL;
+	const char* data = NULL;
 	RegVal* value = NULL;
 
 	WINPR_ASSERT(reg);
@@ -179,7 +180,7 @@ static RegVal* reg_load_value(const Reg* reg, RegKey* key)
 	value->name = name;
 	value->type = REG_NONE;
 
-	for (index = 0; index < ARRAYSIZE(REG_DATA_TYPE_TABLE); index++)
+	for (size_t index = 0; index < ARRAYSIZE(REG_DATA_TYPE_TABLE); index++)
 	{
 		const struct reg_data_type* current = &REG_DATA_TYPE_TABLE[index];
 		WINPR_ASSERT(current->tag);
@@ -197,7 +198,7 @@ static RegVal* reg_load_value(const Reg* reg, RegKey* key)
 	{
 		case REG_DWORD:
 		{
-			unsigned long val;
+			unsigned long val = 0;
 			errno = 0;
 			val = strtoul(data, NULL, 0);
 
@@ -211,7 +212,7 @@ static RegVal* reg_load_value(const Reg* reg, RegKey* key)
 		break;
 		case REG_QWORD:
 		{
-			unsigned long long val;
+			unsigned long long val = 0;
 			errno = 0;
 			val = strtoull(data, NULL, 0);
 
@@ -226,19 +227,17 @@ static RegVal* reg_load_value(const Reg* reg, RegKey* key)
 		break;
 		case REG_SZ:
 		{
-			size_t len, cmp;
-			char* end;
 			char* start = strchr(data, '"');
 			if (!start)
 				goto fail;
 
 			/* Check for terminating quote, check it is the last symbol */
-			len = strlen(start);
-			end = strchr(start + 1, '"');
+			const size_t len = strlen(start);
+			char* end = strchr(start + 1, '"');
 			if (!end)
 				goto fail;
-			cmp = end - start + 1;
-			if (len != cmp)
+			const intptr_t cmp = end - start + 1;
+			if ((cmp < 0) || (len != WINPR_ASSERTING_INT_CAST(size_t, cmp)))
 				goto fail;
 			if (start[0] == '"')
 				start++;
@@ -295,7 +294,7 @@ static char* reg_load_get_next_line(Reg* reg)
 		return NULL;
 
 	reg->line = reg->next_line;
-	reg->next_line = strtok(NULL, "\n");
+	reg->next_line = strtok_s(NULL, "\n", &reg->saveptr);
 	reg->line_length = strlen(reg->line);
 	return reg->line;
 }
@@ -348,8 +347,8 @@ static void reg_insert_key(Reg* reg, RegKey* key, RegKey* subkey)
 static RegKey* reg_load_key(Reg* reg, RegKey* key)
 {
 	char* p[2];
-	size_t length;
-	RegKey* subkey;
+	size_t length = 0;
+	RegKey* subkey = NULL;
 
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(key);
@@ -450,7 +449,7 @@ static void reg_unload_value(Reg* reg, RegVal* value)
 
 static void reg_unload_key(Reg* reg, RegKey* key)
 {
-	RegVal* pValue;
+	RegVal* pValue = NULL;
 
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(key);
@@ -470,12 +469,10 @@ static void reg_unload_key(Reg* reg, RegKey* key)
 
 static void reg_unload(Reg* reg)
 {
-	RegKey* pKey;
-
 	WINPR_ASSERT(reg);
 	if (reg->root_key)
 	{
-		pKey = reg->root_key->subkeys;
+		RegKey* pKey = reg->root_key->subkeys;
 
 		while (pKey != NULL)
 		{
@@ -496,7 +493,9 @@ Reg* reg_open(BOOL read_only)
 		return NULL;
 
 	reg->read_only = read_only;
-	reg->filename = WINPR_HKLM_HIVE;
+	reg->filename = winpr_GetConfigFilePath(TRUE, "HKLM.reg");
+	if (!reg->filename)
+		goto fail;
 
 	if (reg->read_only)
 		reg->fp = winpr_fopen(reg->filename, "r");
@@ -533,7 +532,8 @@ void reg_close(Reg* reg)
 	{
 		reg_unload(reg);
 		if (reg->fp)
-			fclose(reg->fp);
+			(void)fclose(reg->fp);
+		free(reg->filename);
 		free(reg);
 	}
 }

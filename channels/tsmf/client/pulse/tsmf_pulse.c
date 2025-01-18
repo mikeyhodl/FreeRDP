@@ -44,8 +44,7 @@ typedef struct
 static void tsmf_pulse_context_state_callback(pa_context* context, void* userdata)
 {
 	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)userdata;
-	pa_context_state_t state;
-	state = pa_context_get_state(context);
+	pa_context_state_t state = pa_context_get_state(context);
 
 	switch (state)
 	{
@@ -68,7 +67,7 @@ static void tsmf_pulse_context_state_callback(pa_context* context, void* userdat
 
 static BOOL tsmf_pulse_connect(TSMFPulseAudioDevice* pulse)
 {
-	pa_context_state_t state;
+	pa_context_state_t state = PA_CONTEXT_FAILED;
 
 	if (!pulse->context)
 		return FALSE;
@@ -177,8 +176,9 @@ static void tsmf_pulse_wait_for_operation(TSMFPulseAudioDevice* pulse, pa_operat
 static void tsmf_pulse_stream_state_callback(pa_stream* stream, void* userdata)
 {
 	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)userdata;
-	pa_stream_state_t state;
-	state = pa_stream_get_state(stream);
+	WINPR_ASSERT(pulse);
+
+	pa_stream_state_t state = pa_stream_get_state(stream);
 
 	switch (state)
 	{
@@ -225,7 +225,7 @@ static BOOL tsmf_pulse_close_stream(TSMFPulseAudioDevice* pulse)
 
 static BOOL tsmf_pulse_open_stream(TSMFPulseAudioDevice* pulse)
 {
-	pa_stream_state_t state;
+	pa_stream_state_t state = PA_STREAM_FAILED;
 	pa_buffer_attr buffer_attr = { 0 };
 
 	if (!pulse->context)
@@ -244,8 +244,8 @@ static BOOL tsmf_pulse_open_stream(TSMFPulseAudioDevice* pulse)
 
 	pa_stream_set_state_callback(pulse->stream, tsmf_pulse_stream_state_callback, pulse);
 	pa_stream_set_write_callback(pulse->stream, tsmf_pulse_stream_request_callback, pulse);
-	buffer_attr.maxlength = pa_usec_to_bytes(500000, &pulse->sample_spec);
-	buffer_attr.tlength = pa_usec_to_bytes(250000, &pulse->sample_spec);
+	buffer_attr.maxlength = (uint32_t)pa_usec_to_bytes(500000, &pulse->sample_spec);
+	buffer_attr.tlength = (uint32_t)pa_usec_to_bytes(250000, &pulse->sample_spec);
 	buffer_attr.prebuf = (UINT32)-1;
 	buffer_attr.minreq = (UINT32)-1;
 	buffer_attr.fragsize = (UINT32)-1;
@@ -297,7 +297,9 @@ static BOOL tsmf_pulse_set_format(ITSMFAudioDevice* audio, UINT32 sample_rate, U
 	DEBUG_TSMF("sample_rate %" PRIu32 " channels %" PRIu32 " bits_per_sample %" PRIu32 "",
 	           sample_rate, channels, bits_per_sample);
 	pulse->sample_spec.rate = sample_rate;
-	pulse->sample_spec.channels = channels;
+
+	WINPR_ASSERT(channels <= UINT8_MAX);
+	pulse->sample_spec.channels = (uint8_t)channels;
 	pulse->sample_spec.format = PA_SAMPLE_S16LE;
 	return tsmf_pulse_open_stream(pulse);
 }
@@ -305,9 +307,9 @@ static BOOL tsmf_pulse_set_format(ITSMFAudioDevice* audio, UINT32 sample_rate, U
 static BOOL tsmf_pulse_play(ITSMFAudioDevice* audio, const BYTE* data, UINT32 data_size)
 {
 	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)audio;
-	const BYTE* src;
-	size_t len;
-	int ret;
+	const BYTE* src = NULL;
+	size_t len = 0;
+	int ret = 0;
 	DEBUG_TSMF("data_size %" PRIu32 "", data_size);
 
 	if (pulse->stream)
@@ -349,7 +351,7 @@ static BOOL tsmf_pulse_play(ITSMFAudioDevice* audio, const BYTE* data, UINT32 da
 
 static UINT64 tsmf_pulse_get_latency(ITSMFAudioDevice* audio)
 {
-	pa_usec_t usec;
+	pa_usec_t usec = 0;
 	UINT64 latency = 0;
 	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)audio;
 
@@ -398,13 +400,16 @@ static void tsmf_pulse_free(ITSMFAudioDevice* audio)
 	free(pulse);
 }
 
-ITSMFAudioDevice* pulse_freerdp_tsmf_client_audio_subsystem_entry(void)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE pulse_freerdp_tsmf_client_audio_subsystem_entry(void* ptr))
 {
-	TSMFPulseAudioDevice* pulse;
-	pulse = (TSMFPulseAudioDevice*)calloc(1, sizeof(TSMFPulseAudioDevice));
+	ITSMFAudioDevice** sptr = (ITSMFAudioDevice**)ptr;
+	WINPR_ASSERT(sptr);
+	*sptr = NULL;
+
+	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)calloc(1, sizeof(TSMFPulseAudioDevice));
 
 	if (!pulse)
-		return NULL;
+		return ERROR_OUTOFMEMORY;
 
 	pulse->iface.Open = tsmf_pulse_open;
 	pulse->iface.SetFormat = tsmf_pulse_set_format;
@@ -412,5 +417,6 @@ ITSMFAudioDevice* pulse_freerdp_tsmf_client_audio_subsystem_entry(void)
 	pulse->iface.GetLatency = tsmf_pulse_get_latency;
 	pulse->iface.Flush = tsmf_pulse_flush;
 	pulse->iface.Free = tsmf_pulse_free;
-	return (ITSMFAudioDevice*)pulse;
+	*sptr = &pulse->iface;
+	return CHANNEL_RC_OK;
 }

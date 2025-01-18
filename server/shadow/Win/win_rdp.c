@@ -60,7 +60,6 @@ static BOOL shw_begin_paint(rdpContext* context)
 
 static BOOL shw_end_paint(rdpContext* context)
 {
-	int index;
 	int ninvalid;
 	HGDI_RGN cinvalid;
 	RECTANGLE_16 invalidRect;
@@ -71,7 +70,7 @@ static BOOL shw_end_paint(rdpContext* context)
 	ninvalid = gdi->primary->hdc->hwnd->ninvalid;
 	cinvalid = gdi->primary->hdc->hwnd->cinvalid;
 
-	for (index = 0; index < ninvalid; index++)
+	for (int index = 0; index < ninvalid; index++)
 	{
 		invalidRect.left = cinvalid[index].x;
 		invalidRect.top = cinvalid[index].y;
@@ -80,9 +79,9 @@ static BOOL shw_end_paint(rdpContext* context)
 		region16_union_rect(&(surface->invalidRegion), &(surface->invalidRegion), &invalidRect);
 	}
 
-	SetEvent(subsystem->RdpUpdateEnterEvent);
-	WaitForSingleObject(subsystem->RdpUpdateLeaveEvent, INFINITE);
-	ResetEvent(subsystem->RdpUpdateLeaveEvent);
+	(void)SetEvent(subsystem->RdpUpdateEnterEvent);
+	(void)WaitForSingleObject(subsystem->RdpUpdateLeaveEvent, INFINITE);
+	(void)ResetEvent(subsystem->RdpUpdateLeaveEvent);
 	return TRUE;
 }
 
@@ -262,7 +261,7 @@ static int shw_freerdp_client_start(rdpContext* context)
 static int shw_freerdp_client_stop(rdpContext* context)
 {
 	shwContext* shw = (shwContext*)context;
-	SetEvent(shw->StopEvent);
+	(void)SetEvent(shw->StopEvent);
 	return 0;
 }
 
@@ -290,45 +289,79 @@ static BOOL shw_freerdp_client_new(freerdp* instance, rdpContext* context)
 	WINPR_ASSERT(settings);
 
 	shw->settings = settings;
-	settings->AsyncChannels = FALSE;
-	settings->AsyncUpdate = FALSE;
-	settings->IgnoreCertificate = TRUE;
-	settings->ExternalCertificateManagement = TRUE;
-	settings->RdpSecurity = TRUE;
-	settings->TlsSecurity = TRUE;
-	settings->NlaSecurity = FALSE;
-	settings->BitmapCacheEnabled = FALSE;
-	settings->BitmapCacheV3Enabled = FALSE;
-	settings->OffscreenSupportLevel = FALSE;
-	settings->GlyphSupportLevel = GLYPH_SUPPORT_NONE;
-	settings->BrushSupportLevel = FALSE;
-	ZeroMemory(settings->OrderSupport, 32);
-	settings->FrameMarkerCommandEnabled = TRUE;
-	settings->SurfaceFrameMarkerEnabled = TRUE;
-	settings->AltSecFrameMarkerSupport = TRUE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AsyncChannels, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AsyncUpdate, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_IgnoreCertificate, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_ExternalCertificateManagement, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RdpSecurity, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_NlaSecurity, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_BitmapCacheEnabled, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_BitmapCacheV3Enabled, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_OffscreenSupportLevel, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_GlyphSupportLevel, GLYPH_SUPPORT_NONE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_BrushSupportLevel, FALSE))
+		return FALSE;
+	ZeroMemory(freerdp_settings_get_pointer_writable(settings, FreeRDP_OrderSupport), 32);
+	if (!freerdp_settings_set_bool(settings, FreeRDP_FrameMarkerCommandEnabled, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_SurfaceFrameMarkerEnabled, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AltSecFrameMarkerSupport, TRUE))
+		return FALSE;
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, 32))
 		return FALSE;
-	settings->NSCodec = TRUE;
-	settings->RemoteFxCodec = TRUE;
-	settings->FastPathInput = TRUE;
-	settings->FastPathOutput = TRUE;
-	settings->LargePointerFlag = TRUE;
-	settings->CompressionEnabled = FALSE;
-	settings->AutoReconnectionEnabled = FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteFxCodec, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_FastPathInput, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_FastPathOutput, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_LargePointerFlag, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_CompressionEnabled, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AutoReconnectionEnabled, FALSE))
+		return FALSE;
 	if (!freerdp_settings_set_bool(settings, FreeRDP_NetworkAutoDetect, FALSE))
 		return FALSE;
-	settings->SupportHeartbeatPdu = FALSE;
-	settings->SupportMultitransport = FALSE;
-	settings->ConnectionType = CONNECTION_TYPE_LAN;
-	settings->AllowFontSmoothing = TRUE;
-	settings->AllowDesktopComposition = TRUE;
-	settings->DisableWallpaper = FALSE;
-	settings->DisableFullWindowDrag = TRUE;
-	settings->DisableMenuAnims = TRUE;
-	settings->DisableThemes = FALSE;
-	settings->DeviceRedirection = TRUE;
-	settings->RedirectClipboard = TRUE;
-	settings->SupportDynamicChannels = TRUE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_SupportHeartbeatPdu, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_SupportMultitransport, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_ConnectionType, CONNECTION_TYPE_LAN))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AllowFontSmoothing, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_AllowDesktopComposition, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_DisableWallpaper, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_DisableFullWindowDrag, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_DisableMenuAnims, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_DisableThemes, FALSE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RedirectClipboard, TRUE))
+		return FALSE;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_SupportDynamicChannels, TRUE))
+		return FALSE;
 	return TRUE;
 }
 
@@ -375,9 +408,9 @@ int win_shadow_rdp_init(winShadowSubsystem* subsystem)
 	subsystem->shw->subsystem = subsystem;
 	return 1;
 fail_context:
-	CloseHandle(subsystem->RdpUpdateLeaveEvent);
+	(void)CloseHandle(subsystem->RdpUpdateLeaveEvent);
 fail_leave_event:
-	CloseHandle(subsystem->RdpUpdateEnterEvent);
+	(void)CloseHandle(subsystem->RdpUpdateEnterEvent);
 fail_enter_event:
 	return -1;
 }

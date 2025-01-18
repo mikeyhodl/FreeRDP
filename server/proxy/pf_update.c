@@ -38,7 +38,7 @@
 static BOOL pf_server_refresh_rect(rdpContext* context, BYTE count, const RECTANGLE_16* areas)
 {
 	pServerContext* ps = (pServerContext*)context;
-	rdpContext* pc;
+	rdpContext* pc = NULL;
 	WINPR_ASSERT(ps);
 	WINPR_ASSERT(ps->pdata);
 	pc = (rdpContext*)ps->pdata->pc;
@@ -51,7 +51,7 @@ static BOOL pf_server_refresh_rect(rdpContext* context, BYTE count, const RECTAN
 static BOOL pf_server_suppress_output(rdpContext* context, BYTE allow, const RECTANGLE_16* area)
 {
 	pServerContext* ps = (pServerContext*)context;
-	rdpContext* pc;
+	rdpContext* pc = NULL;
 	WINPR_ASSERT(ps);
 	WINPR_ASSERT(ps->pdata);
 	pc = (rdpContext*)ps->pdata->pc;
@@ -70,8 +70,8 @@ static BOOL pf_server_suppress_output(rdpContext* context, BYTE allow, const REC
 static BOOL pf_client_begin_paint(rdpContext* context)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -79,7 +79,7 @@ static BOOL pf_client_begin_paint(rdpContext* context)
 	WINPR_ASSERT(ps);
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->BeginPaint);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->BeginPaint(ps);
 }
 
@@ -91,8 +91,8 @@ static BOOL pf_client_begin_paint(rdpContext* context)
 static BOOL pf_client_end_paint(rdpContext* context)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -101,7 +101,7 @@ static BOOL pf_client_end_paint(rdpContext* context)
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->EndPaint);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 
 	/* proxy end paint */
 	if (!ps->update->EndPaint(ps))
@@ -116,8 +116,8 @@ static BOOL pf_client_end_paint(rdpContext* context)
 static BOOL pf_client_bitmap_update(rdpContext* context, const BITMAP_UPDATE* bitmap)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -125,15 +125,15 @@ static BOOL pf_client_bitmap_update(rdpContext* context, const BITMAP_UPDATE* bi
 	WINPR_ASSERT(ps);
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->BitmapUpdate);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->BitmapUpdate(ps, bitmap);
 }
 
 static BOOL pf_client_desktop_resize(rdpContext* context)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -143,9 +143,11 @@ static BOOL pf_client_desktop_resize(rdpContext* context)
 	WINPR_ASSERT(ps->update->DesktopResize);
 	WINPR_ASSERT(context->settings);
 	WINPR_ASSERT(ps->settings);
-	WLog_DBG(TAG, __FUNCTION__);
-	ps->settings->DesktopWidth = context->settings->DesktopWidth;
-	ps->settings->DesktopHeight = context->settings->DesktopHeight;
+	WLog_DBG(TAG, "called");
+	if (!freerdp_settings_copy_item(ps->settings, context->settings, FreeRDP_DesktopWidth))
+		return FALSE;
+	if (!freerdp_settings_copy_item(ps->settings, context->settings, FreeRDP_DesktopHeight))
+		return FALSE;
 	return ps->update->DesktopResize(ps);
 }
 
@@ -153,14 +155,14 @@ static BOOL pf_client_remote_monitors(rdpContext* context, UINT32 count,
                                       const MONITOR_DEF* monitors)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
 	ps = (rdpContext*)pdata->ps;
 	WINPR_ASSERT(ps);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return freerdp_display_send_monitor_layout(ps, count, monitors);
 }
 
@@ -168,8 +170,8 @@ static BOOL pf_client_send_pointer_system(rdpContext* context,
                                           const POINTER_SYSTEM_UPDATE* pointer_system)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -178,7 +180,7 @@ static BOOL pf_client_send_pointer_system(rdpContext* context,
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->pointer);
 	WINPR_ASSERT(ps->update->pointer->PointerSystem);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->pointer->PointerSystem(ps, pointer_system);
 }
 
@@ -186,8 +188,8 @@ static BOOL pf_client_send_pointer_position(rdpContext* context,
                                             const POINTER_POSITION_UPDATE* pointerPosition)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -196,7 +198,7 @@ static BOOL pf_client_send_pointer_position(rdpContext* context,
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->pointer);
 	WINPR_ASSERT(ps->update->pointer->PointerPosition);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->pointer->PointerPosition(ps, pointerPosition);
 }
 
@@ -204,8 +206,8 @@ static BOOL pf_client_send_pointer_color(rdpContext* context,
                                          const POINTER_COLOR_UPDATE* pointer_color)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -214,7 +216,7 @@ static BOOL pf_client_send_pointer_color(rdpContext* context,
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->pointer);
 	WINPR_ASSERT(ps->update->pointer->PointerColor);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->pointer->PointerColor(ps, pointer_color);
 }
 
@@ -222,8 +224,8 @@ static BOOL pf_client_send_pointer_large(rdpContext* context,
                                          const POINTER_LARGE_UPDATE* pointer_large)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -232,15 +234,15 @@ static BOOL pf_client_send_pointer_large(rdpContext* context,
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->pointer);
 	WINPR_ASSERT(ps->update->pointer->PointerLarge);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->pointer->PointerLarge(ps, pointer_large);
 }
 
 static BOOL pf_client_send_pointer_new(rdpContext* context, const POINTER_NEW_UPDATE* pointer_new)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -249,7 +251,7 @@ static BOOL pf_client_send_pointer_new(rdpContext* context, const POINTER_NEW_UP
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->pointer);
 	WINPR_ASSERT(ps->update->pointer->PointerNew);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->pointer->PointerNew(ps, pointer_new);
 }
 
@@ -257,8 +259,8 @@ static BOOL pf_client_send_pointer_cached(rdpContext* context,
                                           const POINTER_CACHED_UPDATE* pointer_cached)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -267,7 +269,7 @@ static BOOL pf_client_send_pointer_cached(rdpContext* context,
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->pointer);
 	WINPR_ASSERT(ps->update->pointer->PointerCached);
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->pointer->PointerCached(ps, pointer_cached);
 }
 
@@ -275,8 +277,8 @@ static BOOL pf_client_save_session_info(rdpContext* context, UINT32 type, void* 
 {
 	logon_info* logonInfo = NULL;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -285,7 +287,7 @@ static BOOL pf_client_save_session_info(rdpContext* context, UINT32 type, void* 
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->SaveSessionInfo);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 
 	switch (type)
 	{
@@ -308,8 +310,8 @@ static BOOL pf_client_save_session_info(rdpContext* context, UINT32 type, void* 
 static BOOL pf_client_server_status_info(rdpContext* context, UINT32 status)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -318,15 +320,15 @@ static BOOL pf_client_server_status_info(rdpContext* context, UINT32 status)
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->ServerStatusInfo);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->ServerStatusInfo(ps, status);
 }
 
 static BOOL pf_client_set_keyboard_indicators(rdpContext* context, UINT16 led_flags)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -335,7 +337,7 @@ static BOOL pf_client_set_keyboard_indicators(rdpContext* context, UINT16 led_fl
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->SetKeyboardIndicators);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->SetKeyboardIndicators(ps, led_flags);
 }
 
@@ -343,8 +345,8 @@ static BOOL pf_client_set_keyboard_ime_status(rdpContext* context, UINT16 imeId,
                                               UINT32 imeConvMode)
 {
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -353,17 +355,17 @@ static BOOL pf_client_set_keyboard_ime_status(rdpContext* context, UINT16 imeId,
 	WINPR_ASSERT(ps->update);
 	WINPR_ASSERT(ps->update->SetKeyboardImeStatus);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	return ps->update->SetKeyboardImeStatus(ps, imeId, imeState, imeConvMode);
 }
 
 static BOOL pf_client_window_create(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                     const WINDOW_STATE_ORDER* windowState)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -373,7 +375,7 @@ static BOOL pf_client_window_create(rdpContext* context, const WINDOW_ORDER_INFO
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->WindowCreate);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->WindowCreate(ps, orderInfo, windowState);
 	rdp_update_unlock(ps->update);
@@ -383,10 +385,10 @@ static BOOL pf_client_window_create(rdpContext* context, const WINDOW_ORDER_INFO
 static BOOL pf_client_window_update(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                     const WINDOW_STATE_ORDER* windowState)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -396,7 +398,7 @@ static BOOL pf_client_window_update(rdpContext* context, const WINDOW_ORDER_INFO
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->WindowUpdate);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->WindowUpdate(ps, orderInfo, windowState);
 	rdp_update_unlock(ps->update);
@@ -406,10 +408,10 @@ static BOOL pf_client_window_update(rdpContext* context, const WINDOW_ORDER_INFO
 static BOOL pf_client_window_icon(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                   const WINDOW_ICON_ORDER* windowIcon)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -419,7 +421,7 @@ static BOOL pf_client_window_icon(rdpContext* context, const WINDOW_ORDER_INFO* 
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->WindowIcon);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->WindowIcon(ps, orderInfo, windowIcon);
 	rdp_update_unlock(ps->update);
@@ -429,10 +431,10 @@ static BOOL pf_client_window_icon(rdpContext* context, const WINDOW_ORDER_INFO* 
 static BOOL pf_client_window_cached_icon(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                          const WINDOW_CACHED_ICON_ORDER* windowCachedIcon)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -442,7 +444,7 @@ static BOOL pf_client_window_cached_icon(rdpContext* context, const WINDOW_ORDER
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->WindowCachedIcon);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->WindowCachedIcon(ps, orderInfo, windowCachedIcon);
 	rdp_update_unlock(ps->update);
@@ -451,10 +453,10 @@ static BOOL pf_client_window_cached_icon(rdpContext* context, const WINDOW_ORDER
 
 static BOOL pf_client_window_delete(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -464,7 +466,7 @@ static BOOL pf_client_window_delete(rdpContext* context, const WINDOW_ORDER_INFO
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->WindowDelete);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->WindowDelete(ps, orderInfo);
 	rdp_update_unlock(ps->update);
@@ -474,10 +476,10 @@ static BOOL pf_client_window_delete(rdpContext* context, const WINDOW_ORDER_INFO
 static BOOL pf_client_notify_icon_create(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                          const NOTIFY_ICON_STATE_ORDER* notifyIconState)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -487,7 +489,7 @@ static BOOL pf_client_notify_icon_create(rdpContext* context, const WINDOW_ORDER
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->NotifyIconCreate);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->NotifyIconCreate(ps, orderInfo, notifyIconState);
 	rdp_update_unlock(ps->update);
@@ -497,10 +499,10 @@ static BOOL pf_client_notify_icon_create(rdpContext* context, const WINDOW_ORDER
 static BOOL pf_client_notify_icon_update(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                          const NOTIFY_ICON_STATE_ORDER* notifyIconState)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -510,7 +512,7 @@ static BOOL pf_client_notify_icon_update(rdpContext* context, const WINDOW_ORDER
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->NotifyIconUpdate);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->NotifyIconUpdate(ps, orderInfo, notifyIconState);
 	rdp_update_unlock(ps->update);
@@ -519,11 +521,11 @@ static BOOL pf_client_notify_icon_update(rdpContext* context, const WINDOW_ORDER
 
 static BOOL pf_client_notify_icon_delete(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo)
 {
-	BOOL rc;
+	BOOL rc = 0;
 
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -533,7 +535,7 @@ static BOOL pf_client_notify_icon_delete(rdpContext* context, const WINDOW_ORDER
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->NotifyIconDelete);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->NotifyIconDelete(ps, orderInfo);
 	rdp_update_unlock(ps->update);
@@ -543,10 +545,10 @@ static BOOL pf_client_notify_icon_delete(rdpContext* context, const WINDOW_ORDER
 static BOOL pf_client_monitored_desktop(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo,
                                         const MONITORED_DESKTOP_ORDER* monitoredDesktop)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -556,7 +558,7 @@ static BOOL pf_client_monitored_desktop(rdpContext* context, const WINDOW_ORDER_
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->MonitoredDesktop);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->MonitoredDesktop(ps, orderInfo, monitoredDesktop);
 	rdp_update_unlock(ps->update);
@@ -565,10 +567,10 @@ static BOOL pf_client_monitored_desktop(rdpContext* context, const WINDOW_ORDER_
 
 static BOOL pf_client_non_monitored_desktop(rdpContext* context, const WINDOW_ORDER_INFO* orderInfo)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	pClientContext* pc = (pClientContext*)context;
-	proxyData* pdata;
-	rdpContext* ps;
+	proxyData* pdata = NULL;
+	rdpContext* ps = NULL;
 	WINPR_ASSERT(pc);
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
@@ -578,7 +580,7 @@ static BOOL pf_client_non_monitored_desktop(rdpContext* context, const WINDOW_OR
 	WINPR_ASSERT(ps->update->window);
 	WINPR_ASSERT(ps->update->window->NonMonitoredDesktop);
 
-	WLog_DBG(TAG, __FUNCTION__);
+	WLog_DBG(TAG, "called");
 	rdp_update_lock(ps->update);
 	rc = ps->update->window->NonMonitoredDesktop(ps, orderInfo);
 	rdp_update_unlock(ps->update);

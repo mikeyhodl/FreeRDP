@@ -22,6 +22,10 @@
 
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
+#include <winpr/handle.h>
+
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
 
 #ifdef _WIN32
 
@@ -41,9 +45,9 @@ typedef struct
 		{
 			DWORD Offset;
 			DWORD OffsetHigh;
-		};
+		} DUMMYSTRUCTNAME;
 		PVOID Pointer;
-	};
+	} DUMMYUNIONNAME;
 	HANDLE hEvent;
 } OVERLAPPED, *LPOVERLAPPED;
 
@@ -71,6 +75,7 @@ extern "C"
 	                               DWORD nInBufferSize, LPVOID lpOutBuffer, DWORD nOutBufferSize,
 	                               LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped);
 
+	WINPR_ATTR_MALLOC(CloseHandle, 1)
 	WINPR_API HANDLE CreateIoCompletionPort(HANDLE FileHandle, HANDLE ExistingCompletionPort,
 	                                        ULONG_PTR CompletionKey,
 	                                        DWORD NumberOfConcurrentThreads);
@@ -250,5 +255,7 @@ extern "C"
 
 #define ACCESS_FROM_CTL_CODE(ctrlCode) ((DWORD)((ctrlCode >> 14) & 0x3))
 #define FUNCTION_FROM_CTL_CODE(ctrlCode) ((DWORD)((ctrlCode >> 2) & 0xFFF))
+
+WINPR_PRAGMA_DIAG_POP
 
 #endif /* WINPR_IO_H */

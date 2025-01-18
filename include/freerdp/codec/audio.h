@@ -25,22 +25,23 @@
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 
-#ifdef _WIN32
-#include <mmreg.h>
+#ifdef __cplusplus
+extern "C"
+{
 #endif
 
-struct AUDIO_FORMAT
-{
-	UINT16 wFormatTag;
-	UINT16 nChannels;
-	UINT32 nSamplesPerSec;
-	UINT32 nAvgBytesPerSec;
-	UINT16 nBlockAlign;
-	UINT16 wBitsPerSample;
-	UINT16 cbSize;
-	BYTE* data;
-};
-typedef struct AUDIO_FORMAT AUDIO_FORMAT;
+	struct AUDIO_FORMAT
+	{
+		UINT16 wFormatTag;
+		UINT16 nChannels;
+		UINT32 nSamplesPerSec;
+		UINT32 nAvgBytesPerSec;
+		UINT16 nBlockAlign;
+		UINT16 wBitsPerSample;
+		UINT16 cbSize;
+		BYTE* data;
+	};
+	typedef struct AUDIO_FORMAT AUDIO_FORMAT;
 
 #define SNDC_CLOSE 1
 #define SNDC_WAVE 2
@@ -64,18 +65,20 @@ typedef struct AUDIO_FORMAT AUDIO_FORMAT;
 #define MEDIUM_QUALITY 0x0001
 #define HIGH_QUALITY 0x0002
 
-/*
- * Format Tags:
- * http://tools.ietf.org/html/rfc2361
- */
+	/*
+	 * Format Tags:
+	 * http://tools.ietf.org/html/rfc2361
+	 */
 
-#ifndef __MINGW32__
+#ifndef WAVE_FORMAT_UNKNOWN
 #define WAVE_FORMAT_UNKNOWN 0x0000
+#endif /* !WAVE_FORMAT_UNKNOWN */
 
 #ifndef WAVE_FORMAT_PCM
 #define WAVE_FORMAT_PCM 0x0001
-#endif
+#endif /* !WAVE_FORMAT_PCM */
 
+#ifndef WAVE_FORMAT_ADPCM
 #define WAVE_FORMAT_ADPCM 0x0002
 #define WAVE_FORMAT_IEEE_FLOAT 0x0003
 #define WAVE_FORMAT_VSELP 0x0004
@@ -121,11 +124,13 @@ typedef struct AUDIO_FORMAT AUDIO_FORMAT;
 #define WAVE_FORMAT_MPEG 0x0050
 #define WAVE_FORMAT_RT24 0x0052
 #define WAVE_FORMAT_PAC 0x0053
+#endif /* !WAVE_FORMAT_ADPCM */
 
 #ifndef WAVE_FORMAT_MPEGLAYER3
 #define WAVE_FORMAT_MPEGLAYER3 0x0055
 #endif
 
+#ifndef WAVE_FORMAT_LUCENT_G723
 #define WAVE_FORMAT_LUCENT_G723 0x0059
 #define WAVE_FORMAT_CIRRUS 0x0060
 #define WAVE_FORMAT_ESPCM 0x0061
@@ -184,21 +189,23 @@ typedef struct AUDIO_FORMAT AUDIO_FORMAT;
 #define WAVE_FORMAT_NORRIS 0x1400
 #define WAVE_FORMAT_SOUNDSPACE_MUSICOMPRESS 0x1500
 #define WAVE_FORMAT_DVM 0x2000
-#endif /* !__MINGW32__ */
+#endif /* !WAVE_FORMAT_LUCENT_G723 */
+
+	/** Opus format identifier
+	 *  \since version 3.0.0
+	 */
+#define WAVE_FORMAT_OPUS 0x704F
 #define WAVE_FORMAT_AAC_MS 0xA106
 
-/**
- * Audio Format Functions
- */
+#define WAVE_FORMAT_EXTENSIBLE 0xFFFE
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+	/**
+	 * Audio Format Functions
+	 */
 
 	FREERDP_API UINT32 audio_format_compute_time_length(const AUDIO_FORMAT* format, size_t size);
 
-	FREERDP_API char* audio_format_get_tag_string(UINT16 wFormatTag);
+	FREERDP_API const char* audio_format_get_tag_string(UINT16 wFormatTag);
 
 	FREERDP_API void audio_format_print(wLog* log, DWORD level, const AUDIO_FORMAT* format);
 	FREERDP_API void audio_formats_print(wLog* log, DWORD level, const AUDIO_FORMAT* formats,
@@ -206,14 +213,18 @@ extern "C"
 
 	FREERDP_API BOOL audio_format_read(wStream* s, AUDIO_FORMAT* format);
 	FREERDP_API BOOL audio_format_write(wStream* s, const AUDIO_FORMAT* format);
-	FREERDP_API BOOL audio_format_copy(const AUDIO_FORMAT* srcFormat, AUDIO_FORMAT* dstFormat);
+	FREERDP_API BOOL audio_format_copy(const AUDIO_FORMAT* WINPR_RESTRICT srcFormat,
+	                                   AUDIO_FORMAT* WINPR_RESTRICT dstFormat);
 	FREERDP_API BOOL audio_format_compatible(const AUDIO_FORMAT* with, const AUDIO_FORMAT* what);
-
-	FREERDP_API AUDIO_FORMAT* audio_format_new(void);
-	FREERDP_API AUDIO_FORMAT* audio_formats_new(size_t count);
 
 	FREERDP_API void audio_format_free(AUDIO_FORMAT* format);
 	FREERDP_API void audio_formats_free(AUDIO_FORMAT* formats, size_t count);
+
+	WINPR_ATTR_MALLOC(audio_formats_free, 1)
+	FREERDP_API AUDIO_FORMAT* audio_format_new(void);
+
+	WINPR_ATTR_MALLOC(audio_formats_free, 1)
+	FREERDP_API AUDIO_FORMAT* audio_formats_new(size_t count);
 
 #ifdef __cplusplus
 }

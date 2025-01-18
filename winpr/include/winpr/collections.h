@@ -44,6 +44,15 @@ extern "C"
 	typedef void (*OBJECT_FREE_FN)(void* obj);
 	typedef BOOL (*OBJECT_EQUALS_FN)(const void* objA, const void* objB);
 
+	/** @struct wObject
+	 *  @brief This struct contains function pointer to initialize/free objects
+	 *
+	 *  @var fnObjectNew  A new function that creates a clone of the input
+	 *  @var fnObjectInit A function initializing an object, but not allocating it
+	 *  @var fnObjectUninit A function to deinitialize an object, but not free it
+	 *  @var fnObjectFree A function freeing an object
+	 *  @var fnObjectEquals A function to compare two objects
+	 */
 	typedef struct
 	{
 		OBJECT_NEW_FN fnObjectNew;
@@ -53,25 +62,85 @@ extern "C"
 		OBJECT_EQUALS_FN fnObjectEquals;
 	} wObject;
 
+	/* utility function with compatible arguments for string data */
+
+	/** @brief helper function to clone a string
+	 *  @param pvstr the source string to clone
+	 *  @return A clone of the source or \b NULL
+	 *  @since version 3.3.0
+	 */
+	WINPR_API void* winpr_ObjectStringClone(const void* pvstr);
+
+	/** @brief helper function to clone a WCHAR string
+	 *  @param pvstr the source string to clone
+	 *  @return A clone of the source or \b NULL
+	 *  @since version 3.3.0
+	 */
+	WINPR_API void* winpr_ObjectWStringClone(const void* pvstr);
+
+	/** @brief helper function to free a (WCHAR) string
+	 *  @param pvstr the string to free
+	 *  @since version 3.3.0
+	 */
+	WINPR_API void winpr_ObjectStringFree(void* pvstr);
+
 	/* System.Collections.Queue */
 
 	typedef struct s_wQueue wQueue;
 
+	/** @brief Return the number of elements in the queue
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 *
+	 *  @return the number of objects queued
+	 */
 	WINPR_API size_t Queue_Count(wQueue* queue);
 
+	/** @brief Mutex-Lock a queue
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 */
 	WINPR_API void Queue_Lock(wQueue* queue);
+
+	/** @brief Mutex-Unlock a queue
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 */
 	WINPR_API void Queue_Unlock(wQueue* queue);
 
+	/** @brief Get an event handle for the queue, usable by \b WaitForSingleObject or \b
+	 * WaitForMultipleObjects
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 */
 	WINPR_API HANDLE Queue_Event(wQueue* queue);
 
+	/** @brief Mutex-Lock a queue
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 *
+	 *  @return A pointer to a \b wObject that contains the allocation/cleanup handlers for queue
+	 * elements
+	 */
 	WINPR_API wObject* Queue_Object(wQueue* queue);
 
+	/** @brief Remove all elements from a queue, call \b wObject cleanup functions \b fnObjectFree
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 */
 	WINPR_API void Queue_Clear(wQueue* queue);
 
+	/** @brief Check if the queue contains an object
+	 *
+	 *  @param queue A pointer to a queue, must not be \b NULL
+	 *  @param obj The object to look for. \b fnObjectEquals is called internally
+	 *
+	 *  @return \b TRUE if the object was found, \b FALSE otherwise.
+	 */
 	WINPR_API BOOL Queue_Contains(wQueue* queue, const void* obj);
 
 	/** \brief Pushes a new element into the queue.
-	 *  If a fnObjectNew is set, the element is copied and the queue takes
+	 *  If a \b fnObjectNew is set, the element is copied and the queue takes
 	 *  ownership of the memory, otherwise the ownership stays with the caller.
 	 *
 	 *  \param queue The queue to operate on
@@ -108,8 +177,18 @@ extern "C"
 	 */
 	WINPR_API void Queue_Discard(wQueue* queue);
 
-	WINPR_API wQueue* Queue_New(BOOL synchronized, SSIZE_T capacity, SSIZE_T growthFactor);
+	/** @brief Clean up a queue, free all resources (e.g. calls \b Queue_Clear)
+	 *
+	 *  @param queue The queue to free, may be \b NULL
+	 */
 	WINPR_API void Queue_Free(wQueue* queue);
+
+	/** @brief Creates a new queue
+	 *
+	 *  @return A newly allocated queue or \b NULL in case of failure
+	 */
+	WINPR_ATTR_MALLOC(Queue_Free, 1)
+	WINPR_API wQueue* Queue_New(BOOL synchronized, SSIZE_T capacity, SSIZE_T growthFactor);
 
 	/* System.Collections.Stack */
 
@@ -128,8 +207,10 @@ extern "C"
 
 	WINPR_API void* Stack_Peek(wStack* stack);
 
-	WINPR_API wStack* Stack_New(BOOL synchronized);
 	WINPR_API void Stack_Free(wStack* stack);
+
+	WINPR_ATTR_MALLOC(Stack_Free, 1)
+	WINPR_API wStack* Stack_New(BOOL synchronized);
 
 	/* System.Collections.ArrayList */
 
@@ -173,152 +254,368 @@ extern "C"
 	WINPR_API SSIZE_T ArrayList_LastIndexOf(wArrayList* arrayList, const void* obj,
 	                                        SSIZE_T startIndex, SSIZE_T count);
 
-	WINPR_API wArrayList* ArrayList_New(BOOL synchronized);
 	WINPR_API void ArrayList_Free(wArrayList* arrayList);
+
+	WINPR_ATTR_MALLOC(ArrayList_Free, 1)
+	WINPR_API wArrayList* ArrayList_New(BOOL synchronized);
 
 	/* System.Collections.DictionaryBase */
 
-	/* WARNING: Do not access structs directly, the API will be reworked
-	 * to make this opaque. */
-	typedef struct
-	{
-		BOOL synchronized;
-		CRITICAL_SECTION lock;
-	} wDictionary;
-
 	/* System.Collections.Specialized.ListDictionary */
+	typedef struct s_wListDictionary wListDictionary;
 
-	typedef struct s_wListDictionaryItem wListDictionaryItem;
+	/** @brief Get the \b wObject function pointer struct for the \b key of the dictionary.
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *
+	 *  @return a \b wObject used to initialize the key object, \b NULL in case of failure
+	 */
+	WINPR_API wObject* ListDictionary_KeyObject(wListDictionary* listDictionary);
 
-	/* WARNING: Do not access structs directly, the API will be reworked
-	 * to make this opaque. */
-	struct s_wListDictionaryItem
-	{
-		void* key;
-		void* value;
+	/** @brief Get the \b wObject function pointer struct for the \b value of the dictionary.
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *
+	 *  @return a \b wObject used to initialize the value object, \b NULL in case of failure
+	 */
+	WINPR_API wObject* ListDictionary_ValueObject(wListDictionary* listDictionary);
 
-		wListDictionaryItem* next;
-	};
+	/** @brief Return the number of entries in the dictionary
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *
+	 *  @return the number of entries
+	 */
+	WINPR_API size_t ListDictionary_Count(wListDictionary* listDictionary);
 
-	/* WARNING: Do not access structs directly, the API will be reworked
-	 * to make this opaque. */
-	typedef struct
-	{
-		BOOL synchronized;
-		CRITICAL_SECTION lock;
-
-		wListDictionaryItem* head;
-		wObject objectKey;
-		wObject objectValue;
-	} wListDictionary;
-
-#define ListDictionary_KeyObject(_dictionary) (&_dictionary->objectKey)
-#define ListDictionary_ValueObject(_dictionary) (&_dictionary->objectValue)
-
-	WINPR_API int ListDictionary_Count(wListDictionary* listDictionary);
-
+	/** @brief mutex-lock a dictionary
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 */
 	WINPR_API void ListDictionary_Lock(wListDictionary* listDictionary);
+	/** @brief mutex-unlock a dictionary
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 */
 	WINPR_API void ListDictionary_Unlock(wListDictionary* listDictionary);
 
+	/** @brief mutex-lock a dictionary
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param key The key identifying the entry, if set cloned with \b fnObjectNew
+	 *  @param value The value to store for the \b key. May be \b NULL. if set cloned with \b
+	 * fnObjectNew
+	 *
+	 *  @return \b TRUE for successful addition, \b FALSE for failure
+	 */
 	WINPR_API BOOL ListDictionary_Add(wListDictionary* listDictionary, const void* key,
-	                                  void* value);
-	WINPR_API void* ListDictionary_Remove(wListDictionary* listDictionary, const void* key);
-	WINPR_API void* ListDictionary_Remove_Head(wListDictionary* listDictionary);
+	                                  const void* value);
+
+	/** @brief Remove an item from the dictionary and return the value. Cleanup is up to the caller.
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param key The key identifying the entry
+	 *
+	 *  @return a pointer to the value stored or \b NULL in case of failure or not found
+	 */
+	WINPR_API void* ListDictionary_Take(wListDictionary* listDictionary, const void* key);
+
+	/** @brief Remove an item from the dictionary and call \b fnObjectFree for key and value
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param key The key identifying the entry
+	 */
+	WINPR_API void ListDictionary_Remove(wListDictionary* listDictionary, const void* key);
+
+	/** @brief Remove the head item from the dictionary and return the value. Cleanup is up to the
+	 * caller.
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *
+	 *  @return a pointer to the value stored or \b NULL in case of failure or not found
+	 */
+	WINPR_API void* ListDictionary_Take_Head(wListDictionary* listDictionary);
+
+	/** @brief Remove the head item from the dictionary and call \b fnObjectFree for key and value
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 */
+	WINPR_API void ListDictionary_Remove_Head(wListDictionary* listDictionary);
+
+	/** @brief Remove all items from the dictionary and call \b fnObjectFree for key and value
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 */
 	WINPR_API void ListDictionary_Clear(wListDictionary* listDictionary);
 
+	/** @brief Check if a dictionary contains \b key (\b fnObjectEquals of the key object is called)
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param key A key to look for
+	 *
+	 *  @return \b TRUE if found, \b FALSE otherwise
+	 */
 	WINPR_API BOOL ListDictionary_Contains(wListDictionary* listDictionary, const void* key);
-	WINPR_API int ListDictionary_GetKeys(wListDictionary* listDictionary, ULONG_PTR** ppKeys);
 
+	/** @brief return all keys the dictionary contains
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param ppKeys A pointer to a \b ULONG_PTR array that will hold the result keys. Call \b free
+	 * if no longer required
+	 *
+	 *  @return the number of keys found in the dictionary or \b 0 if \b ppKeys is \b NULL
+	 */
+	WINPR_API size_t ListDictionary_GetKeys(wListDictionary* listDictionary, ULONG_PTR** ppKeys);
+
+	/** @brief Get the value in the dictionary for a \b key. The ownership of the data stays with
+	 * the dictionary.
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param key A key to look for (\b fnObjectEquals of the key object is called)
+	 *
+	 *  @return A pointer to the data in the dictionary or \b NULL if not found
+	 */
 	WINPR_API void* ListDictionary_GetItemValue(wListDictionary* listDictionary, const void* key);
-	WINPR_API BOOL ListDictionary_SetItemValue(wListDictionary* listDictionary, const void* key,
-	                                           void* value);
 
-	WINPR_API wListDictionary* ListDictionary_New(BOOL synchronized);
+	/** @brief Set the value in the dictionary for a \b key. The entry must already exist, \b value
+	 * is copied if \b fnObjectNew is set
+	 *
+	 *  @param listDictionary A dictionary to query, must not be \b NULL
+	 *  @param key A key to look for (\b fnObjectEquals of the key object is called)
+	 *  @param value A pointer to the value to set
+	 *
+	 *  @return \b TRUE for success, \b FALSE in case of failure
+	 */
+	WINPR_API BOOL ListDictionary_SetItemValue(wListDictionary* listDictionary, const void* key,
+	                                           const void* value);
+
+	/** @brief Free memory allocated by a dictionary. Calls \b ListDictionary_Clear
+	 *
+	 *  @param listDictionary A dictionary to query, may be \b NULL
+	 */
 	WINPR_API void ListDictionary_Free(wListDictionary* listDictionary);
+
+	/** @brief allocate a new dictionary
+	 *
+	 *  @param synchronized Create the dictionary with automatic mutex lock
+	 *
+	 *  @return A newly allocated dictionary or \b NULL in case of failure
+	 */
+	WINPR_ATTR_MALLOC(ListDictionary_Free, 1)
+	WINPR_API wListDictionary* ListDictionary_New(BOOL synchronized);
 
 	/* System.Collections.Generic.LinkedList<T> */
 
 	typedef struct s_wLinkedList wLinkedList;
 
-	WINPR_API int LinkedList_Count(wLinkedList* list);
+	/** @brief Return the current number of elements in the linked list
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 * @return the number of elements in the list
+	 */
+	WINPR_API size_t LinkedList_Count(wLinkedList* list);
+
+	/** @brief Return the first element of the list, ownership stays with the list
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 *  @return A pointer to the element or \b NULL if empty
+	 */
 	WINPR_API void* LinkedList_First(wLinkedList* list);
+
+	/** @brief Return the last element of the list, ownership stays with the list
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 *  @return A pointer to the element or \b NULL if empty
+	 */
 	WINPR_API void* LinkedList_Last(wLinkedList* list);
 
+	/** @brief Check if the linked list contains a value
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *  @param value A value to check for
+	 *
+	 *  @return \b TRUE if found, \b FALSE otherwise
+	 */
 	WINPR_API BOOL LinkedList_Contains(wLinkedList* list, const void* value);
+
+	/** @brief Remove all elements of the linked list. \b fnObjectUninit and \b fnObjectFree are
+	 * called for each entry
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 */
 	WINPR_API void LinkedList_Clear(wLinkedList* list);
 
+	/** @brief Add a new element at the start of the linked list. \b fnObjectNew and \b fnObjectInit
+	 * is called for the new entry
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *  @param value The value to add
+	 *
+	 * @return \b TRUE if successful, \b FALSE otherwise.
+	 */
 	WINPR_API BOOL LinkedList_AddFirst(wLinkedList* list, const void* value);
+
+	/** @brief Add a new element at the end of the linked list. \b fnObjectNew and \b fnObjectInit
+	 * is called for the new entry
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *  @param value The value to add
+	 *
+	 * @return \b TRUE if successful, \b FALSE otherwise.
+	 */
 	WINPR_API BOOL LinkedList_AddLast(wLinkedList* list, const void* value);
 
+	/** @brief Remove a element identified by \b value from the linked list. \b fnObjectUninit and
+	 * \b fnObjectFree is called for the entry
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *  @param value The value to remove
+	 *
+	 * @return \b TRUE if successful, \b FALSE otherwise.
+	 */
 	WINPR_API BOOL LinkedList_Remove(wLinkedList* list, const void* value);
+
+	/** @brief Remove the first element from the linked list. \b fnObjectUninit and \b fnObjectFree
+	 * is called for the entry
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 */
 	WINPR_API void LinkedList_RemoveFirst(wLinkedList* list);
+
+	/** @brief Remove the last element from the linked list. \b fnObjectUninit and \b fnObjectFree
+	 * is called for the entry
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 */
 	WINPR_API void LinkedList_RemoveLast(wLinkedList* list);
 
+	/** @brief Move enumerator to the first element
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 */
 	WINPR_API void LinkedList_Enumerator_Reset(wLinkedList* list);
+
+	/** @brief Return the value for the current position of the enumerator
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 * @return A pointer to the current entry or \b NULL
+	 */
 	WINPR_API void* LinkedList_Enumerator_Current(wLinkedList* list);
+
+	/** @brief Move enumerator to the next element
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 *  @return \b TRUE if the move was successful, \b FALSE if not (e.g. no more entries)
+	 */
 	WINPR_API BOOL LinkedList_Enumerator_MoveNext(wLinkedList* list);
 
-	WINPR_API wLinkedList* LinkedList_New(void);
+	/** @brief Free a linked list
+	 *
+	 *  @param list A pointer to the list, may be \b NULL
+	 */
 	WINPR_API void LinkedList_Free(wLinkedList* list);
 
+	/** @brief Allocate a linked list
+	 *
+	 * @return A pointer to the newly allocated linked list or \b NULL in case of failure
+	 */
+	WINPR_ATTR_MALLOC(LinkedList_Free, 1)
+	WINPR_API wLinkedList* LinkedList_New(void);
+
+	/** @brief Return the \b wObject function pointers for list elements
+	 *
+	 *  @param list A pointer to the list, must not be \b NULL
+	 *
+	 *  @return A pointer to the wObject or \b NULL in case of failure
+	 */
 	WINPR_API wObject* LinkedList_Object(wLinkedList* list);
 
 	/* System.Collections.Generic.KeyValuePair<TKey,TValue> */
 
-	/* Reference Table */
-
-	/* WARNING: Do not access structs directly, the API will be reworked
-	 * to make this opaque. */
-	typedef struct
-	{
-		UINT32 Count;
-		void* Pointer;
-	} wReference;
-
-	typedef int (*REFERENCE_FREE)(void* context, void* ptr);
-
-	/* WARNING: Do not access structs directly, the API will be reworked
-	 * to make this opaque. */
-	typedef struct
-	{
-		UINT32 size;
-		CRITICAL_SECTION lock;
-		void* context;
-		BOOL synchronized;
-		wReference* array;
-		REFERENCE_FREE ReferenceFree;
-	} wReferenceTable;
-
-	WINPR_API UINT32 ReferenceTable_Add(wReferenceTable* referenceTable, void* ptr);
-	WINPR_API UINT32 ReferenceTable_Release(wReferenceTable* referenceTable, void* ptr);
-
-	WINPR_API wReferenceTable* ReferenceTable_New(BOOL synchronized, void* context,
-	                                              REFERENCE_FREE ReferenceFree);
-	WINPR_API void ReferenceTable_Free(wReferenceTable* referenceTable);
-
 	/* Countdown Event */
 
-	/* WARNING: Do not access structs directly, the API will be reworked
-	 * to make this opaque. */
-	typedef struct
-	{
-		DWORD count;
-		CRITICAL_SECTION lock;
-		HANDLE event;
-		DWORD initialCount;
-	} wCountdownEvent;
+	typedef struct CountdownEvent wCountdownEvent;
 
-	WINPR_API DWORD CountdownEvent_CurrentCount(wCountdownEvent* countdown);
-	WINPR_API DWORD CountdownEvent_InitialCount(wCountdownEvent* countdown);
+	/** @brief return the current event count of the CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *
+	 *  @return The current event count
+	 */
+	WINPR_API size_t CountdownEvent_CurrentCount(wCountdownEvent* countdown);
+
+	/** @brief return the initial event count of the CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *
+	 *  @return The initial event count
+	 */
+	WINPR_API size_t CountdownEvent_InitialCount(wCountdownEvent* countdown);
+
+	/** @brief return the current event state of the CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *
+	 *  @return \b TRUE if set, \b FALSE otherwise
+	 */
 	WINPR_API BOOL CountdownEvent_IsSet(wCountdownEvent* countdown);
+
+	/** @brief return the event HANDLE of the CountdownEvent to be used by \b WaitForSingleObject or
+	 * \b WaitForMultipleObjects
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *
+	 *  @return a \b HANDLE or \b NULL in case of failure
+	 */
 	WINPR_API HANDLE CountdownEvent_WaitHandle(wCountdownEvent* countdown);
 
-	WINPR_API void CountdownEvent_AddCount(wCountdownEvent* countdown, DWORD signalCount);
-	WINPR_API BOOL CountdownEvent_Signal(wCountdownEvent* countdown, DWORD signalCount);
-	WINPR_API void CountdownEvent_Reset(wCountdownEvent* countdown, DWORD count);
+	/** @brief add \b signalCount to the current event count of the CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *  @param signalCount The amount to add to CountdownEvent
+	 *
+	 */
+	WINPR_API void CountdownEvent_AddCount(wCountdownEvent* countdown, size_t signalCount);
 
-	WINPR_API wCountdownEvent* CountdownEvent_New(DWORD initialCount);
+	/** @brief Increase the current event signal state of the CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *  @param signalCount The amount of signaled events to add
+	 *
+	 *  @return \b TRUE if event is set, \b FALSE otherwise
+	 */
+	WINPR_API BOOL CountdownEvent_Signal(wCountdownEvent* countdown, size_t signalCount);
+
+	/** @brief reset the CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, must not be \b NULL
+	 *
+	 */
+	WINPR_API void CountdownEvent_Reset(wCountdownEvent* countdown, size_t count);
+
+	/** @brief Free a CountdownEvent
+	 *
+	 *  @param countdown A pointer to a CountdownEvent, may be \b NULL
+	 */
 	WINPR_API void CountdownEvent_Free(wCountdownEvent* countdown);
+
+	/** @brief Allocate a CountdownEvent with \b initialCount
+	 *
+	 *  @param initialCount The initial value of the event
+	 *
+	 *  @return The newly allocated event or \b NULL in case of failure
+	 */
+	WINPR_ATTR_MALLOC(CountdownEvent_Free, 1)
+	WINPR_API wCountdownEvent* CountdownEvent_New(size_t initialCount);
 
 	/* Hash Table */
 
@@ -354,8 +651,11 @@ extern "C"
 	WINPR_API void* HashTable_StringClone(const void* str);
 	WINPR_API void HashTable_StringFree(void* str);
 
-	WINPR_API wHashTable* HashTable_New(BOOL synchronized);
 	WINPR_API void HashTable_Free(wHashTable* table);
+
+	WINPR_ATTR_MALLOC(HashTable_Free, 1)
+	WINPR_API wHashTable* HashTable_New(BOOL synchronized);
+
 	WINPR_API void HashTable_Lock(wHashTable* table);
 	WINPR_API void HashTable_Unlock(wHashTable* table);
 
@@ -378,8 +678,10 @@ extern "C"
 	WINPR_API BOOL BufferPool_Return(wBufferPool* pool, void* buffer);
 	WINPR_API void BufferPool_Clear(wBufferPool* pool);
 
-	WINPR_API wBufferPool* BufferPool_New(BOOL synchronized, SSIZE_T fixedSize, DWORD alignment);
 	WINPR_API void BufferPool_Free(wBufferPool* pool);
+
+	WINPR_ATTR_MALLOC(BufferPool_Free, 1)
+	WINPR_API wBufferPool* BufferPool_New(BOOL synchronized, SSIZE_T fixedSize, DWORD alignment);
 
 	/* ObjectPool */
 
@@ -391,8 +693,10 @@ extern "C"
 
 	WINPR_API wObject* ObjectPool_Object(wObjectPool* pool);
 
-	WINPR_API wObjectPool* ObjectPool_New(BOOL synchronized);
 	WINPR_API void ObjectPool_Free(wObjectPool* pool);
+
+	WINPR_ATTR_MALLOC(ObjectPool_Free, 1)
+	WINPR_API wObjectPool* ObjectPool_New(BOOL synchronized);
 
 	/* Message Queue */
 
@@ -439,20 +743,6 @@ extern "C"
 	 */
 	WINPR_API int MessageQueue_Clear(wMessageQueue* queue);
 
-	/*! \brief Creates a new message queue.
-	 * 				 If 'callback' is null, no custom cleanup will be done
-	 * 				 on message queue deallocation.
-	 * 				 If the 'callback' argument contains valid uninit or
-	 * 				 free functions those will be called by
-	 * 				 'MessageQueue_Clear'.
-	 *
-	 * \param callback a pointer to custom initialization / cleanup functions.
-	 * 								 Can be NULL if not used.
-	 *
-	 * \return A pointer to a newly allocated MessageQueue or NULL.
-	 */
-	WINPR_API wMessageQueue* MessageQueue_New(const wObject* callback);
-
 	/*! \brief Frees resources allocated by a message queue.
 	 * 				 This function will only free resources allocated
 	 *				 internally.
@@ -466,6 +756,21 @@ extern "C"
 	 */
 	WINPR_API void MessageQueue_Free(wMessageQueue* queue);
 
+	/*! \brief Creates a new message queue.
+	 * 				 If 'callback' is null, no custom cleanup will be done
+	 * 				 on message queue deallocation.
+	 * 				 If the 'callback' argument contains valid uninit or
+	 * 				 free functions those will be called by
+	 * 				 'MessageQueue_Clear'.
+	 *
+	 * \param callback a pointer to custom initialization / cleanup functions.
+	 * 								 Can be NULL if not used.
+	 *
+	 * \return A pointer to a newly allocated MessageQueue or NULL.
+	 */
+	WINPR_ATTR_MALLOC(MessageQueue_Free, 1)
+	WINPR_API wMessageQueue* MessageQueue_New(const wObject* callback);
+
 	/* Message Pipe */
 
 	typedef struct
@@ -476,8 +781,10 @@ extern "C"
 
 	WINPR_API void MessagePipe_PostQuit(wMessagePipe* pipe, int nExitCode);
 
-	WINPR_API wMessagePipe* MessagePipe_New(void);
 	WINPR_API void MessagePipe_Free(wMessagePipe* pipe);
+
+	WINPR_ATTR_MALLOC(MessagePipe_Free, 1)
+	WINPR_API wMessagePipe* MessagePipe_New(void);
 
 	/* Publisher/Subscriber Pattern */
 
@@ -488,6 +795,12 @@ extern "C"
 	} wEventArgs;
 
 	typedef void (*pEventHandler)(void* context, const wEventArgs* e);
+
+#ifdef __cplusplus
+#define WINPR_EVENT_CAST(t, val) reinterpret_cast<t>(val)
+#else
+#define WINPR_EVENT_CAST(t, val) (t)(val)
+#endif
 
 #define MAX_EVENT_HANDLERS 32
 
@@ -517,14 +830,14 @@ extern "C"
 #define DEFINE_EVENT_SUBSCRIBE(name)                                                              \
 	static INLINE int PubSub_Subscribe##name(wPubSub* pubSub, p##name##EventHandler EventHandler) \
 	{                                                                                             \
-		return PubSub_Subscribe(pubSub, #name, (pEventHandler)EventHandler);                      \
+		return PubSub_Subscribe(pubSub, #name, EventHandler);                                     \
 	}
 
 #define DEFINE_EVENT_UNSUBSCRIBE(name)                                             \
 	static INLINE int PubSub_Unsubscribe##name(wPubSub* pubSub,                    \
 	                                           p##name##EventHandler EventHandler) \
 	{                                                                              \
-		return PubSub_Unsubscribe(pubSub, #name, (pEventHandler)EventHandler);     \
+		return PubSub_Unsubscribe(pubSub, #name, EventHandler);                    \
 	}
 
 #define DEFINE_EVENT_BEGIN(name) \
@@ -557,16 +870,16 @@ extern "C"
 	WINPR_API void PubSub_AddEventTypes(wPubSub* pubSub, wEventType* events, size_t count);
 	WINPR_API wEventType* PubSub_FindEventType(wPubSub* pubSub, const char* EventName);
 
-	WINPR_API int PubSub_Subscribe(wPubSub* pubSub, const char* EventName,
-	                               pEventHandler EventHandler);
-	WINPR_API int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName,
-	                                 pEventHandler EventHandler);
+	WINPR_API int PubSub_Subscribe(wPubSub* pubSub, const char* EventName, ...);
+	WINPR_API int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName, ...);
 
 	WINPR_API int PubSub_OnEvent(wPubSub* pubSub, const char* EventName, void* context,
 	                             const wEventArgs* e);
 
-	WINPR_API wPubSub* PubSub_New(BOOL synchronized);
 	WINPR_API void PubSub_Free(wPubSub* pubSub);
+
+	WINPR_ATTR_MALLOC(PubSub_Free, 1)
+	WINPR_API wPubSub* PubSub_New(BOOL synchronized);
 
 #ifdef __cplusplus
 }

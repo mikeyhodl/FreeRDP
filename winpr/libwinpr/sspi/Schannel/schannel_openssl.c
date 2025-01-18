@@ -33,6 +33,8 @@
 #include <openssl/err.h>
 #include <openssl/bio.h>
 
+#define LIMIT_INTMAX(a) ((a) > INT32_MAX) ? INT32_MAX : (int)(a)
+
 struct S_SCHANNEL_OPENSSL
 {
 	SSL* ssl;
@@ -65,16 +67,61 @@ static char* openssl_get_ssl_error_string(int ssl_error)
 
 		case SSL_ERROR_SSL:
 			return "SSL_ERROR_SSL";
+		default:
+			break;
 	}
 
 	return "SSL_ERROR_UNKNOWN";
 }
 
+static void schannel_context_cleanup(SCHANNEL_OPENSSL* context)
+{
+	WINPR_ASSERT(context);
+
+	free(context->ReadBuffer);
+	context->ReadBuffer = NULL;
+
+	if (context->bioWrite)
+		BIO_free_all(context->bioWrite);
+	context->bioWrite = NULL;
+
+	if (context->bioRead)
+		BIO_free_all(context->bioRead);
+	context->bioRead = NULL;
+
+	if (context->ssl)
+		SSL_free(context->ssl);
+	context->ssl = NULL;
+
+	if (context->ctx)
+		SSL_CTX_free(context->ctx);
+	context->ctx = NULL;
+}
+
+static const SSL_METHOD* get_method(BOOL server)
+{
+	if (server)
+	{
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+		return SSLv23_server_method();
+#else
+		return TLS_server_method();
+#endif
+	}
+	else
+	{
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+		return SSLv23_client_method();
+#else
+		return TLS_client_method();
+#endif
+	}
+}
 int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 {
-	int status;
+	int status = 0;
 	long options = 0;
-	context->ctx = SSL_CTX_new(SSLv23_client_method());
+	context->ctx = SSL_CTX_new(get_method(FALSE));
 
 	if (!context->ctx)
 	{
@@ -108,13 +155,13 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	 * support empty fragments. This needs to be disabled.
 	 */
 	options |= SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
-	SSL_CTX_set_options(context->ctx, options);
+	SSL_CTX_set_options(context->ctx, WINPR_ASSERTING_INT_CAST(uint64_t, options));
 	context->ssl = SSL_new(context->ctx);
 
 	if (!context->ssl)
 	{
 		WLog_ERR(TAG, "SSL_new failed");
-		goto out_ssl_new_failed;
+		goto fail;
 	}
 
 	context->bioRead = BIO_new(BIO_s_mem());
@@ -122,7 +169,7 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (!context->bioRead)
 	{
 		WLog_ERR(TAG, "BIO_new failed");
-		goto out_bio_read_failed;
+		goto fail;
 	}
 
 	status = BIO_set_write_buf_size(context->bioRead, SCHANNEL_CB_MAX_TOKEN);
@@ -130,7 +177,7 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (status != 1)
 	{
 		WLog_ERR(TAG, "BIO_set_write_buf_size on bioRead failed");
-		goto out_set_write_buf_read;
+		goto fail;
 	}
 
 	context->bioWrite = BIO_new(BIO_s_mem());
@@ -138,7 +185,7 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (!context->bioWrite)
 	{
 		WLog_ERR(TAG, "BIO_new failed");
-		goto out_bio_write_failed;
+		goto fail;
 	}
 
 	status = BIO_set_write_buf_size(context->bioWrite, SCHANNEL_CB_MAX_TOKEN);
@@ -146,7 +193,7 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (status != 1)
 	{
 		WLog_ERR(TAG, "BIO_set_write_buf_size on bioWrite failed");
-		goto out_set_write_buf_write;
+		goto fail;
 	}
 
 	status = BIO_make_bio_pair(context->bioRead, context->bioWrite);
@@ -154,7 +201,7 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (status != 1)
 	{
 		WLog_ERR(TAG, "BIO_make_bio_pair failed");
-		goto out_bio_pair;
+		goto fail;
 	}
 
 	SSL_set_bio(context->ssl, context->bioRead, context->bioWrite);
@@ -163,7 +210,7 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (!context->ReadBuffer)
 	{
 		WLog_ERR(TAG, "Failed to allocate ReadBuffer");
-		goto out_read_alloc;
+		goto fail;
 	}
 
 	context->WriteBuffer = (BYTE*)malloc(SCHANNEL_CB_MAX_TOKEN);
@@ -171,31 +218,21 @@ int schannel_openssl_client_init(SCHANNEL_OPENSSL* context)
 	if (!context->WriteBuffer)
 	{
 		WLog_ERR(TAG, "Failed to allocate ReadBuffer");
-		goto out_write_alloc;
+		goto fail;
 	}
 
 	return 0;
-out_write_alloc:
-	free(context->ReadBuffer);
-out_read_alloc:
-out_bio_pair:
-out_set_write_buf_write:
-	BIO_free_all(context->bioWrite);
-out_bio_write_failed:
-out_set_write_buf_read:
-	BIO_free_all(context->bioRead);
-out_bio_read_failed:
-	SSL_free(context->ssl);
-out_ssl_new_failed:
-	SSL_CTX_free(context->ctx);
+fail:
+	schannel_context_cleanup(context);
 	return -1;
 }
 
 int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 {
-	int status;
-	long options = 0;
-	context->ctx = SSL_CTX_new(SSLv23_server_method());
+	int status = 0;
+	unsigned long options = 0;
+
+	context->ctx = SSL_CTX_new(get_method(TRUE));
 
 	if (!context->ctx)
 	{
@@ -238,24 +275,26 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	options |= SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
 	SSL_CTX_set_options(context->ctx, options);
 
+#if defined(WITH_DEBUG_SCHANNEL)
 	if (SSL_CTX_use_RSAPrivateKey_file(context->ctx, "/tmp/localhost.key", SSL_FILETYPE_PEM) <= 0)
 	{
 		WLog_ERR(TAG, "SSL_CTX_use_RSAPrivateKey_file failed");
-		goto out_rsa_key;
+		goto fail;
 	}
+#endif
 
 	context->ssl = SSL_new(context->ctx);
 
 	if (!context->ssl)
 	{
 		WLog_ERR(TAG, "SSL_new failed");
-		goto out_ssl_new;
+		goto fail;
 	}
 
 	if (SSL_use_certificate_file(context->ssl, "/tmp/localhost.crt", SSL_FILETYPE_PEM) <= 0)
 	{
 		WLog_ERR(TAG, "SSL_use_certificate_file failed");
-		goto out_use_certificate;
+		goto fail;
 	}
 
 	context->bioRead = BIO_new(BIO_s_mem());
@@ -263,7 +302,7 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (!context->bioRead)
 	{
 		WLog_ERR(TAG, "BIO_new failed");
-		goto out_bio_read;
+		goto fail;
 	}
 
 	status = BIO_set_write_buf_size(context->bioRead, SCHANNEL_CB_MAX_TOKEN);
@@ -271,7 +310,7 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (status != 1)
 	{
 		WLog_ERR(TAG, "BIO_set_write_buf_size failed for bioRead");
-		goto out_set_write_buf_read;
+		goto fail;
 	}
 
 	context->bioWrite = BIO_new(BIO_s_mem());
@@ -279,7 +318,7 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (!context->bioWrite)
 	{
 		WLog_ERR(TAG, "BIO_new failed");
-		goto out_bio_write;
+		goto fail;
 	}
 
 	status = BIO_set_write_buf_size(context->bioWrite, SCHANNEL_CB_MAX_TOKEN);
@@ -287,7 +326,7 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (status != 1)
 	{
 		WLog_ERR(TAG, "BIO_set_write_buf_size failed for bioWrite");
-		goto out_set_write_buf_write;
+		goto fail;
 	}
 
 	status = BIO_make_bio_pair(context->bioRead, context->bioWrite);
@@ -295,7 +334,7 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (status != 1)
 	{
 		WLog_ERR(TAG, "BIO_make_bio_pair failed");
-		goto out_bio_pair;
+		goto fail;
 	}
 
 	SSL_set_bio(context->ssl, context->bioRead, context->bioWrite);
@@ -304,7 +343,7 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (!context->ReadBuffer)
 	{
 		WLog_ERR(TAG, "Failed to allocate memory for ReadBuffer");
-		goto out_read_buffer;
+		goto fail;
 	}
 
 	context->WriteBuffer = (BYTE*)malloc(SCHANNEL_CB_MAX_TOKEN);
@@ -312,25 +351,12 @@ int schannel_openssl_server_init(SCHANNEL_OPENSSL* context)
 	if (!context->WriteBuffer)
 	{
 		WLog_ERR(TAG, "Failed to allocate memory for WriteBuffer");
-		goto out_write_buffer;
+		goto fail;
 	}
 
 	return 0;
-out_write_buffer:
-	free(context->ReadBuffer);
-out_read_buffer:
-out_bio_pair:
-out_set_write_buf_write:
-	BIO_free_all(context->bioWrite);
-out_bio_write:
-out_set_write_buf_read:
-	BIO_free_all(context->bioRead);
-out_bio_read:
-out_use_certificate:
-	SSL_free(context->ssl);
-out_ssl_new:
-out_rsa_key:
-	SSL_CTX_free(context->ctx);
+fail:
+	schannel_context_cleanup(context);
 	return -1;
 }
 
@@ -338,9 +364,9 @@ SECURITY_STATUS schannel_openssl_client_process_tokens(SCHANNEL_OPENSSL* context
                                                        PSecBufferDesc pInput,
                                                        PSecBufferDesc pOutput)
 {
-	int status;
-	int ssl_error;
-	PSecBuffer pBuffer;
+	int status = 0;
+	int ssl_error = 0;
+	PSecBuffer pBuffer = NULL;
 
 	if (!context->connected)
 	{
@@ -355,7 +381,8 @@ SECURITY_STATUS schannel_openssl_client_process_tokens(SCHANNEL_OPENSSL* context
 				return SEC_E_INVALID_TOKEN;
 
 			ERR_clear_error();
-			status = BIO_write(context->bioRead, pBuffer->pvBuffer, pBuffer->cbBuffer);
+			status =
+			    BIO_write(context->bioRead, pBuffer->pvBuffer, LIMIT_INTMAX(pBuffer->cbBuffer));
 			if (status < 0)
 				return SEC_E_INVALID_TOKEN;
 		}
@@ -384,11 +411,12 @@ SECURITY_STATUS schannel_openssl_client_process_tokens(SCHANNEL_OPENSSL* context
 
 		if (status > 0)
 		{
-			if (pBuffer->cbBuffer < (unsigned long)status)
+			if (pBuffer->cbBuffer < WINPR_ASSERTING_INT_CAST(uint32_t, status))
 				return SEC_E_INSUFFICIENT_MEMORY;
 
-			CopyMemory(pBuffer->pvBuffer, context->ReadBuffer, status);
-			pBuffer->cbBuffer = status;
+			CopyMemory(pBuffer->pvBuffer, context->ReadBuffer,
+			           WINPR_ASSERTING_INT_CAST(uint32_t, status));
+			pBuffer->cbBuffer = WINPR_ASSERTING_INT_CAST(uint32_t, status);
 			return (context->connected) ? SEC_E_OK : SEC_I_CONTINUE_NEEDED;
 		}
 		else
@@ -405,9 +433,9 @@ SECURITY_STATUS schannel_openssl_server_process_tokens(SCHANNEL_OPENSSL* context
                                                        PSecBufferDesc pInput,
                                                        PSecBufferDesc pOutput)
 {
-	int status;
-	int ssl_error;
-	PSecBuffer pBuffer;
+	int status = 0;
+	int ssl_error = 0;
+	PSecBuffer pBuffer = NULL;
 
 	if (!context->connected)
 	{
@@ -420,7 +448,7 @@ SECURITY_STATUS schannel_openssl_server_process_tokens(SCHANNEL_OPENSSL* context
 			return SEC_E_INVALID_TOKEN;
 
 		ERR_clear_error();
-		status = BIO_write(context->bioRead, pBuffer->pvBuffer, pBuffer->cbBuffer);
+		status = BIO_write(context->bioRead, pBuffer->pvBuffer, LIMIT_INTMAX(pBuffer->cbBuffer));
 		if (status >= 0)
 			status = SSL_accept(context->ssl);
 
@@ -453,11 +481,12 @@ SECURITY_STATUS schannel_openssl_server_process_tokens(SCHANNEL_OPENSSL* context
 
 		if (status > 0)
 		{
-			if (pBuffer->cbBuffer < (unsigned long)status)
+			if (pBuffer->cbBuffer < WINPR_ASSERTING_INT_CAST(uint32_t, status))
 				return SEC_E_INSUFFICIENT_MEMORY;
 
-			CopyMemory(pBuffer->pvBuffer, context->ReadBuffer, status);
-			pBuffer->cbBuffer = status;
+			CopyMemory(pBuffer->pvBuffer, context->ReadBuffer,
+			           WINPR_ASSERTING_INT_CAST(uint32_t, status));
+			pBuffer->cbBuffer = WINPR_ASSERTING_INT_CAST(uint32_t, status);
 			return (context->connected) ? SEC_E_OK : SEC_I_CONTINUE_NEEDED;
 		}
 		else
@@ -472,11 +501,11 @@ SECURITY_STATUS schannel_openssl_server_process_tokens(SCHANNEL_OPENSSL* context
 
 SECURITY_STATUS schannel_openssl_encrypt_message(SCHANNEL_OPENSSL* context, PSecBufferDesc pMessage)
 {
-	int status;
-	int ssl_error;
-	PSecBuffer pStreamBodyBuffer;
-	PSecBuffer pStreamHeaderBuffer;
-	PSecBuffer pStreamTrailerBuffer;
+	int status = 0;
+	int ssl_error = 0;
+	PSecBuffer pStreamBodyBuffer = NULL;
+	PSecBuffer pStreamHeaderBuffer = NULL;
+	PSecBuffer pStreamTrailerBuffer = NULL;
 	pStreamHeaderBuffer = sspi_FindSecBuffer(pMessage, SECBUFFER_STREAM_HEADER);
 	pStreamBodyBuffer = sspi_FindSecBuffer(pMessage, SECBUFFER_DATA);
 	pStreamTrailerBuffer = sspi_FindSecBuffer(pMessage, SECBUFFER_STREAM_TRAILER);
@@ -484,7 +513,8 @@ SECURITY_STATUS schannel_openssl_encrypt_message(SCHANNEL_OPENSSL* context, PSec
 	if ((!pStreamHeaderBuffer) || (!pStreamBodyBuffer) || (!pStreamTrailerBuffer))
 		return SEC_E_INVALID_TOKEN;
 
-	status = SSL_write(context->ssl, pStreamBodyBuffer->pvBuffer, pStreamBodyBuffer->cbBuffer);
+	status = SSL_write(context->ssl, pStreamBodyBuffer->pvBuffer,
+	                   LIMIT_INTMAX(pStreamBodyBuffer->cbBuffer));
 
 	if (status < 0)
 	{
@@ -498,7 +528,7 @@ SECURITY_STATUS schannel_openssl_encrypt_message(SCHANNEL_OPENSSL* context, PSec
 	if (status > 0)
 	{
 		size_t ustatus = (size_t)status;
-		size_t length;
+		size_t length = 0;
 		size_t offset = 0;
 
 		length =
@@ -520,20 +550,20 @@ SECURITY_STATUS schannel_openssl_encrypt_message(SCHANNEL_OPENSSL* context, PSec
 
 SECURITY_STATUS schannel_openssl_decrypt_message(SCHANNEL_OPENSSL* context, PSecBufferDesc pMessage)
 {
-	int status;
-	int length;
-	BYTE* buffer;
-	int ssl_error;
-	PSecBuffer pBuffer;
+	int status = 0;
+	int length = 0;
+	BYTE* buffer = NULL;
+	int ssl_error = 0;
+	PSecBuffer pBuffer = NULL;
 	pBuffer = sspi_FindSecBuffer(pMessage, SECBUFFER_DATA);
 
 	if (!pBuffer)
 		return SEC_E_INVALID_TOKEN;
 
 	ERR_clear_error();
-	status = BIO_write(context->bioRead, pBuffer->pvBuffer, pBuffer->cbBuffer);
+	status = BIO_write(context->bioRead, pBuffer->pvBuffer, LIMIT_INTMAX(pBuffer->cbBuffer));
 	if (status > 0)
-		status = SSL_read(context->ssl, pBuffer->pvBuffer, pBuffer->cbBuffer);
+		status = SSL_read(context->ssl, pBuffer->pvBuffer, LIMIT_INTMAX(pBuffer->cbBuffer));
 
 	if (status < 0)
 	{
@@ -547,7 +577,7 @@ SECURITY_STATUS schannel_openssl_decrypt_message(SCHANNEL_OPENSSL* context, PSec
 	pMessage->pBuffers[0].cbBuffer = 5;
 	pMessage->pBuffers[1].BufferType = SECBUFFER_DATA;
 	pMessage->pBuffers[1].pvBuffer = buffer;
-	pMessage->pBuffers[1].cbBuffer = length;
+	pMessage->pBuffers[1].cbBuffer = WINPR_ASSERTING_INT_CAST(uint32_t, length);
 	pMessage->pBuffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
 	pMessage->pBuffers[2].cbBuffer = 36;
 	pMessage->pBuffers[3].BufferType = SECBUFFER_EMPTY;
@@ -555,9 +585,9 @@ SECURITY_STATUS schannel_openssl_decrypt_message(SCHANNEL_OPENSSL* context, PSec
 	return SEC_E_OK;
 }
 
-SCHANNEL_OPENSSL* schannel_openssl_new()
+SCHANNEL_OPENSSL* schannel_openssl_new(void)
 {
-	SCHANNEL_OPENSSL* context;
+	SCHANNEL_OPENSSL* context = NULL;
 	context = (SCHANNEL_OPENSSL*)calloc(1, sizeof(SCHANNEL_OPENSSL));
 
 	if (context != NULL)

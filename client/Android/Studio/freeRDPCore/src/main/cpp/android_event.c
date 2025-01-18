@@ -19,10 +19,6 @@
 
 #define TAG CLIENT_TAG("android")
 
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
 #include "android_freerdp.h"
 #include "android_cliprdr.h"
 
@@ -61,7 +57,6 @@ static ANDROID_EVENT* android_peek_event(ANDROID_EVENT_QUEUE* queue)
 
 static ANDROID_EVENT* android_pop_event(ANDROID_EVENT_QUEUE* queue)
 {
-	int i;
 	ANDROID_EVENT* event;
 
 	if (queue->count < 1)
@@ -70,7 +65,7 @@ static ANDROID_EVENT* android_pop_event(ANDROID_EVENT_QUEUE* queue)
 	event = queue->events[0];
 	(queue->count)--;
 
-	for (i = 0; i < queue->count; i++)
+	for (size_t i = 0; i < queue->count; i++)
 	{
 		queue->events[i] = queue->events[i + 1];
 	}
@@ -128,7 +123,7 @@ static BOOL android_process_event(ANDROID_EVENT_QUEUE* queue, freerdp* inst)
 			case EVENT_TYPE_CLIPBOARD:
 			{
 				ANDROID_EVENT_CLIPBOARD* clipboard_event = (ANDROID_EVENT_CLIPBOARD*)event;
-				UINT32 formatId = ClipboardRegisterFormat(afc->clipboard, "UTF8_STRING");
+				UINT32 formatId = ClipboardRegisterFormat(afc->clipboard, "text/plain");
 				UINT32 size = clipboard_event->data_length;
 
 				if (size)
@@ -136,7 +131,7 @@ static BOOL android_process_event(ANDROID_EVENT_QUEUE* queue, freerdp* inst)
 				else
 					ClipboardEmpty(afc->clipboard);
 
-				android_cliprdr_send_client_format_list(afc->cliprdr);
+				rc = (android_cliprdr_send_client_format_list(afc->cliprdr) == CHANNEL_RC_OK);
 			}
 			break;
 
@@ -330,7 +325,7 @@ BOOL android_event_queue_init(freerdp* inst)
 	if (!queue->events)
 	{
 		WLog_ERR(TAG, "android_event_queue_init: memory allocation failed");
-		CloseHandle(queue->isSet);
+		(void)CloseHandle(queue->isSet);
 		free(queue);
 		return FALSE;
 	}
@@ -354,7 +349,7 @@ void android_event_queue_uninit(freerdp* inst)
 	{
 		if (queue->isSet)
 		{
-			CloseHandle(queue->isSet);
+			(void)CloseHandle(queue->isSet);
 			queue->isSet = NULL;
 		}
 

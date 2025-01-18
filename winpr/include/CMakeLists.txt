@@ -15,17 +15,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-configure_file(config/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/version.h)
-configure_file(config/wtypes.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/wtypes.h)
-configure_file(config/build-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/build-config.h)
-configure_file(config/buildflags.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/buildflags.h)
-configure_file(config/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/config.h)
+cleaning_configure_file(config/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/version.h)
+cleaning_configure_file(config/build-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/build-config.h)
+cleaning_configure_file(config/buildflags.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/buildflags.h)
+cleaning_configure_file(config/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/winpr/config.h)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
-	DESTINATION ${WINPR_INCLUDE_DIR}
-        FILES_MATCHING PATTERN "*.h")
+file(GLOB_RECURSE WINPR_PUBLIC_COMMON_HEADERS LIST_DIRECTORIES false "winpr/*.h")
 
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
-	DESTINATION ${WINPR_INCLUDE_DIR}
-        FILES_MATCHING PATTERN "*.h")
+set(WINPR_PUBLIC_TOOLS_HEADERS ${WINPR_PUBLIC_COMMON_HEADERS})
+list(FILTER WINPR_PUBLIC_TOOLS_HEADERS INCLUDE REGEX ".*winpr/tools.*")
+list(FILTER WINPR_PUBLIC_COMMON_HEADERS EXCLUDE REGEX ".*winpr/tools.*")
 
+file(GLOB_RECURSE WINPR_PUBLIC_COMMON_BIN_HEADERS LIST_DIRECTORIES false "${CMAKE_CURRENT_BINARY_DIR}/*.h")
+list(APPEND WINPR_PUBLIC_COMMON_HEADERS ${WINPR_PUBLIC_COMMON_BIN_HEADERS})
+list(SORT WINPR_PUBLIC_COMMON_HEADERS)
+
+set_property(TARGET winpr APPEND PROPERTY SOURCES ${WINPR_PUBLIC_COMMON_HEADERS})
+
+if(WITH_WINPR_TOOLS)
+  set_property(TARGET winpr-tools APPEND PROPERTY SOURCES ${WINPR_PUBLIC_TOOLS_HEADERS})
+endif()
+
+add_library(winpr-headers INTERFACE)
+target_sources(winpr-headers INTERFACE ${WINPR_PUBLIC_COMMON_HEADERS})
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/winpr DESTINATION ${WINPR_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
+
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/winpr DESTINATION ${WINPR_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")

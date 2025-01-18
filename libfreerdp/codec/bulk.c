@@ -17,16 +17,19 @@
  * limitations under the License.
  */
 
+#include <math.h>
 #include <winpr/assert.h>
 
 #include <freerdp/config.h>
 
+#include "../core/settings.h"
 #include "bulk.h"
 #include "../codec/mppc.h"
 #include "../codec/ncrush.h"
 #include "../codec/xcrush.h"
 
-#define TAG "com.freerdp.core"
+#include <freerdp/log.h>
+#define TAG FREERDP_TAG("core")
 
 //#define WITH_BULK_DEBUG 1
 
@@ -34,7 +37,7 @@ struct rdp_bulk
 {
 	ALIGN64 rdpContext* context;
 	ALIGN64 UINT32 CompressionLevel;
-	ALIGN64 UINT32 CompressionMaxSize;
+	ALIGN64 UINT16 CompressionMaxSize;
 	ALIGN64 MPPC_CONTEXT* mppcSend;
 	ALIGN64 MPPC_CONTEXT* mppcRecv;
 	ALIGN64 NCRUSH_CONTEXT* ncrushRecv;
@@ -70,9 +73,9 @@ static INLINE const char* bulk_get_compression_flags_string(UINT32 flags)
 }
 #endif
 
-static UINT32 bulk_compression_level(rdpBulk* bulk)
+static UINT32 bulk_compression_level(rdpBulk* WINPR_RESTRICT bulk)
 {
-	rdpSettings* settings;
+	rdpSettings* settings = NULL;
 	WINPR_ASSERT(bulk);
 	WINPR_ASSERT(bulk->context);
 	settings = bulk->context->settings;
@@ -80,14 +83,15 @@ static UINT32 bulk_compression_level(rdpBulk* bulk)
 	bulk->CompressionLevel = (settings->CompressionLevel >= PACKET_COMPR_TYPE_RDP61)
 	                             ? PACKET_COMPR_TYPE_RDP61
 	                             : settings->CompressionLevel;
+	WINPR_ASSERT(bulk->CompressionLevel <= UINT16_MAX);
 	return bulk->CompressionLevel;
 }
 
-UINT32 bulk_compression_max_size(rdpBulk* bulk)
+UINT16 bulk_compression_max_size(rdpBulk* WINPR_RESTRICT bulk)
 {
 	WINPR_ASSERT(bulk);
-	bulk_compression_level(bulk);
-	bulk->CompressionMaxSize = (bulk->CompressionLevel < PACKET_COMPR_TYPE_64K) ? 8192 : 65536;
+	(void)bulk_compression_level(bulk);
+	bulk->CompressionMaxSize = (bulk->CompressionLevel < PACKET_COMPR_TYPE_64K) ? 8192 : UINT16_MAX;
 	return bulk->CompressionMaxSize;
 }
 
@@ -143,15 +147,11 @@ static INLINE int bulk_compress_validate(rdpBulk* bulk, const BYTE* pSrcData, UI
 }
 #endif
 
-int bulk_decompress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const BYTE** ppDstData,
-                    UINT32* pDstSize, UINT32 flags)
+int bulk_decompress(rdpBulk* WINPR_RESTRICT bulk, const BYTE* WINPR_RESTRICT pSrcData,
+                    UINT32 SrcSize, const BYTE** WINPR_RESTRICT ppDstData,
+                    UINT32* WINPR_RESTRICT pDstSize, UINT32 flags)
 {
-	UINT32 type;
 	int status = -1;
-	rdpMetrics* metrics;
-	UINT32 CompressedBytes;
-	UINT32 UncompressedBytes;
-	double CompressionRatio;
 
 	WINPR_ASSERT(bulk);
 	WINPR_ASSERT(bulk->context);
@@ -159,11 +159,11 @@ int bulk_decompress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const B
 	WINPR_ASSERT(ppDstData);
 	WINPR_ASSERT(pDstSize);
 
-	metrics = bulk->context->metrics;
+	rdpMetrics* metrics = bulk->context->metrics;
 	WINPR_ASSERT(metrics);
 
-	bulk_compression_max_size(bulk);
-	type = flags & BULK_COMPRESSION_TYPE_MASK;
+	(void)bulk_compression_max_size(bulk);
+	const UINT32 type = flags & BULK_COMPRESSION_TYPE_MASK;
 
 	if (flags & BULK_COMPRESSION_FLAGS_MASK)
 	{
@@ -211,9 +211,10 @@ int bulk_decompress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const B
 
 	if (status >= 0)
 	{
-		CompressedBytes = SrcSize;
-		UncompressedBytes = *pDstSize;
-		CompressionRatio = metrics_write_bytes(metrics, UncompressedBytes, CompressedBytes);
+		const UINT32 CompressedBytes = SrcSize;
+		const UINT32 UncompressedBytes = *pDstSize;
+		const double CompressionRatio =
+		    metrics_write_bytes(metrics, UncompressedBytes, CompressedBytes);
 #ifdef WITH_BULK_DEBUG
 		{
 			WLog_DBG(TAG,
@@ -236,14 +237,11 @@ int bulk_decompress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const B
 	return status;
 }
 
-int bulk_compress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const BYTE** ppDstData,
-                  UINT32* pDstSize, UINT32* pFlags)
+int bulk_compress(rdpBulk* WINPR_RESTRICT bulk, const BYTE* WINPR_RESTRICT pSrcData, UINT32 SrcSize,
+                  const BYTE** WINPR_RESTRICT ppDstData, UINT32* WINPR_RESTRICT pDstSize,
+                  UINT32* WINPR_RESTRICT pFlags)
 {
 	int status = -1;
-	rdpMetrics* metrics;
-	UINT32 CompressedBytes;
-	UINT32 UncompressedBytes;
-	double CompressionRatio;
 
 	WINPR_ASSERT(bulk);
 	WINPR_ASSERT(bulk->context);
@@ -251,7 +249,7 @@ int bulk_compress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const BYT
 	WINPR_ASSERT(ppDstData);
 	WINPR_ASSERT(pDstSize);
 
-	metrics = bulk->context->metrics;
+	rdpMetrics* metrics = bulk->context->metrics;
 	WINPR_ASSERT(metrics);
 
 	if ((SrcSize <= 50) || (SrcSize >= 16384))
@@ -262,8 +260,8 @@ int bulk_compress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const BYT
 	}
 
 	*pDstSize = sizeof(bulk->OutputBuffer);
-	bulk_compression_level(bulk);
-	bulk_compression_max_size(bulk);
+	(void)bulk_compression_level(bulk);
+	(void)bulk_compression_max_size(bulk);
 
 	switch (bulk->CompressionLevel)
 	{
@@ -293,9 +291,10 @@ int bulk_compress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const BYT
 
 	if (status >= 0)
 	{
-		CompressedBytes = *pDstSize;
-		UncompressedBytes = SrcSize;
-		CompressionRatio = metrics_write_bytes(metrics, UncompressedBytes, CompressedBytes);
+		const UINT32 CompressedBytes = *pDstSize;
+		const UINT32 UncompressedBytes = SrcSize;
+		const double CompressionRatio =
+		    metrics_write_bytes(metrics, UncompressedBytes, CompressedBytes);
 #ifdef WITH_BULK_DEBUG
 		{
 			WLog_DBG(TAG,
@@ -321,7 +320,7 @@ int bulk_compress(rdpBulk* bulk, const BYTE* pSrcData, UINT32 SrcSize, const BYT
 	return status;
 }
 
-void bulk_reset(rdpBulk* bulk)
+void bulk_reset(rdpBulk* WINPR_RESTRICT bulk)
 {
 	WINPR_ASSERT(bulk);
 
@@ -335,7 +334,7 @@ void bulk_reset(rdpBulk* bulk)
 
 rdpBulk* bulk_new(rdpContext* context)
 {
-	rdpBulk* bulk;
+	rdpBulk* bulk = NULL;
 	WINPR_ASSERT(context);
 
 	bulk = (rdpBulk*)calloc(1, sizeof(rdpBulk));
@@ -366,7 +365,10 @@ rdpBulk* bulk_new(rdpContext* context)
 
 	return bulk;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	bulk_free(bulk);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 

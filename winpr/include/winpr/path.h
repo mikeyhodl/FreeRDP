@@ -25,9 +25,9 @@
 #include <winpr/error.h>
 #include <winpr/wtypes.h>
 
-//#define HAVE_PATHCCH_H	1
+//#define WINPR_HAVE_PATHCCH_H	1
 
-#ifdef HAVE_PATHCCH_H
+#ifdef WINPR_HAVE_PATHCCH_H
 
 #include <Pathcch.h>
 
@@ -293,22 +293,53 @@ extern "C"
  * Shell Path Functions
  */
 
-#define KNOWN_PATH_HOME 1
-#define KNOWN_PATH_TEMP 2
-#define KNOWN_PATH_XDG_DATA_HOME 3
-#define KNOWN_PATH_XDG_CONFIG_HOME 4
-#define KNOWN_PATH_XDG_CACHE_HOME 5
-#define KNOWN_PATH_XDG_RUNTIME_DIR 6
+typedef enum
+{
+	KNOWN_PATH_HOME = 1,
+	KNOWN_PATH_TEMP = 2,
+	KNOWN_PATH_XDG_DATA_HOME = 3,
+	KNOWN_PATH_XDG_CONFIG_HOME = 4,
+	KNOWN_PATH_XDG_CACHE_HOME = 5,
+	KNOWN_PATH_XDG_RUNTIME_DIR = 6,
+	KNOWN_PATH_SYSTEM_CONFIG_HOME = 7
+} eKnownPathTypes;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	WINPR_API char* GetKnownPath(int id);
-	WINPR_API char* GetKnownSubPath(int id, const char* path);
+	/** @brief Return the absolute path of a configuration file (the path of the configuration
+	 * directory if \b filename is \b NULL)
+	 *
+	 *  @param system a boolean indicating the configuration base, \b TRUE for system configuration,
+	 * \b FALSE for user configuration
+	 *  @param filename an optional configuration file name to append.
+	 *
+	 *  @return The absolute path of the desired configuration or \b NULL in case of failure. Use \b
+	 * free to clean up the allocated string.
+	 *
+	 *
+	 *  @since version 3.9.0
+	 */
+	WINPR_ATTR_MALLOC(free, 1)
+	WINPR_API char* winpr_GetConfigFilePath(BOOL system, const char* filename);
+
+	WINPR_API const char* GetKnownPathIdString(int id);
+
+	WINPR_ATTR_MALLOC(free, 1)
+	WINPR_API char* GetKnownPath(eKnownPathTypes id);
+
+	WINPR_ATTR_MALLOC(free, 1)
+	WINPR_API char* GetKnownSubPath(eKnownPathTypes id, const char* path);
+
+	WINPR_ATTR_MALLOC(free, 1)
 	WINPR_API char* GetEnvironmentPath(char* name);
+
+	WINPR_ATTR_MALLOC(free, 1)
 	WINPR_API char* GetEnvironmentSubPath(char* name, const char* path);
+
+	WINPR_ATTR_MALLOC(free, 1)
 	WINPR_API char* GetCombinedPath(const char* basePath, const char* subPath);
 
 	WINPR_API BOOL PathMakePathA(LPCSTR path, LPSECURITY_ATTRIBUTES lpAttributes);
@@ -339,6 +370,8 @@ extern "C"
 	WINPR_API BOOL winpr_MoveFileEx(LPCSTR lpExistingFileName, LPCSTR lpNewFileName, DWORD dwFlags);
 	WINPR_API BOOL winpr_DeleteFile(const char* lpFileName);
 	WINPR_API BOOL winpr_RemoveDirectory(LPCSTR lpPathName);
+	WINPR_API BOOL winpr_RemoveDirectory_RecursiveA(LPCSTR lpPathName);
+	WINPR_API BOOL winpr_RemoveDirectory_RecursiveW(LPCWSTR lpPathName);
 	WINPR_API BOOL winpr_PathFileExists(const char* pszPath);
 	WINPR_API BOOL winpr_PathMakePath(const char* path, LPSECURITY_ATTRIBUTES lpAttributes);
 

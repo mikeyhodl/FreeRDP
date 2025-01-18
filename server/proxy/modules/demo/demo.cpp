@@ -21,6 +21,8 @@
 
 #include <iostream>
 
+#include <freerdp/api.h>
+#include <freerdp/scancode.h>
 #include <freerdp/server/proxy/proxy_modules_api.h>
 
 #define TAG MODULE_TAG("demo")
@@ -53,7 +55,7 @@ static BOOL demo_client_init_connect(proxyPlugin* plugin, proxyData* pdata, void
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -63,7 +65,7 @@ static BOOL demo_client_uninit_connect(proxyPlugin* plugin, proxyData* pdata, vo
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -73,7 +75,7 @@ static BOOL demo_client_pre_connect(proxyPlugin* plugin, proxyData* pdata, void*
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -83,7 +85,7 @@ static BOOL demo_client_post_connect(proxyPlugin* plugin, proxyData* pdata, void
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -93,7 +95,7 @@ static BOOL demo_client_post_disconnect(proxyPlugin* plugin, proxyData* pdata, v
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -103,7 +105,7 @@ static BOOL demo_client_x509_certificate(proxyPlugin* plugin, proxyData* pdata, 
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -113,7 +115,7 @@ static BOOL demo_client_login_failure(proxyPlugin* plugin, proxyData* pdata, voi
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -123,7 +125,7 @@ static BOOL demo_client_end_paint(proxyPlugin* plugin, proxyData* pdata, void* c
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -133,7 +135,7 @@ static BOOL demo_client_redirect(proxyPlugin* plugin, proxyData* pdata, void* cu
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -143,7 +145,7 @@ static BOOL demo_server_post_connect(proxyPlugin* plugin, proxyData* pdata, void
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -153,7 +155,7 @@ static BOOL demo_server_peer_activate(proxyPlugin* plugin, proxyData* pdata, voi
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -163,7 +165,7 @@ static BOOL demo_server_channels_init(proxyPlugin* plugin, proxyData* pdata, voi
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -173,7 +175,7 @@ static BOOL demo_server_channels_free(proxyPlugin* plugin, proxyData* pdata, voi
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
@@ -183,13 +185,13 @@ static BOOL demo_server_session_end(proxyPlugin* plugin, proxyData* pdata, void*
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(custom);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called");
 	return TRUE;
 }
 
 static BOOL demo_filter_keyboard_event(proxyPlugin* plugin, proxyData* pdata, void* param)
 {
-	proxyPluginsManager* mgr;
+	proxyPluginsManager* mgr = nullptr;
 	auto event_data = static_cast<const proxyKeyboardEventInfo*>(param);
 
 	WINPR_ASSERT(plugin);
@@ -214,7 +216,7 @@ static BOOL demo_filter_keyboard_event(proxyPlugin* plugin, proxyData* pdata, vo
 
 static BOOL demo_filter_unicode_event(proxyPlugin* plugin, proxyData* pdata, void* param)
 {
-	proxyPluginsManager* mgr;
+	proxyPluginsManager* mgr = nullptr;
 	auto event_data = static_cast<const proxyUnicodeEventInfo*>(param);
 
 	WINPR_ASSERT(plugin);
@@ -245,7 +247,7 @@ static BOOL demo_mouse_event(proxyPlugin* plugin, proxyData* pdata, void* param)
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(event_data);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called %p", event_data);
 	return TRUE;
 }
 
@@ -257,46 +259,45 @@ static BOOL demo_mouse_ex_event(proxyPlugin* plugin, proxyData* pdata, void* par
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(event_data);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called %p", event_data);
 	return TRUE;
 }
 
 static BOOL demo_client_channel_data(proxyPlugin* plugin, proxyData* pdata, void* param)
 {
-	const proxyChannelDataEventInfo* channel = static_cast<const proxyChannelDataEventInfo*>(param);
+	const auto* channel = static_cast<const proxyChannelDataEventInfo*>(param);
 
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(channel);
 
-	WLog_INFO(TAG, "%s: %s [0x%04" PRIx16 "] got %" PRIuz, __FUNCTION__, channel->channel_name,
-	          channel->channel_id, channel->data_len);
+	WLog_INFO(TAG, "%s [0x%04" PRIx16 "] got %" PRIuz, channel->channel_name, channel->channel_id,
+	          channel->data_len);
 	return TRUE;
 }
 
 static BOOL demo_server_channel_data(proxyPlugin* plugin, proxyData* pdata, void* param)
 {
-	const proxyChannelDataEventInfo* channel = static_cast<const proxyChannelDataEventInfo*>(param);
+	const auto* channel = static_cast<const proxyChannelDataEventInfo*>(param);
 
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(channel);
 
-	WLog_WARN(TAG, "%s: %s [0x%04" PRIx16 "] got %" PRIuz, __FUNCTION__, channel->channel_name,
-	          channel->channel_id, channel->data_len);
+	WLog_WARN(TAG, "%s [0x%04" PRIx16 "] got %" PRIuz, channel->channel_name, channel->channel_id,
+	          channel->data_len);
 	return TRUE;
 }
 
 static BOOL demo_dynamic_channel_create(proxyPlugin* plugin, proxyData* pdata, void* param)
 {
-	const proxyChannelDataEventInfo* channel = static_cast<const proxyChannelDataEventInfo*>(param);
+	const auto* channel = static_cast<const proxyChannelDataEventInfo*>(param);
 
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(channel);
 
-	WLog_WARN(TAG, "%s: %s [0x%04" PRIx16 "]", __FUNCTION__, channel->channel_name,
-	          channel->channel_id);
+	WLog_WARN(TAG, "%s [0x%04" PRIx16 "]", channel->channel_name, channel->channel_id);
 	return TRUE;
 }
 
@@ -308,7 +309,7 @@ static BOOL demo_server_fetch_target_addr(proxyPlugin* plugin, proxyData* pdata,
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(event_data);
 
-	WLog_INFO(TAG, "%s", __FUNCTION__);
+	WLog_INFO(TAG, "called %p", event_data);
 	return TRUE;
 }
 
@@ -320,7 +321,43 @@ static BOOL demo_server_peer_logon(proxyPlugin* plugin, proxyData* pdata, void* 
 	WINPR_ASSERT(info);
 	WINPR_ASSERT(info->identity);
 
-	WLog_INFO(TAG, "%s: %d", __FUNCTION__, info->automatic);
+	WLog_INFO(TAG, "%d", info->automatic);
+	return TRUE;
+}
+
+static BOOL demo_dyn_channel_intercept_list(proxyPlugin* plugin, proxyData* pdata, void* arg)
+{
+	auto data = static_cast<proxyChannelToInterceptData*>(arg);
+
+	WINPR_ASSERT(plugin);
+	WINPR_ASSERT(pdata);
+	WINPR_ASSERT(data);
+
+	WLog_INFO(TAG, "%s: %p", __func__, data);
+	return TRUE;
+}
+
+static BOOL demo_static_channel_intercept_list(proxyPlugin* plugin, proxyData* pdata, void* arg)
+{
+	auto data = static_cast<proxyChannelToInterceptData*>(arg);
+
+	WINPR_ASSERT(plugin);
+	WINPR_ASSERT(pdata);
+	WINPR_ASSERT(data);
+
+	WLog_INFO(TAG, "%s: %p", __func__, data);
+	return TRUE;
+}
+
+static BOOL demo_dyn_channel_intercept(proxyPlugin* plugin, proxyData* pdata, void* arg)
+{
+	auto data = static_cast<proxyDynChannelInterceptData*>(arg);
+
+	WINPR_ASSERT(plugin);
+	WINPR_ASSERT(pdata);
+	WINPR_ASSERT(data);
+
+	WLog_INFO(TAG, "%s: %p", __func__, data);
 	return TRUE;
 }
 
@@ -335,7 +372,7 @@ extern "C"
 
 BOOL proxy_module_entry_point(proxyPluginsManager* plugins_manager, void* userdata)
 {
-	struct demo_custom_data* custom;
+	struct demo_custom_data* custom = nullptr;
 	proxyPlugin plugin = {};
 
 	plugin.name = plugin_name;
@@ -364,6 +401,11 @@ BOOL proxy_module_entry_point(proxyPluginsManager* plugins_manager, void* userda
 	plugin.DynamicChannelCreate = demo_dynamic_channel_create;
 	plugin.ServerFetchTargetAddr = demo_server_fetch_target_addr;
 	plugin.ServerPeerLogon = demo_server_peer_logon;
+
+	plugin.StaticChannelToIntercept = demo_static_channel_intercept_list;
+	plugin.DynChannelToIntercept = demo_dyn_channel_intercept_list;
+	plugin.DynChannelIntercept = demo_dyn_channel_intercept;
+
 	plugin.userdata = userdata;
 
 	custom = new (struct demo_custom_data);

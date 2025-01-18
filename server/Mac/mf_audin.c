@@ -5,6 +5,7 @@
  * Copyright 2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
  * Copyright 2015 Thincast Technologies GmbH
  * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
+ * Copyright 2023 Pascal Nowack <Pascal.Nowack@gmx.de>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,52 +25,40 @@
 #include "mfreerdp.h"
 
 #include "mf_audin.h"
+#include "mf_interface.h"
 
 #include <freerdp/server/server-common.h>
 #include <freerdp/log.h>
 #define TAG SERVER_TAG("mac")
 
-/**
- * Function description
- *
- * @return 0 on success, otherwise a Win32 error code
- */
-static UINT mf_peer_audin_opening(audin_server_context* context)
+static UINT mf_peer_audin_data(audin_server_context* audin, const SNDIN_DATA* data)
 {
-	context->SelectFormat(context, 0);
+	/* TODO: Implement */
+	WINPR_ASSERT(audin);
+	WINPR_ASSERT(data);
+
+	WLog_WARN(TAG, "not implemented");
+	WLog_DBG(TAG, "receive %" PRIdz " bytes.", Stream_Length(data->Data));
 	return CHANNEL_RC_OK;
 }
 
-/**
- * Function description
- *
- * @return 0 on success, otherwise a Win32 error code
- */
-static UINT mf_peer_audin_open_result(audin_server_context* context, UINT32 result)
+BOOL mf_peer_audin_init(mfPeerContext* context)
 {
-	return CHANNEL_RC_OK;
-}
+	WINPR_ASSERT(context);
 
-/**
- * Function description
- *
- * @return 0 on success, otherwise a Win32 error code
- */
-static UINT mf_peer_audin_receive_samples(audin_server_context* context, const AUDIO_FORMAT* format,
-                                          wStream* buf, size_t nframes)
-{
-	return CHANNEL_RC_OK;
-}
-
-void mf_peer_audin_init(mfPeerContext* context)
-{
 	context->audin = audin_server_context_new(context->vcm);
 	context->audin->rdpcontext = &context->_p;
-	context->audin->data = context;
-	context->audin->num_server_formats = server_audin_get_formats(&context->audin->server_formats);
-	if (context->audin->num_server_formats > 0)
-		context->audin->dst_format = &context->audin->server_formats[0];
-	context->audin->Opening = mf_peer_audin_opening;
-	context->audin->OpenResult = mf_peer_audin_open_result;
-	context->audin->ReceiveSamples = mf_peer_audin_receive_samples;
+	context->audin->userdata = context;
+
+	context->audin->Data = mf_peer_audin_data;
+
+	return audin_server_set_formats(context->audin, -1, NULL);
+}
+
+void mf_peer_audin_uninit(mfPeerContext* context)
+{
+	WINPR_ASSERT(context);
+
+	audin_server_context_free(context->audin);
+	context->audin = NULL;
 }

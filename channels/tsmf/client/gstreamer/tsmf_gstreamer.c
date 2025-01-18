@@ -30,15 +30,9 @@
 #include <unistd.h>
 
 #include <winpr/string.h>
+#include <winpr/platform.h>
 
-#if __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wparentheses-equality"
-#endif /* __clang__ */
 #include <gst/gst.h>
-#if __clang__
-#pragma clang diagnostic pop
-#endif /* __clang__ */
 
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -772,8 +766,8 @@ static BOOL tsmf_gstreamer_decodeEx(ITSMFDecoder* decoder, const BYTE* data, UIN
 
 			mdecoder->seeking = TRUE;
 
-			/* since we cant make the gstreamer pipeline jump to the new start time after a seek -
-			 * we just maintain a offset between realtime and gstreamer time
+			/* since we can't make the gstreamer pipeline jump to the new start time after a seek -
+			 * we just maintain an offset between realtime and gstreamer time
 			 */
 			mdecoder->seek_offset = start_time;
 		}
@@ -1009,9 +1003,11 @@ static BOOL tsmf_gstreamer_sync(ITSMFDecoder* decoder, void (*cb)(void*), void* 
 	return TRUE;
 }
 
-ITSMFDecoder* gstreamer_freerdp_tsmf_client_decoder_subsystem_entry(void)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE gstreamer_freerdp_tsmf_client_decoder_subsystem_entry(void* ptr))
 {
-	TSMFGstreamerDecoder* decoder;
+	ITSMFDecoder** sptr = (ITSMFDecoder**)ptr;
+	WINPR_ASSERT(sptr);
+	*sptr = NULL;
 
 #if GST_CHECK_VERSION(0, 10, 31)
 	if (!gst_is_initialized())
@@ -1022,10 +1018,11 @@ ITSMFDecoder* gstreamer_freerdp_tsmf_client_decoder_subsystem_entry(void)
 	gst_init(NULL, NULL);
 #endif
 
+	TSMFGstreamerDecoder* decoder;
 	decoder = calloc(1, sizeof(TSMFGstreamerDecoder));
 
 	if (!decoder)
-		return NULL;
+		return ERROR_OUTOFMEMORY;
 
 	decoder->iface.SetFormat = tsmf_gstreamer_set_format;
 	decoder->iface.Decode = NULL;
@@ -1053,8 +1050,9 @@ ITSMFDecoder* gstreamer_freerdp_tsmf_client_decoder_subsystem_entry(void)
 	if (tsmf_platform_create(decoder) < 0)
 	{
 		free(decoder);
-		return NULL;
+		return ERROR_INTERNAL_ERROR;
 	}
 
-	return (ITSMFDecoder*)decoder;
+	*sptr = &decoder->iface;
+	return CHANNEL_RC_OK;
 }

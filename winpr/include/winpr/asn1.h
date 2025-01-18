@@ -158,7 +158,9 @@ extern "C"
 
 	/* encoder functions */
 
+	WINPR_API void WinPrAsn1Encoder_Free(WinPrAsn1Encoder** penc);
 	WINPR_API WinPrAsn1Encoder* WinPrAsn1Encoder_New(WinPrAsn1EncodingRule encoding);
+
 	WINPR_API void WinPrAsn1Encoder_Reset(WinPrAsn1Encoder* enc);
 
 	WINPR_API BOOL WinPrAsn1EncAppContainer(WinPrAsn1Encoder* enc, WinPrAsn1_tagId tagId);
@@ -189,9 +191,9 @@ extern "C"
 	WINPR_API size_t WinPrAsn1EncContextualOID(WinPrAsn1Encoder* enc, WinPrAsn1_tagId tagId,
 	                                           const WinPrAsn1_OID* oid);
 	WINPR_API size_t WinPrAsn1EncOctetString(WinPrAsn1Encoder* enc,
-	                                         const WinPrAsn1_OctetString* oid);
+	                                         const WinPrAsn1_OctetString* octetstring);
 	WINPR_API size_t WinPrAsn1EncContextualOctetString(WinPrAsn1Encoder* enc, WinPrAsn1_tagId tagId,
-	                                                   const WinPrAsn1_OctetString* oid);
+	                                                   const WinPrAsn1_OctetString* octetstring);
 	WINPR_API size_t WinPrAsn1EncIA5String(WinPrAsn1Encoder* enc, WinPrAsn1_IA5STRING ia5);
 	WINPR_API size_t WinPrAsn1EncGeneralString(WinPrAsn1Encoder* enc, WinPrAsn1_STRING str);
 	WINPR_API size_t WinPrAsn1EncContextualIA5String(WinPrAsn1Encoder* enc, WinPrAsn1_tagId tagId,
@@ -202,8 +204,6 @@ extern "C"
 
 	WINPR_API BOOL WinPrAsn1EncStreamSize(WinPrAsn1Encoder* enc, size_t* s);
 	WINPR_API BOOL WinPrAsn1EncToStream(WinPrAsn1Encoder* enc, wStream* s);
-
-	WINPR_API void WinPrAsn1Encoder_Free(WinPrAsn1Encoder** penc);
 
 #ifdef __cplusplus
 }

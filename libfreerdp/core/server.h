@@ -64,10 +64,12 @@ struct rdp_peer_channel
 	wMessageQueue* queue;
 
 	BYTE dvc_open_state;
+	INT32 creationStatus;
 	UINT32 dvc_total_length;
 	rdpMcsChannel* mcsChannel;
 
 	char channelName[128];
+	CRITICAL_SECTION writeLock;
 };
 
 struct WTSVirtualChannelManager
@@ -81,11 +83,12 @@ struct WTSVirtualChannelManager
 	rdpPeerChannel* drdynvc_channel;
 	BYTE drdynvc_state;
 	LONG dvc_channel_id_seq;
+	UINT16 dvc_spoken_version;
 
 	psDVCCreationStatusCallback dvc_creation_status;
 	void* dvc_creation_status_userdata;
 
-	wArrayList* dynamicVirtualChannels;
+	wHashTable* dynamicVirtualChannels;
 };
 
 FREERDP_LOCAL BOOL WINAPI FreeRDP_WTSStartRemoteControlSessionW(LPWSTR pTargetServerName,
@@ -261,5 +264,12 @@ FREERDP_LOCAL DWORD WINAPI FreeRDP_WTSGetActiveConsoleSessionId(void);
 FREERDP_LOCAL BOOL WINAPI FreeRDP_WTSLogoffUser(HANDLE hServer);
 FREERDP_LOCAL BOOL WINAPI FreeRDP_WTSLogonUser(HANDLE hServer, LPCSTR username, LPCSTR password,
                                                LPCSTR domain);
+
+FREERDP_LOCAL void server_channel_common_free(rdpPeerChannel*);
+
+WINPR_ATTR_MALLOC(server_channel_common_free, 1)
+FREERDP_LOCAL rdpPeerChannel* server_channel_common_new(freerdp_peer* client, UINT16 index,
+                                                        UINT32 channelId, size_t chunkSize,
+                                                        const wObject* callback, const char* name);
 
 #endif /* FREERDP_LIB_CORE_SERVER_H */

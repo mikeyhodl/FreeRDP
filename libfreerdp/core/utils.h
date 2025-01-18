@@ -24,11 +24,21 @@
 #include <winpr/winpr.h>
 #include <freerdp/freerdp.h>
 
+/* HTTP tunnel redir flags. */
+#define HTTP_TUNNEL_REDIR_ENABLE_ALL 0x80000000
+#define HTTP_TUNNEL_REDIR_DISABLE_ALL 0x40000000
+#define HTTP_TUNNEL_REDIR_DISABLE_DRIVE 0x1
+#define HTTP_TUNNEL_REDIR_DISABLE_PRINTER 0x2
+#define HTTP_TUNNEL_REDIR_DISABLE_PORT 0x4
+#define HTTP_TUNNEL_REDIR_DISABLE_CLIPBOARD 0x8
+#define HTTP_TUNNEL_REDIR_DISABLE_PNP 0x10
+
 typedef enum
 {
 	AUTH_SUCCESS,
 	AUTH_SKIP,
 	AUTH_NO_CREDENTIALS,
+	AUTH_CANCELLED,
 	AUTH_FAILED
 } auth_status;
 
@@ -36,12 +46,19 @@ auth_status utils_authenticate_gateway(freerdp* instance, rdp_auth_reason reason
 auth_status utils_authenticate(freerdp* instance, rdp_auth_reason reason, BOOL override);
 
 HANDLE utils_get_abort_event(rdpRdp* rdp);
-BOOL utils_abort_event_is_set(rdpRdp* rdp);
+BOOL utils_abort_event_is_set(const rdpRdp* rdp);
 BOOL utils_reset_abort(rdpRdp* rdp);
 BOOL utils_abort_connect(rdpRdp* rdp);
 BOOL utils_sync_credentials(rdpSettings* settings, BOOL toGateway);
 
 BOOL utils_str_is_empty(const char* str);
 BOOL utils_str_copy(const char* value, char** dst);
+
+const char* utils_is_vsock(const char* hostname);
+
+BOOL utils_apply_gateway_policy(wLog* log, rdpContext* context, UINT32 flags, const char* module);
+char* utils_redir_flags_to_string(UINT32 flags, char* buffer, size_t size);
+
+BOOL utils_reload_channels(rdpContext* context);
 
 #endif /* FREERDP_LIB_CORE_UTILS_H */

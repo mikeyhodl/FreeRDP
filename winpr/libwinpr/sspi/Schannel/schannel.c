@@ -33,7 +33,7 @@ static char* SCHANNEL_PACKAGE_NAME = "Schannel";
 
 SCHANNEL_CONTEXT* schannel_ContextNew(void)
 {
-	SCHANNEL_CONTEXT* context;
+	SCHANNEL_CONTEXT* context = NULL;
 	context = (SCHANNEL_CONTEXT*)calloc(1, sizeof(SCHANNEL_CONTEXT));
 
 	if (!context)
@@ -61,7 +61,7 @@ void schannel_ContextFree(SCHANNEL_CONTEXT* context)
 
 static SCHANNEL_CREDENTIALS* schannel_CredentialsNew(void)
 {
-	SCHANNEL_CREDENTIALS* credentials;
+	SCHANNEL_CREDENTIALS* credentials = NULL;
 	credentials = (SCHANNEL_CREDENTIALS*)calloc(1, sizeof(SCHANNEL_CREDENTIALS));
 	return credentials;
 }
@@ -114,7 +114,7 @@ static SECURITY_STATUS SEC_ENTRY schannel_QueryCredentialsAttributesW(PCredHandl
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement ulAttribute=%08" PRIx32, __FUNCTION__, ulAttribute);
+	WLog_ERR(TAG, "TODO: Implement ulAttribute=%08" PRIx32, ulAttribute);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -130,11 +130,11 @@ static SECURITY_STATUS SEC_ENTRY schannel_AcquireCredentialsHandleW(
     void* pAuthData, SEC_GET_KEY_FN pGetKeyFn, void* pvGetKeyArgument, PCredHandle phCredential,
     PTimeStamp ptsExpiry)
 {
-	SCHANNEL_CREDENTIALS* credentials;
+	SCHANNEL_CREDENTIALS* credentials = NULL;
 
 	if (fCredentialUse == SECPKG_CRED_OUTBOUND)
 	{
-		SCHANNEL_CRED* cred;
+		SCHANNEL_CRED* cred = NULL;
 		credentials = schannel_CredentialsNew();
 		credentials->fCredentialUse = fCredentialUse;
 		cred = (SCHANNEL_CRED*)pAuthData;
@@ -165,11 +165,14 @@ static SECURITY_STATUS SEC_ENTRY schannel_AcquireCredentialsHandleA(
     void* pAuthData, SEC_GET_KEY_FN pGetKeyFn, void* pvGetKeyArgument, PCredHandle phCredential,
     PTimeStamp ptsExpiry)
 {
-	SECURITY_STATUS status;
+	SECURITY_STATUS status = 0;
 	SEC_WCHAR* pszPrincipalW = NULL;
 	SEC_WCHAR* pszPackageW = NULL;
-	ConvertToUnicode(CP_UTF8, 0, pszPrincipal, -1, &pszPrincipalW, 0);
-	ConvertToUnicode(CP_UTF8, 0, pszPackage, -1, &pszPackageW, 0);
+	if (pszPrincipal)
+		pszPrincipalW = ConvertUtf8ToWCharAlloc(pszPrincipal, NULL);
+	if (pszPackage)
+		pszPackageW = ConvertUtf8ToWCharAlloc(pszPackage, NULL);
+
 	status = schannel_AcquireCredentialsHandleW(pszPrincipalW, pszPackageW, fCredentialUse,
 	                                            pvLogonID, pAuthData, pGetKeyFn, pvGetKeyArgument,
 	                                            phCredential, ptsExpiry);
@@ -180,7 +183,7 @@ static SECURITY_STATUS SEC_ENTRY schannel_AcquireCredentialsHandleA(
 
 static SECURITY_STATUS SEC_ENTRY schannel_FreeCredentialsHandle(PCredHandle phCredential)
 {
-	SCHANNEL_CREDENTIALS* credentials;
+	SCHANNEL_CREDENTIALS* credentials = NULL;
 
 	if (!phCredential)
 		return SEC_E_INVALID_HANDLE;
@@ -199,9 +202,9 @@ static SECURITY_STATUS SEC_ENTRY schannel_InitializeSecurityContextW(
     ULONG Reserved1, ULONG TargetDataRep, PSecBufferDesc pInput, ULONG Reserved2,
     PCtxtHandle phNewContext, PSecBufferDesc pOutput, PULONG pfContextAttr, PTimeStamp ptsExpiry)
 {
-	SECURITY_STATUS status;
-	SCHANNEL_CONTEXT* context;
-	SCHANNEL_CREDENTIALS* credentials;
+	SECURITY_STATUS status = 0;
+	SCHANNEL_CONTEXT* context = NULL;
+	SCHANNEL_CREDENTIALS* credentials = NULL;
 
 	/* behave like windows SSPIs that don't want empty context */
 	if (phContext && !phContext->dwLower && !phContext->dwUpper)
@@ -233,12 +236,14 @@ static SECURITY_STATUS SEC_ENTRY schannel_InitializeSecurityContextA(
     ULONG Reserved1, ULONG TargetDataRep, PSecBufferDesc pInput, ULONG Reserved2,
     PCtxtHandle phNewContext, PSecBufferDesc pOutput, PULONG pfContextAttr, PTimeStamp ptsExpiry)
 {
-	SECURITY_STATUS status;
+	SECURITY_STATUS status = 0;
 	SEC_WCHAR* pszTargetNameW = NULL;
 
 	if (pszTargetName != NULL)
 	{
-		ConvertToUnicode(CP_UTF8, 0, pszTargetName, -1, &pszTargetNameW, 0);
+		pszTargetNameW = ConvertUtf8ToWCharAlloc(pszTargetName, NULL);
+		if (!pszTargetNameW)
+			return SEC_E_INSUFFICIENT_MEMORY;
 	}
 
 	status = schannel_InitializeSecurityContextW(
@@ -253,8 +258,8 @@ static SECURITY_STATUS SEC_ENTRY schannel_AcceptSecurityContext(
     ULONG TargetDataRep, PCtxtHandle phNewContext, PSecBufferDesc pOutput, PULONG pfContextAttr,
     PTimeStamp ptsTimeStamp)
 {
-	SECURITY_STATUS status;
-	SCHANNEL_CONTEXT* context;
+	SECURITY_STATUS status = 0;
+	SCHANNEL_CONTEXT* context = NULL;
 
 	/* behave like windows SSPIs that don't want empty context */
 	if (phContext && !phContext->dwLower && !phContext->dwUpper)
@@ -281,7 +286,7 @@ static SECURITY_STATUS SEC_ENTRY schannel_AcceptSecurityContext(
 
 static SECURITY_STATUS SEC_ENTRY schannel_DeleteSecurityContext(PCtxtHandle phContext)
 {
-	SCHANNEL_CONTEXT* context;
+	SCHANNEL_CONTEXT* context = NULL;
 	context = (SCHANNEL_CONTEXT*)sspi_SecureHandleGetLowerPointer(phContext);
 
 	if (!context)
@@ -320,7 +325,7 @@ static SECURITY_STATUS SEC_ENTRY schannel_QueryContextAttributes(PCtxtHandle phC
 		return SEC_E_OK;
 	}
 
-	WLog_ERR(TAG, "[%s]: TODO: Implement ulAttribute=%08" PRIx32, __FUNCTION__, ulAttribute);
+	WLog_ERR(TAG, "TODO: Implement ulAttribute=%08" PRIx32, ulAttribute);
 	return SEC_E_UNSUPPORTED_FUNCTION;
 }
 
@@ -341,8 +346,8 @@ static SECURITY_STATUS SEC_ENTRY schannel_EncryptMessage(PCtxtHandle phContext, 
                                                          PSecBufferDesc pMessage,
                                                          ULONG MessageSeqNo)
 {
-	SECURITY_STATUS status;
-	SCHANNEL_CONTEXT* context;
+	SECURITY_STATUS status = 0;
+	SCHANNEL_CONTEXT* context = NULL;
 	context = (SCHANNEL_CONTEXT*)sspi_SecureHandleGetLowerPointer(phContext);
 
 	if (!context)
@@ -356,8 +361,8 @@ static SECURITY_STATUS SEC_ENTRY schannel_DecryptMessage(PCtxtHandle phContext,
                                                          PSecBufferDesc pMessage,
                                                          ULONG MessageSeqNo, ULONG* pfQOP)
 {
-	SECURITY_STATUS status;
-	SCHANNEL_CONTEXT* context;
+	SECURITY_STATUS status = 0;
+	SCHANNEL_CONTEXT* context = NULL;
 	context = (SCHANNEL_CONTEXT*)sspi_SecureHandleGetLowerPointer(phContext);
 
 	if (!context)
@@ -440,17 +445,23 @@ const SecPkgInfoA SCHANNEL_SecPkgInfoA = {
 	"Schannel Security Package" /* Comment */
 };
 
-static WCHAR SCHANNEL_SecPkgInfoW_Name[] = { 'S', 'c', 'h', 'a', 'n', 'n', 'e', 'l', '\0' };
-
-static WCHAR SCHANNEL_SecPkgInfoW_Comment[] = { 'S', 'c', 'h', 'a', 'n', 'n', 'e', 'l', ' ',
-	                                            'S', 'e', 'c', 'u', 'r', 'i', 't', 'y', ' ',
-	                                            'P', 'a', 'c', 'k', 'a', 'g', 'e', '\0' };
+static WCHAR SCHANNEL_SecPkgInfoW_NameBuffer[32] = { 0 };
+static WCHAR SCHANNEL_SecPkgInfoW_CommentBuffer[32] = { 0 };
 
 const SecPkgInfoW SCHANNEL_SecPkgInfoW = {
-	0x000107B3,                  /* fCapabilities */
-	1,                           /* wVersion */
-	0x000E,                      /* wRPCID */
-	SCHANNEL_CB_MAX_TOKEN,       /* cbMaxToken */
-	SCHANNEL_SecPkgInfoW_Name,   /* Name */
-	SCHANNEL_SecPkgInfoW_Comment /* Comment */
+	0x000107B3,                        /* fCapabilities */
+	1,                                 /* wVersion */
+	0x000E,                            /* wRPCID */
+	SCHANNEL_CB_MAX_TOKEN,             /* cbMaxToken */
+	SCHANNEL_SecPkgInfoW_NameBuffer,   /* Name */
+	SCHANNEL_SecPkgInfoW_CommentBuffer /* Comment */
 };
+
+BOOL SCHANNEL_init(void)
+{
+	InitializeConstWCharFromUtf8(SCHANNEL_SecPkgInfoA.Name, SCHANNEL_SecPkgInfoW_NameBuffer,
+	                             ARRAYSIZE(SCHANNEL_SecPkgInfoW_NameBuffer));
+	InitializeConstWCharFromUtf8(SCHANNEL_SecPkgInfoA.Comment, SCHANNEL_SecPkgInfoW_CommentBuffer,
+	                             ARRAYSIZE(SCHANNEL_SecPkgInfoW_CommentBuffer));
+	return TRUE;
+}

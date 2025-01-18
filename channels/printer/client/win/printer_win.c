@@ -23,6 +23,7 @@
 #include <freerdp/config.h>
 
 #include <winpr/crt.h>
+#include <winpr/wtsapi.h>
 #include <winpr/string.h>
 #include <winpr/windows.h>
 
@@ -136,7 +137,7 @@ static void printer_win_close_printjob(rdpPrintJob* printjob)
 	{
 	}
 
-	if (!ClosePrinter(win_printer->hPrinter))
+	if (!EndDocPrinter(win_printer->hPrinter))
 	{
 	}
 
@@ -208,6 +209,9 @@ static void printer_win_free_printer(rdpPrinter* printer)
 	if (win_printer->printjob)
 		win_printer->printjob->printjob.Close((rdpPrintJob*)win_printer->printjob);
 
+	if (win_printer->hPrinter)
+		ClosePrinter(win_printer->hPrinter);
+
 	if (printer->backend)
 		printer->backend->ReleaseRef(printer->backend);
 
@@ -237,8 +241,10 @@ static rdpPrinter* printer_win_new_printer(rdpWinPrinterDriver* win_driver, cons
 {
 	rdpWinPrinter* win_printer;
 	DWORD needed = 0;
-	int status;
 	PRINTER_INFO_2* prninfo = NULL;
+
+	if (!name)
+		return NULL;
 
 	win_printer = (rdpWinPrinter*)calloc(1, sizeof(rdpWinPrinter));
 	if (!win_printer)
@@ -246,7 +252,8 @@ static rdpPrinter* printer_win_new_printer(rdpWinPrinterDriver* win_driver, cons
 
 	win_printer->printer.backend = &win_driver->driver;
 	win_printer->printer.id = win_driver->id_sequence++;
-	if (ConvertFromUnicode(CP_UTF8, 0, name, -1, &win_printer->printer.name, 0, NULL, NULL) < 1)
+	win_printer->printer.name = ConvertWCharToUtf8Alloc(name, NULL);
+	if (!win_printer->printer.name)
 		goto fail;
 
 	if (!win_printer->printer.name)
@@ -277,13 +284,11 @@ static rdpPrinter* printer_win_new_printer(rdpWinPrinterDriver* win_driver, cons
 	}
 
 	if (drivername)
-		status = ConvertFromUnicode(CP_UTF8, 0, drivername, -1, &win_printer->printer.driver, 0,
-		                            NULL, NULL);
+		win_printer->printer.driver = ConvertWCharToUtf8Alloc(drivername, NULL);
 	else
-		status = ConvertFromUnicode(CP_UTF8, 0, prninfo->pDriverName, -1,
-		                            &win_printer->printer.driver, 0, NULL, NULL);
+		win_printer->printer.driver = ConvertWCharToUtf8Alloc(prninfo->pDriverName, NULL);
 	GlobalFree(prninfo);
-	if (!win_printer->printer.driver || (status <= 0))
+	if (!win_printer->printer.driver)
 		goto fail;
 
 	win_printer->printer.AddRef(&win_printer->printer);
@@ -312,7 +317,6 @@ static rdpPrinter** printer_win_enum_printers(rdpPrinterDriver* driver)
 {
 	rdpPrinter** printers;
 	int num_printers;
-	int i;
 	PRINTER_INFO_2* prninfo = NULL;
 	DWORD needed, returned;
 	BOOL haveDefault = FALSE;
@@ -358,7 +362,7 @@ static rdpPrinter** printer_win_enum_printers(rdpPrinterDriver* driver)
 
 	num_printers = 0;
 
-	for (i = 0; i < (int)returned; i++)
+	for (int i = 0; i < (int)returned; i++)
 	{
 		rdpPrinter* current = printers[num_printers];
 		current = printer_win_new_printer((rdpWinPrinterDriver*)driver, prninfo[i].pPrinterName,
@@ -393,13 +397,13 @@ static rdpPrinter* printer_win_get_printer(rdpPrinterDriver* driver, const char*
 
 	if (name)
 	{
-		ConvertToUnicode(CP_UTF8, 0, name, -1, &nameW, 0);
+		nameW = ConvertUtf8ToWCharAlloc(name, NULL);
 		if (!nameW)
 			return NULL;
 	}
 	if (driverName)
 	{
-		ConvertToUnicode(CP_UTF8, 0, driverName, -1, &driverNameW, 0);
+		driverNameW = ConvertUtf8ToWCharAlloc(driverName, NULL);
 		if (!driverNameW)
 			return NULL;
 	}
@@ -433,14 +437,18 @@ static void printer_win_release_ref_driver(rdpPrinterDriver* driver)
 		win->references--;
 }
 
-rdpPrinterDriver* win_freerdp_printer_client_subsystem_entry(void)
+FREERDP_ENTRY_POINT(UINT VCAPITYPE win_freerdp_printer_client_subsystem_entry(void* arg))
 {
+	rdpPrinterDriver** ppPrinter = (rdpPrinterDriver**)arg;
+	if (!ppPrinter)
+		return ERROR_INVALID_PARAMETER;
+
 	if (!win_driver)
 	{
 		win_driver = (rdpWinPrinterDriver*)calloc(1, sizeof(rdpWinPrinterDriver));
 
 		if (!win_driver)
-			return NULL;
+			return ERROR_OUTOFMEMORY;
 
 		win_driver->driver.EnumPrinters = printer_win_enum_printers;
 		win_driver->driver.ReleaseEnumPrinters = printer_win_release_enum_printers;
@@ -454,5 +462,6 @@ rdpPrinterDriver* win_freerdp_printer_client_subsystem_entry(void)
 
 	win_driver->driver.AddRef(&win_driver->driver);
 
-	return &win_driver->driver;
+	*ppPrinter = &win_driver->driver;
+	return CHANNEL_RC_OK;
 }

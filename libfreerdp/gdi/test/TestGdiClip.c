@@ -15,8 +15,8 @@
 static int test_gdi_ClipCoords(void)
 {
 	int rc = -1;
-	BOOL draw;
-	HGDI_DC hdc;
+	BOOL draw = 0;
+	HGDI_DC hdc = NULL;
 	HGDI_RGN rgn1 = NULL;
 	HGDI_RGN rgn2 = NULL;
 	HGDI_BITMAP bmp = NULL;
@@ -165,7 +165,7 @@ fail:
 static int test_gdi_InvalidateRegion(void)
 {
 	int rc = -1;
-	HGDI_DC hdc;
+	HGDI_DC hdc = NULL;
 	HGDI_RGN rgn1 = NULL;
 	HGDI_RGN rgn2 = NULL;
 	HGDI_RGN invalid = NULL;
@@ -324,19 +324,19 @@ fail:
 	gdi_DeleteObject((HGDIOBJECT)rgn2);
 	gdi_DeleteObject((HGDIOBJECT)bmp);
 	gdi_DeleteDC(hdc);
-	return 0;
+	return rc;
 }
 
 int TestGdiClip(int argc, char* argv[])
 {
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
-	fprintf(stderr, "test_gdi_ClipCoords()\n");
+	(void)fprintf(stderr, "test_gdi_ClipCoords()\n");
 
 	if (test_gdi_ClipCoords() < 0)
 		return -1;
 
-	fprintf(stderr, "test_gdi_InvalidateRegion()\n");
+	(void)fprintf(stderr, "test_gdi_InvalidateRegion()\n");
 
 	if (test_gdi_InvalidateRegion() < 0)
 		return -1;

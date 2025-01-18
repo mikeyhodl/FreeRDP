@@ -53,8 +53,8 @@ typedef struct
 typedef struct
 {
 	char name[CHANNEL_NAME_LEN + 1];
-	int OpenHandle;
-	int options;
+	uint32_t OpenHandle;
+	ULONG options;
 	int flags;
 	void* pInterface;
 	rdpChannels* channels;
@@ -107,13 +107,25 @@ struct rdp_channels
 
 	DrdynvcClientContext* drdynvc;
 	CRITICAL_SECTION channelsLock;
+
+	wHashTable* channelEvents;
 };
 
+FREERDP_LOCAL void freerdp_channels_free(rdpChannels* channels);
+
+WINPR_ATTR_MALLOC(freerdp_channels_free, 1)
 FREERDP_LOCAL rdpChannels* freerdp_channels_new(freerdp* instance);
+
 FREERDP_LOCAL UINT freerdp_channels_disconnect(rdpChannels* channels, freerdp* instance);
 FREERDP_LOCAL void freerdp_channels_close(rdpChannels* channels, freerdp* instance);
-FREERDP_LOCAL void freerdp_channels_free(rdpChannels* channels);
+
 FREERDP_LOCAL void freerdp_channels_register_instance(rdpChannels* channels, freerdp* instance);
 FREERDP_LOCAL UINT freerdp_channels_pre_connect(rdpChannels* channels, freerdp* instance);
 FREERDP_LOCAL UINT freerdp_channels_post_connect(rdpChannels* channels, freerdp* instance);
+
+/** @since version 3.9.0 */
+FREERDP_LOCAL SSIZE_T freerdp_client_channel_get_registered_event_handles(rdpChannels* channels,
+                                                                          HANDLE* events,
+                                                                          DWORD count);
+
 #endif /* FREERDP_LIB_CORE_CLIENT_H */

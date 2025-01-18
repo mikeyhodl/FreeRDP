@@ -121,21 +121,19 @@ typedef struct
 
 static void primitives_YUV_benchmark_free(primitives_YUV_benchmark* bench)
 {
-	int i;
 	if (!bench)
 		return;
 
 	free(bench->outputBuffer);
 
-	for (i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 		free(bench->channels[i]);
 	memset(bench, 0, sizeof(primitives_YUV_benchmark));
 }
 
 static primitives_YUV_benchmark* primitives_YUV_benchmark_init(primitives_YUV_benchmark* ret)
 {
-	int i;
-	prim_size_t* roi;
+	prim_size_t* roi = NULL;
 	if (!ret)
 		return NULL;
 
@@ -150,13 +148,13 @@ static primitives_YUV_benchmark* primitives_YUV_benchmark_init(primitives_YUV_be
 	if (!ret->outputBuffer)
 		goto fail;
 
-	for (i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
 		BYTE* buf = ret->channels[i] = calloc(roi->width, roi->height);
 		if (!buf)
 			goto fail;
 
-		winpr_RAND(buf, roi->width * roi->height * 1ULL);
+		winpr_RAND(buf, 1ull * roi->width * roi->height);
 		ret->steps[i] = roi->width;
 	}
 
@@ -167,17 +165,17 @@ fail:
 	return ret;
 }
 
+#if defined(HAVE_CPU_OPTIMIZED_PRIMITIVES) && defined(WITH_OPENCL)
 static BOOL primitives_YUV_benchmark_run(primitives_YUV_benchmark* bench, primitives_t* prims,
                                          UINT64 runTime, UINT32* computations)
 {
-	ULONGLONG dueDate;
+	ULONGLONG dueDate = 0;
 	const BYTE* channels[3] = { 0 };
-	size_t i;
-	pstatus_t status;
+	pstatus_t status = 0;
 
 	*computations = 0;
 
-	for (i = 0; i < 3; i++)
+	for (size_t i = 0; i < 3; i++)
 		channels[i] = bench->channels[i];
 
 	/* do a first dry run to initialize cache and such */
@@ -199,12 +197,11 @@ static BOOL primitives_YUV_benchmark_run(primitives_YUV_benchmark* bench, primit
 	}
 	return TRUE;
 }
+#endif
 
 static BOOL primitives_autodetect_best(primitives_t* prims)
 {
-	size_t x;
 	BOOL ret = FALSE;
-	UINT64 benchDuration = 150; /* 150 ms */
 	struct prim_benchmark
 	{
 		const char* name;
@@ -225,31 +222,53 @@ static BOOL primitives_autodetect_best(primitives_t* prims)
 	};
 	const struct prim_benchmark* best = NULL;
 
-	primitives_YUV_benchmark bench;
-	primitives_YUV_benchmark* yuvBench = primitives_YUV_benchmark_init(&bench);
-	if (!yuvBench)
-		return FALSE;
-
-	WLog_DBG(TAG, "primitives benchmark result:");
-	for (x = 0; x < ARRAYSIZE(testcases); x++)
+#if !defined(HAVE_CPU_OPTIMIZED_PRIMITIVES) || !defined(WITH_OPENCL)
 	{
-		struct prim_benchmark* cur = &testcases[x];
+#if defined(HAVE_CPU_OPTIMIZED_PRIMITIVES) || defined(WITH_OPENCL)
+		struct prim_benchmark* cur = &testcases[1];
+#else
+		struct prim_benchmark* cur = &testcases[0];
+#endif
 		cur->prims = primitives_get_by_type(cur->flags);
 		if (!cur->prims)
 		{
 			WLog_WARN(TAG, "Failed to initialize %s primitives", cur->name);
-			continue;
+			return FALSE;
 		}
-		if (!primitives_YUV_benchmark_run(yuvBench, cur->prims, benchDuration, &cur->count))
-		{
-			WLog_WARN(TAG, "error running %s YUV bench", cur->name);
-			continue;
-		}
-
-		WLog_DBG(TAG, " * %s= %" PRIu32, cur->name, cur->count);
-		if (!best || (best->count < cur->count))
-			best = cur;
+		WLog_DBG(TAG, "primitives benchmark: only one backend, skipping...");
+		best = cur;
 	}
+#else
+	{
+		UINT64 benchDuration = 150; /* 150 ms */
+		primitives_YUV_benchmark bench = { 0 };
+		primitives_YUV_benchmark* yuvBench = primitives_YUV_benchmark_init(&bench);
+		if (!yuvBench)
+			return FALSE;
+
+		WLog_DBG(TAG, "primitives benchmark result:");
+		for (size_t x = 0; x < ARRAYSIZE(testcases); x++)
+		{
+			struct prim_benchmark* cur = &testcases[x];
+			cur->prims = primitives_get_by_type(cur->flags);
+			if (!cur->prims)
+			{
+				WLog_WARN(TAG, "Failed to initialize %s primitives", cur->name);
+				continue;
+			}
+			if (!primitives_YUV_benchmark_run(yuvBench, cur->prims, benchDuration, &cur->count))
+			{
+				WLog_WARN(TAG, "error running %s YUV bench", cur->name);
+				continue;
+			}
+
+			WLog_DBG(TAG, " * %s= %" PRIu32, cur->name, cur->count);
+			if (!best || (best->count < cur->count))
+				best = cur;
+		}
+		primitives_YUV_benchmark_free(yuvBench);
+	}
+#endif
 
 	if (!best)
 	{
@@ -264,7 +283,7 @@ static BOOL primitives_autodetect_best(primitives_t* prims)
 out:
 	if (!ret)
 		*prims = pPrimitivesGeneric;
-	primitives_YUV_benchmark_free(yuvBench);
+
 	return ret;
 }
 
@@ -369,7 +388,7 @@ primitives_t* primitives_get_generic(void)
 	return &pPrimitivesGeneric;
 }
 
-primitives_t* primitives_get_by_type(DWORD type)
+primitives_t* primitives_get_by_type(primitive_hints type)
 {
 	InitOnceExecuteOnce(&generic_primitives_InitOnce, primitives_init_generic_cb, NULL, NULL);
 
@@ -396,4 +415,36 @@ primitives_t* primitives_get_by_type(DWORD type)
 DWORD primitives_flags(primitives_t* p)
 {
 	return p->flags;
+}
+
+const char* primitives_avc444_frame_type_str(avc444_frame_type type)
+{
+	switch (type)
+	{
+		case AVC444_LUMA:
+			return "AVC444_LUMA";
+		case AVC444_CHROMAv1:
+			return "AVC444_CHROMAv1";
+		case AVC444_CHROMAv2:
+			return "AVC444_CHROMAv2";
+		default:
+			return "INVALID_FRAME_TYPE";
+	}
+}
+
+const char* primtives_hint_str(primitive_hints hint)
+{
+	switch (hint)
+	{
+		case PRIMITIVES_PURE_SOFT:
+			return "PRIMITIVES_PURE_SOFT";
+		case PRIMITIVES_ONLY_CPU:
+			return "PRIMITIVES_ONLY_CPU";
+		case PRIMITIVES_ONLY_GPU:
+			return "PRIMITIVES_ONLY_GPU";
+		case PRIMITIVES_AUTODETECT:
+			return "PRIMITIVES_AUTODETECT";
+		default:
+			return "PRIMITIVES_UNKNOWN";
+	}
 }

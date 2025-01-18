@@ -1,5 +1,6 @@
 
 #include <winpr/crt.h>
+#include <winpr/crypto.h>
 #include <winpr/synch.h>
 #include <winpr/thread.h>
 #include <winpr/interlocked.h>
@@ -22,11 +23,19 @@ struct test_params
 	DWORD flags;
 };
 
+static UINT32 prand(UINT32 max)
+{
+	UINT32 tmp = 0;
+	if (max <= 1)
+		return 1;
+	winpr_RAND(&tmp, sizeof(tmp));
+	return tmp % (max - 1) + 1;
+}
+
 static DWORD WINAPI test_synch_barrier_thread(LPVOID lpParam)
 {
 	BOOL status = FALSE;
 	struct test_params* p = (struct test_params*)lpParam;
-	DWORD i;
 
 	InterlockedIncrement(&p->threadCount);
 
@@ -41,10 +50,10 @@ static DWORD WINAPI test_synch_barrier_thread(LPVOID lpParam)
 
 	// printf("Thread #%03u unblocked.\n", tnum);
 
-	for (i = 0; i < p->loops && gErrorCount == 0; i++)
+	for (DWORD i = 0; i < p->loops && gErrorCount == 0; i++)
 	{
 		/* simulate different execution times before the barrier */
-		Sleep(1 + abs((rand() % MAX_SLEEP_MS)));
+		Sleep(1 + prand(MAX_SLEEP_MS));
 		status = EnterSynchronizationBarrier(&gBarrier, p->flags);
 
 		// printf("Thread #%03u status: %s\n", tnum, status ? "TRUE" : "FALSE");
@@ -61,50 +70,50 @@ out:
 
 static BOOL TestSynchBarrierWithFlags(DWORD dwFlags, DWORD dwThreads, DWORD dwLoops)
 {
-	HANDLE* threads;
-	struct test_params p;
-	DWORD dwStatus, expectedTrueCount, expectedFalseCount;
-	DWORD i;
-	p.threadCount = 0;
-	p.trueCount = 0;
-	p.falseCount = 0;
-	p.loops = dwLoops;
-	p.flags = dwFlags;
-	expectedTrueCount = dwLoops;
-	expectedFalseCount = dwLoops * (dwThreads - 1);
+	BOOL rc = FALSE;
+	DWORD dwStatus = 0;
+
+	struct test_params p = {
+		.threadCount = 0, .trueCount = 0, .falseCount = 0, .loops = dwLoops, .flags = dwFlags
+	};
+	DWORD expectedTrueCount = dwLoops;
+	DWORD expectedFalseCount = dwLoops * (dwThreads - 1);
+
 	printf("%s: >> Testing with flags 0x%08" PRIx32 ". Using %" PRIu32
 	       " threads performing %" PRIu32 " loops\n",
-	       __FUNCTION__, dwFlags, dwThreads, dwLoops);
+	       __func__, dwFlags, dwThreads, dwLoops);
 
-	if (!(threads = calloc(dwThreads, sizeof(HANDLE))))
+	HANDLE* threads = (HANDLE*)calloc(dwThreads, sizeof(HANDLE));
+	if (!threads)
 	{
-		printf("%s: error allocatin thread array memory\n", __FUNCTION__);
+		printf("%s: error allocatin thread array memory\n", __func__);
 		return FALSE;
 	}
 
-	if (!InitializeSynchronizationBarrier(&gBarrier, dwThreads, -1))
+	if (dwThreads > INT32_MAX)
+		goto fail;
+
+	if (!InitializeSynchronizationBarrier(&gBarrier, (LONG)dwThreads, -1))
 	{
-		printf("%s: InitializeSynchronizationBarrier failed. GetLastError() = 0x%08x", __FUNCTION__,
+		printf("%s: InitializeSynchronizationBarrier failed. GetLastError() = 0x%08x", __func__,
 		       GetLastError());
-		free(threads);
-		DeleteSynchronizationBarrier(&gBarrier);
-		return FALSE;
+		goto fail;
 	}
 
 	if (!(gStartEvent = CreateEvent(NULL, TRUE, FALSE, NULL)))
 	{
-		printf("%s: CreateEvent failed with error 0x%08x", __FUNCTION__, GetLastError());
-		free(threads);
-		DeleteSynchronizationBarrier(&gBarrier);
-		return FALSE;
+		printf("%s: CreateEvent failed with error 0x%08x", __func__, GetLastError());
+		goto fail;
 	}
 
-	for (i = 0; i < dwThreads; i++)
+	DWORD i = 0;
+	for (; i < dwThreads; i++)
 	{
-		if (!(threads[i] = CreateThread(NULL, 0, test_synch_barrier_thread, &p, 0, NULL)))
+		threads[i] = CreateThread(NULL, 0, test_synch_barrier_thread, &p, 0, NULL);
+		if (!threads[i])
 		{
-			printf("%s: CreateThread failed for thread #%" PRIu32 " with error 0x%08x\n",
-			       __FUNCTION__, i, GetLastError());
+			printf("%s: CreateThread failed for thread #%" PRIu32 " with error 0x%08x\n", __func__,
+			       i, GetLastError());
 			InterlockedIncrement(&gErrorCount);
 			break;
 		}
@@ -114,7 +123,7 @@ static BOOL TestSynchBarrierWithFlags(DWORD dwFlags, DWORD dwThreads, DWORD dwLo
 	{
 		if (!SetEvent(gStartEvent))
 		{
-			printf("%s: SetEvent(gStartEvent) failed with error = 0x%08x)\n", __FUNCTION__,
+			printf("%s: SetEvent(gStartEvent) failed with error = 0x%08x)\n", __func__,
 			       GetLastError());
 			InterlockedIncrement(&gErrorCount);
 		}
@@ -125,29 +134,25 @@ static BOOL TestSynchBarrierWithFlags(DWORD dwFlags, DWORD dwThreads, DWORD dwLo
 			{
 				printf("%s: WaitForSingleObject(thread[%" PRIu32 "] unexpectedly returned %" PRIu32
 				       " (error = 0x%08x)\n",
-				       __FUNCTION__, i, dwStatus, GetLastError());
+				       __func__, i, dwStatus, GetLastError());
 				InterlockedIncrement(&gErrorCount);
 			}
 
 			if (!CloseHandle(threads[i]))
 			{
 				printf("%s: CloseHandle(thread[%" PRIu32 "]) failed with error = 0x%08x)\n",
-				       __FUNCTION__, i, GetLastError());
+				       __func__, i, GetLastError());
 				InterlockedIncrement(&gErrorCount);
 			}
 		}
 	}
 
-	free(threads);
-
 	if (!CloseHandle(gStartEvent))
 	{
-		printf("%s: CloseHandle(gStartEvent) failed with error = 0x%08x)\n", __FUNCTION__,
+		printf("%s: CloseHandle(gStartEvent) failed with error = 0x%08x)\n", __func__,
 		       GetLastError());
 		InterlockedIncrement(&gErrorCount);
 	}
-
-	DeleteSynchronizationBarrier(&gBarrier);
 
 	if (p.threadCount != (INT64)dwThreads)
 		InterlockedIncrement(&gErrorCount);
@@ -158,36 +163,39 @@ static BOOL TestSynchBarrierWithFlags(DWORD dwFlags, DWORD dwThreads, DWORD dwLo
 	if (p.falseCount != (INT64)expectedFalseCount)
 		InterlockedIncrement(&gErrorCount);
 
-	printf("%s: error count:  %" PRId32 "\n", __FUNCTION__, gErrorCount);
-	printf("%s: thread count: %" PRId32 " (expected %" PRIu32 ")\n", __FUNCTION__, p.threadCount,
+	printf("%s: error count:  %" PRId32 "\n", __func__, gErrorCount);
+	printf("%s: thread count: %" PRId32 " (expected %" PRIu32 ")\n", __func__, p.threadCount,
 	       dwThreads);
-	printf("%s: true count:   %" PRId32 " (expected %" PRIu32 ")\n", __FUNCTION__, p.trueCount,
+	printf("%s: true count:   %" PRId32 " (expected %" PRIu32 ")\n", __func__, p.trueCount,
 	       expectedTrueCount);
-	printf("%s: false count:  %" PRId32 " (expected %" PRIu32 ")\n", __FUNCTION__, p.falseCount,
+	printf("%s: false count:  %" PRId32 " (expected %" PRIu32 ")\n", __func__, p.falseCount,
 	       expectedFalseCount);
 
+	rc = TRUE;
+fail:
+	free((void*)threads);
+	DeleteSynchronizationBarrier(&gBarrier);
 	if (gErrorCount > 0)
 	{
-		printf("%s: Error test failed with %" PRId32 " reported errors\n", __FUNCTION__,
-		       gErrorCount);
+		printf("%s: Error test failed with %" PRId32 " reported errors\n", __func__, gErrorCount);
 		return FALSE;
 	}
 
-	return TRUE;
+	return rc;
 }
 
 int TestSynchBarrier(int argc, char* argv[])
 {
 	SYSTEM_INFO sysinfo;
-	DWORD dwMaxThreads;
-	DWORD dwMinThreads;
+	DWORD dwMaxThreads = 0;
+	DWORD dwMinThreads = 0;
 	DWORD dwNumLoops = 10;
 
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
 
 	GetNativeSystemInfo(&sysinfo);
-	printf("%s: Number of processors: %" PRIu32 "\n", __FUNCTION__, sysinfo.dwNumberOfProcessors);
+	printf("%s: Number of processors: %" PRIu32 "\n", __func__, sysinfo.dwNumberOfProcessors);
 	dwMinThreads = sysinfo.dwNumberOfProcessors;
 	dwMaxThreads = sysinfo.dwNumberOfProcessors * 4;
 
@@ -197,28 +205,28 @@ int TestSynchBarrier(int argc, char* argv[])
 	/* Test invalid parameters */
 	if (InitializeSynchronizationBarrier(&gBarrier, 0, -1))
 	{
-		fprintf(
+		(void)fprintf(
 		    stderr,
 		    "%s: InitializeSynchronizationBarrier unecpectedly succeeded with lTotalThreads = 0\n",
-		    __FUNCTION__);
+		    __func__);
 		return -1;
 	}
 
 	if (InitializeSynchronizationBarrier(&gBarrier, -1, -1))
 	{
-		fprintf(
+		(void)fprintf(
 		    stderr,
 		    "%s: InitializeSynchronizationBarrier unecpectedly succeeded with lTotalThreads = -1\n",
-		    __FUNCTION__);
+		    __func__);
 		return -1;
 	}
 
 	if (InitializeSynchronizationBarrier(&gBarrier, 1, -2))
 	{
-		fprintf(
+		(void)fprintf(
 		    stderr,
 		    "%s: InitializeSynchronizationBarrier unecpectedly succeeded with lSpinCount = -2\n",
-		    __FUNCTION__);
+		    __func__);
 		return -1;
 	}
 
@@ -226,32 +234,33 @@ int TestSynchBarrier(int argc, char* argv[])
 
 	if (!TestSynchBarrierWithFlags(0, dwMaxThreads, dwNumLoops))
 	{
-		fprintf(stderr,
-		        "%s: TestSynchBarrierWithFlags(0) unecpectedly succeeded with lTotalThreads = -1\n",
-		        __FUNCTION__);
+		(void)fprintf(
+		    stderr,
+		    "%s: TestSynchBarrierWithFlags(0) unecpectedly succeeded with lTotalThreads = -1\n",
+		    __func__);
 		return -1;
 	}
 
 	if (!TestSynchBarrierWithFlags(SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY, dwMinThreads,
 	                               dwNumLoops))
 	{
-		fprintf(stderr,
-		        "%s: TestSynchBarrierWithFlags(SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY) "
-		        "unecpectedly succeeded with lTotalThreads = -1\n",
-		        __FUNCTION__);
+		(void)fprintf(stderr,
+		              "%s: TestSynchBarrierWithFlags(SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY) "
+		              "unecpectedly succeeded with lTotalThreads = -1\n",
+		              __func__);
 		return -1;
 	}
 
 	if (!TestSynchBarrierWithFlags(SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY, dwMaxThreads,
 	                               dwNumLoops))
 	{
-		fprintf(stderr,
-		        "%s: TestSynchBarrierWithFlags(SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY) "
-		        "unecpectedly succeeded with lTotalThreads = -1\n",
-		        __FUNCTION__);
+		(void)fprintf(stderr,
+		              "%s: TestSynchBarrierWithFlags(SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY) "
+		              "unecpectedly succeeded with lTotalThreads = -1\n",
+		              __func__);
 		return -1;
 	}
 
-	printf("%s: Test successfully completed\n", __FUNCTION__);
+	printf("%s: Test successfully completed\n", __func__);
 	return 0;
 }

@@ -26,69 +26,80 @@
 #include <freerdp/types.h>
 #include <freerdp/channels/rdpgfx.h>
 
-typedef struct S_H264_CONTEXT_SUBSYSTEM H264_CONTEXT_SUBSYSTEM;
-typedef struct S_YUV_CONTEXT YUV_CONTEXT;
-
-typedef enum
-{
-	H264_RATECONTROL_VBR = 0,
-	H264_RATECONTROL_CQP
-} H264_RATECONTROL_MODE;
-
-typedef struct
-{
-	BOOL Compressor;
-
-	UINT32 width;
-	UINT32 height;
-
-	H264_RATECONTROL_MODE RateControlMode;
-	UINT32 BitRate;
-	UINT32 FrameRate;
-	UINT32 QP;
-	UINT32 NumberOfThreads;
-
-	UINT32 iStride[3];
-	BYTE* pOldYUVData[3];
-	BYTE* pYUVData[3];
-
-	UINT32 iYUV444Size[3];
-	UINT32 iYUV444Stride[3];
-	BYTE* pOldYUV444Data[3];
-	BYTE* pYUV444Data[3];
-
-	UINT32 numSystemData;
-	void* pSystemData;
-	const H264_CONTEXT_SUBSYSTEM* subsystem;
-	YUV_CONTEXT* yuv;
-
-	BOOL encodingBuffer;
-	BOOL firstLumaFrameDone;
-	BOOL firstChromaFrameDone;
-
-	void* lumaData;
-	wLog* log;
-} H264_CONTEXT;
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	static INLINE void free_h264_metablock(RDPGFX_H264_METABLOCK* meta)
+	typedef struct S_H264_CONTEXT_SUBSYSTEM H264_CONTEXT_SUBSYSTEM;
+	typedef struct S_H264_CONTEXT H264_CONTEXT;
+	typedef struct S_YUV_CONTEXT YUV_CONTEXT;
+
+	typedef enum
 	{
-		RDPGFX_H264_METABLOCK m = { 0 };
-		if (!meta)
-			return;
-		free(meta->quantQualityVals);
-		free(meta->regionRects);
-		*meta = m;
-	}
+		H264_RATECONTROL_VBR = 0,
+		H264_RATECONTROL_CQP
+	} H264_RATECONTROL_MODE;
+
+	/**
+	 * @brief The usage types for H264 encoding
+	 * @since version 3.6.0
+	 */
+	typedef enum
+	{
+		H264_SCREEN_CONTENT_REAL_TIME = 0,
+		H264_SCREEN_CONTENT_NON_REAL_TIME,
+		H264_CAMERA_VIDEO_REAL_TIME,
+		H264_CAMERA_VIDEO_NON_REAL_TIME,
+
+	} H264_USAGETYPE;
+
+	typedef enum
+	{
+		H264_CONTEXT_OPTION_RATECONTROL,
+		H264_CONTEXT_OPTION_BITRATE,
+		H264_CONTEXT_OPTION_FRAMERATE,
+		H264_CONTEXT_OPTION_QP,
+		H264_CONTEXT_OPTION_USAGETYPE, /** @since version 3.6.0 */
+		H264_CONTEXT_OPTION_HW_ACCEL,  /** set to request hw accel, get to check if hw accel is on,
+		                                  @since version 3.11.0 */
+	} H264_CONTEXT_OPTION;
+
+	FREERDP_API void free_h264_metablock(RDPGFX_H264_METABLOCK* meta);
+
+	FREERDP_API BOOL h264_context_set_option(H264_CONTEXT* h264, H264_CONTEXT_OPTION option,
+	                                         UINT32 value);
+	FREERDP_API UINT32 h264_context_get_option(H264_CONTEXT* h264, H264_CONTEXT_OPTION option);
 
 	FREERDP_API INT32 avc420_compress(H264_CONTEXT* h264, const BYTE* pSrcData, DWORD SrcFormat,
 	                                  UINT32 nSrcStep, UINT32 nSrcWidth, UINT32 nSrcHeight,
 	                                  const RECTANGLE_16* regionRect, BYTE** ppDstData,
 	                                  UINT32* pDstSize, RDPGFX_H264_METABLOCK* meta);
+
+	/** @brief API for user to fill YUV I420 buffer before encoding
+	 *
+	 *  @param h264 The h264 context to query
+	 *  @param nSrcStride The size of a line in bytes of the source image
+	 *  @param nSrcWidth The width of the source image in pixels
+	 *  @param nSrcHeight The height of the source image
+	 *  @param YUVData A pointer to hold the current YUV buffers
+	 *  @param stride A pointer to hold the byte length of a line in the YUV buffers
+	 *  @return \b >= 0 for success, \b <0 for an error
+	 *  @since version 3.6.0
+	 */
+	FREERDP_API INT32 h264_get_yuv_buffer(H264_CONTEXT* h264, UINT32 nSrcStride, UINT32 nSrcWidth,
+	                                      UINT32 nSrcHeight, BYTE* YUVData[3], UINT32 stride[3]);
+
+	/**
+	 * @brief Compress currently filled image data to H264 stream
+	 *
+	 * @param h264 The H264 context to use for compression
+	 * @param ppDstData A pointer that will hold the allocated result buffer
+	 * @param pDstSize A pointer for the destination buffer size in bytes
+	 * @return \b >= 0 for success, \b <0 for an error
+	 * @since version 3.6.0
+	 */
+	FREERDP_API INT32 h264_compress(H264_CONTEXT* h264, BYTE** ppDstData, UINT32* pDstSize);
 
 	FREERDP_API INT32 avc420_decompress(H264_CONTEXT* h264, const BYTE* pSrcData, UINT32 SrcSize,
 	                                    BYTE* pDstData, DWORD DstFormat, UINT32 nDstStep,
@@ -112,8 +123,10 @@ extern "C"
 
 	FREERDP_API BOOL h264_context_reset(H264_CONTEXT* h264, UINT32 width, UINT32 height);
 
-	FREERDP_API H264_CONTEXT* h264_context_new(BOOL Compressor);
 	FREERDP_API void h264_context_free(H264_CONTEXT* h264);
+
+	WINPR_ATTR_MALLOC(h264_context_free, 1)
+	FREERDP_API H264_CONTEXT* h264_context_new(BOOL Compressor);
 
 #ifdef __cplusplus
 }

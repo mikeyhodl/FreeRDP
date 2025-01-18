@@ -18,74 +18,69 @@
 set(MODULE_NAME "freerdp-locale")
 set(MODULE_PREFIX "FREERDP_LOCALE")
 
-set(${MODULE_PREFIX}_SRCS
-	keyboard_layout.c
-	keyboard.c
-	locale.c
-	liblocale.h)
+set(SRCS keyboard_layout.c keyboard.c locale.c liblocale.h)
 
-set(${MODULE_PREFIX}_X11_SRCS
-	keyboard_x11.c
-	keyboard_x11.h
-	xkb_layout_ids.c
-	xkb_layout_ids.h)
+set(X11_SRCS keyboard_x11.c keyboard_x11.h xkb_layout_ids.c xkb_layout_ids.h)
 
-set(${MODULE_PREFIX}_XKBFILE_SRCS
-	keyboard_xkbfile.c
-	keyboard_xkbfile.h)
+set(XKBFILE_SRCS keyboard_xkbfile.c keyboard_xkbfile.h)
 
-set(${MODULE_PREFIX}_SUN_SRCS
-	keyboard_sun.c
-	keyboard_sun.h)
+set(SUN_SRCS keyboard_sun.c keyboard_sun.h)
 
-set(${MODULE_PREFIX}_APPLE_SRCS
-	keyboard_apple.c
-	keyboard_apple.h)
+set(APPLE_SRCS keyboard_apple.c keyboard_apple.h)
+
+include(CMakeDependentOption)
+cmake_dependent_option(WITH_KEYBOARD_LAYOUT_FROM_FILE "Use keyboard definitions from JSON file" OFF WITH_WINPR_JSON OFF)
+if(WITH_KEYBOARD_LAYOUT_FROM_FILE)
+  freerdp_definition_add(FREERDP_RESOURCE_ROOT="${FREERDP_RESOURCE_ROOT}")
+  freerdp_definition_add(WITH_KEYBOARD_LAYOUT_FROM_FILE)
+
+  install(FILES KeyboardLayoutMap.json DESTINATION ${FREERDP_RESOURCE_ROOT})
+endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES Solaris)
-	set(WITH_SUN true)
+  set(WITH_SUN true)
 endif()
 
 if(APPLE AND (NOT IOS))
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_APPLE_SRCS})
-	find_library(CARBON Carbon)
-	freerdp_library_add(${CARBON})
+  list(APPEND SRCS ${APPLE_SRCS})
+  find_library(CARBON Carbon)
+  freerdp_library_add(${CARBON})
 endif()
 
-if (APPLE)
-        FIND_LIBRARY(ç CoreFoundation REQUIRED)
-        freerdp_library_add(${CORE_FOUNDATION})
+if(APPLE)
+  find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
+  freerdp_library_add(${CORE_FOUNDATION})
 endif()
 
 if(WITH_X11)
-	freerdp_definition_add(-DWITH_X11)
-	freerdp_include_directory_add(${X11_INCLUDE_DIRS})
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_X11_SRCS})
-	freerdp_library_add(${X11_LIBRARIES})
+  find_package(X11 REQUIRED)
 
-	if(WITH_SUN)
-		freerdp_definition_add(-DWITH_SUN)
-		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_SUN_SRCS})
-	endif()
+  freerdp_definition_add(WITH_X11)
+  freerdp_include_directory_add(${X11_INCLUDE_DIR})
+  list(APPEND SRCS ${X11_SRCS})
+  freerdp_library_add(${X11_LIBRARIES})
 
-	set(XKBFILE_FEATURE_TYPE "RECOMMENDED")
-	set(XKBFILE_FEATURE_PURPOSE "X11 keyboard")
-	set(XKBFILE_FEATURE_DESCRIPTION "X11 keyboard file extension")
+  if(WITH_SUN)
+    freerdp_definition_add(WITH_SUN)
+    list(APPEND SRCS ${SUN_SRCS})
+  endif()
 
-	find_feature(XKBFile ${XKBFILE_FEATURE_TYPE} ${XKBFILE_FEATURE_PURPOSE} ${XKBFILE_FEATURE_DESCRIPTION})
-
-	if(WITH_XKBFILE AND (NOT APPLE))
-		freerdp_definition_add(-DWITH_XKBFILE)
-		freerdp_include_directory_add(${XKBFILE_INCLUDE_DIRS})
-		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_XKBFILE_SRCS})
-		freerdp_library_add(${XKBFILE_LIBRARIES})
-	else()
-		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_X11_KEYMAP_SRCS})
-	endif()
+  if(X11_Xkbfile_FOUND AND (NOT APPLE))
+    freerdp_definition_add(WITH_XKBFILE)
+    freerdp_include_directory_add(${X11_Xkbfile_INCLUDE_PATH})
+    list(APPEND SRCS ${XKBFILE_SRCS})
+    freerdp_library_add(${X11_Xkbfile_LIB})
+  else()
+    list(APPEND SRCS ${X11_KEYMAP_SRCS})
+  endif()
 endif()
 
 if(WITH_WAYLAND)
-	freerdp_definition_add(-DWITH_WAYLAND)
+  freerdp_definition_add(WITH_WAYLAND)
 endif()
 
-freerdp_module_add(${${MODULE_PREFIX}_SRCS})
+freerdp_module_add(${SRCS})
+
+if(BUILD_TESTING_INTERNAL OR BUILD_TESTING)
+  add_subdirectory(test)
+endif()

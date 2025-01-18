@@ -139,18 +139,18 @@
 #include "crypto.h"
 
 #include <winpr/crt.h>
-#include <winpr/crypto.h>
 #include <winpr/collections.h>
 
 static wListDictionary* g_ProtectedMemoryBlocks = NULL;
 
 BOOL CryptProtectMemory(LPVOID pData, DWORD cbData, DWORD dwFlags)
 {
-	BYTE* pCipherText;
-	size_t cbOut, cbFinal;
+	BYTE* pCipherText = NULL;
+	size_t cbOut = 0;
+	size_t cbFinal = 0;
 	WINPR_CIPHER_CTX* enc = NULL;
 	BYTE randomKey[256] = { 0 };
-	WINPR_PROTECTED_MEMORY_BLOCK* pMemBlock;
+	WINPR_PROTECTED_MEMORY_BLOCK* pMemBlock = NULL;
 
 	if (dwFlags != CRYPTPROTECTMEMORY_SAME_PROCESS)
 		return FALSE;
@@ -186,8 +186,9 @@ BOOL CryptProtectMemory(LPVOID pData, DWORD cbData, DWORD dwFlags)
 	if (!pCipherText)
 		goto out;
 
-	if ((enc = winpr_Cipher_New(WINPR_CIPHER_AES_256_CBC, WINPR_ENCRYPT, pMemBlock->key,
-	                            pMemBlock->iv)) == NULL)
+	if ((enc = winpr_Cipher_NewEx(WINPR_CIPHER_AES_256_CBC, WINPR_ENCRYPT, pMemBlock->key,
+	                              sizeof(pMemBlock->key), pMemBlock->iv, sizeof(pMemBlock->iv))) ==
+	    NULL)
 		goto out;
 	if (!winpr_Cipher_Update(enc, pMemBlock->pData, pMemBlock->cbData, pCipherText, &cbOut))
 		goto out;
@@ -210,7 +211,8 @@ out:
 BOOL CryptUnprotectMemory(LPVOID pData, DWORD cbData, DWORD dwFlags)
 {
 	BYTE* pPlainText = NULL;
-	size_t cbOut, cbFinal;
+	size_t cbOut = 0;
+	size_t cbFinal = 0;
 	WINPR_CIPHER_CTX* dec = NULL;
 	WINPR_PROTECTED_MEMORY_BLOCK* pMemBlock = NULL;
 
@@ -233,8 +235,9 @@ BOOL CryptUnprotectMemory(LPVOID pData, DWORD cbData, DWORD dwFlags)
 	if (!pPlainText)
 		goto out;
 
-	if ((dec = winpr_Cipher_New(WINPR_CIPHER_AES_256_CBC, WINPR_DECRYPT, pMemBlock->key,
-	                            pMemBlock->iv)) == NULL)
+	if ((dec = winpr_Cipher_NewEx(WINPR_CIPHER_AES_256_CBC, WINPR_DECRYPT, pMemBlock->key,
+	                              sizeof(pMemBlock->key), pMemBlock->iv, sizeof(pMemBlock->iv))) ==
+	    NULL)
 		goto out;
 	if (!winpr_Cipher_Update(dec, pMemBlock->pData, pMemBlock->cbData, pPlainText, &cbOut))
 		goto out;

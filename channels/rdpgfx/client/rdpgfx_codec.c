@@ -39,9 +39,8 @@
  */
 static UINT rdpgfx_read_h264_metablock(RDPGFX_PLUGIN* gfx, wStream* s, RDPGFX_H264_METABLOCK* meta)
 {
-	UINT32 index;
-	RECTANGLE_16* regionRect;
-	RDPGFX_H264_QUANT_QUALITY* quantQualityVal;
+	RECTANGLE_16* regionRect = NULL;
+	RDPGFX_H264_QUANT_QUALITY* quantQualityVal = NULL;
 	UINT error = ERROR_INVALID_DATA;
 	meta->regionRects = NULL;
 	meta->quantQualityVals = NULL;
@@ -51,7 +50,7 @@ static UINT rdpgfx_read_h264_metablock(RDPGFX_PLUGIN* gfx, wStream* s, RDPGFX_H2
 
 	Stream_Read_UINT32(s, meta->numRegionRects); /* numRegionRects (4 bytes) */
 
-	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8ull * meta->numRegionRects))
+	if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, meta->numRegionRects, 8ull))
 		goto error_out;
 
 	meta->regionRects = (RECTANGLE_16*)calloc(meta->numRegionRects, sizeof(RECTANGLE_16));
@@ -75,7 +74,7 @@ static UINT rdpgfx_read_h264_metablock(RDPGFX_PLUGIN* gfx, wStream* s, RDPGFX_H2
 
 	WLog_DBG(TAG, "H264_METABLOCK: numRegionRects: %" PRIu32 "", meta->numRegionRects);
 
-	for (index = 0; index < meta->numRegionRects; index++)
+	for (UINT32 index = 0; index < meta->numRegionRects; index++)
 	{
 		regionRect = &(meta->regionRects[index]);
 
@@ -91,13 +90,13 @@ static UINT rdpgfx_read_h264_metablock(RDPGFX_PLUGIN* gfx, wStream* s, RDPGFX_H2
 		         index, regionRect->left, regionRect->top, regionRect->right, regionRect->bottom);
 	}
 
-	if (!Stream_CheckAndLogRequiredLength(TAG, s, 2ull * meta->numRegionRects))
+	if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, meta->numRegionRects, 2ull))
 	{
 		error = ERROR_INVALID_DATA;
 		goto error_out;
 	}
 
-	for (index = 0; index < meta->numRegionRects; index++)
+	for (UINT32 index = 0; index < meta->numRegionRects; index++)
 	{
 		quantQualityVal = &(meta->quantQualityVals[index]);
 		Stream_Read_UINT8(s, quantQualityVal->qpVal);      /* qpVal (1 byte) */
@@ -125,11 +124,10 @@ error_out:
  */
 static UINT rdpgfx_decode_AVC420(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd)
 {
-	UINT error;
-	wStream* s;
-	RDPGFX_AVC420_BITMAP_STREAM h264;
+	UINT error = 0;
+	RDPGFX_AVC420_BITMAP_STREAM h264 = { 0 };
 	RdpgfxClientContext* context = gfx->context;
-	s = Stream_New(cmd->data, cmd->length);
+	wStream* s = Stream_New(cmd->data, cmd->length);
 
 	if (!s)
 	{
@@ -158,6 +156,7 @@ static UINT rdpgfx_decode_AVC420(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd
 	}
 
 	free_h264_metablock(&h264.meta);
+	cmd->extra = NULL;
 	return error;
 }
 
@@ -168,13 +167,14 @@ static UINT rdpgfx_decode_AVC420(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd
  */
 static UINT rdpgfx_decode_AVC444(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd)
 {
-	UINT error;
-	UINT32 tmp;
-	size_t pos1, pos2;
-	wStream* s;
+	UINT error = 0;
+	UINT32 tmp = 0;
+	size_t pos1 = 0;
+	size_t pos2 = 0;
+
 	RDPGFX_AVC444_BITMAP_STREAM h264 = { 0 };
 	RdpgfxClientContext* context = gfx->context;
-	s = Stream_New(cmd->data, cmd->length);
+	wStream* s = Stream_New(cmd->data, cmd->length);
 
 	if (!s)
 	{
@@ -211,16 +211,16 @@ static UINT rdpgfx_decode_AVC444(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd
 
 	if (h264.LC == 0)
 	{
-		tmp = h264.cbAvc420EncodedBitstream1 - pos2 + pos1;
+		const size_t bitstreamLen = 1ULL * h264.cbAvc420EncodedBitstream1 - pos2 + pos1;
 
-		if (!Stream_CheckAndLogRequiredLength(TAG, s, tmp))
+		if ((bitstreamLen > UINT32_MAX) || !Stream_CheckAndLogRequiredLength(TAG, s, bitstreamLen))
 		{
 			error = ERROR_INVALID_DATA;
 			goto fail;
 		}
 
-		h264.bitstream[0].length = tmp;
-		Stream_Seek(s, tmp);
+		h264.bitstream[0].length = (UINT32)bitstreamLen;
+		Stream_Seek(s, bitstreamLen);
 
 		if ((error = rdpgfx_read_h264_metablock(gfx, s, &(h264.bitstream[1].meta))))
 		{
@@ -229,10 +229,19 @@ static UINT rdpgfx_decode_AVC444(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd
 		}
 
 		h264.bitstream[1].data = Stream_Pointer(s);
-		h264.bitstream[1].length = Stream_GetRemainingLength(s);
+
+		const size_t len = Stream_GetRemainingLength(s);
+		if (len > UINT32_MAX)
+			goto fail;
+		h264.bitstream[1].length = (UINT32)len;
 	}
 	else
-		h264.bitstream[0].length = Stream_GetRemainingLength(s);
+	{
+		const size_t len = Stream_GetRemainingLength(s);
+		if (len > UINT32_MAX)
+			goto fail;
+		h264.bitstream[0].length = (UINT32)len;
+	}
 
 	cmd->extra = (void*)&h264;
 
@@ -248,6 +257,7 @@ fail:
 	Stream_Free(s, FALSE);
 	free_h264_metablock(&h264.bitstream[0].meta);
 	free_h264_metablock(&h264.bitstream[1].meta);
+	cmd->extra = NULL;
 	return error;
 }
 

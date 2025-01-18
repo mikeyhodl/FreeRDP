@@ -17,9 +17,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.13)
 
-project("freerdp-android")
+if(NOT FREERDP_DEFAULT_PROJECT_VERSION)
+  set(FREERDP_DEFAULT_PROJECT_VERSION "1.0.0.0")
+endif()
+
+project("freerdp-android" LANGUAGES C VERSION ${FREERDP_DEFAULT_PROJECT_VERSION})
+
+message("project ${PROJECT_NAME} is using version ${PROJECT_VERSION}")
 
 set(MODULE_NAME "freerdp-android")
 set(MODULE_PREFIX "FREERDP_CLIENT_ANDROID")
@@ -28,25 +34,23 @@ set(FREERDP_IMPORT_DIR_RELATIVE ../jniLibs/${CMAKE_ANDROID_ARCH_ABI})
 get_filename_component(FREERDP_IMPORT_DIR ${FREERDP_IMPORT_DIR_RELATIVE} ABSOLUTE)
 
 include_directories(
-        ${FREERDP_IMPORT_DIR}/include/freerdp3
-        ${FREERDP_IMPORT_DIR}/include/winpr3
-        ${FREERDP_IMPORT_DIR}/include/openssl
+  SYSTEM ${FREERDP_IMPORT_DIR}/include/freerdp3 ${FREERDP_IMPORT_DIR}/include/winpr3
+  ${FREERDP_IMPORT_DIR}/include/openssl
 )
 
 set(${MODULE_PREFIX}_SRCS
-        android_event.c
-        android_event.h
-        android_freerdp.c
-        android_freerdp.h
-        android_jni_utils.c
-        android_jni_utils.h
-        android_jni_callback.c
-        android_jni_callback.h)
+    android_event.c
+    android_event.h
+    android_freerdp.c
+    android_freerdp.h
+    android_jni_utils.c
+    android_jni_utils.h
+    android_jni_callback.c
+    android_jni_callback.h
+)
 
 if(WITH_CLIENT_CHANNELS)
-    set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS}
-            android_cliprdr.c
-            android_cliprdr.h)
+  set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} android_cliprdr.c android_cliprdr.h)
 endif()
 
 add_library(${MODULE_NAME} SHARED ${${MODULE_PREFIX}_SRCS})
@@ -69,12 +73,11 @@ find_library(jnigraphics-lib jnigraphics)
 # build script, prebuilt third-party libraries, or system libraries.
 
 target_link_libraries(
-        ${MODULE_NAME}
-
-        freerdp3-lib
-        freerdp-client3-lib
-        winpr3-lib
-
-        ${log-lib}
-        ${dl-lib}
-        ${jnigraphics-lib} )
+  ${MODULE_NAME}
+  freerdp3-lib
+  freerdp-client3-lib
+  winpr3-lib
+  ${log-lib}
+  ${dl-lib}
+  ${jnigraphics-lib}
+)

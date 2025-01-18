@@ -116,10 +116,11 @@ BOOL tpdu_read_header(wStream* s, BYTE* code, BYTE* li, UINT16 tpktlength)
 
 BOOL tpdu_write_header(wStream* s, UINT16 length, BYTE code)
 {
-	if (Stream_GetRemainingCapacity(s) < 3)
+	if (!Stream_CheckAndLogRequiredCapacity(TAG, (s), 3))
 		return FALSE;
 
-	Stream_Write_UINT8(s, length); /* LI */
+	WINPR_ASSERT(length <= UINT8_MAX);
+	Stream_Write_UINT8(s, (UINT8)length); /* LI */
 	Stream_Write_UINT8(s, code);   /* code */
 
 	if (code == X224_TPDU_DATA)
@@ -128,7 +129,7 @@ BOOL tpdu_write_header(wStream* s, UINT16 length, BYTE code)
 	}
 	else
 	{
-		if (Stream_GetRemainingCapacity(s) < 5)
+		if (!Stream_CheckAndLogRequiredCapacity(TAG, (s), 5))
 			return FALSE;
 		Stream_Write_UINT16(s, 0); /* DST-REF */
 		Stream_Write_UINT16(s, 0); /* SRC-REF */
@@ -145,7 +146,7 @@ BOOL tpdu_write_header(wStream* s, UINT16 length, BYTE code)
 
 BOOL tpdu_read_connection_request(wStream* s, BYTE* li, UINT16 tpktlength)
 {
-	BYTE code;
+	BYTE code = 0;
 
 	if (!tpdu_read_header(s, &code, li, tpktlength))
 		return FALSE;
@@ -178,8 +179,8 @@ BOOL tpdu_write_connection_request(wStream* s, UINT16 length)
 
 BOOL tpdu_read_connection_confirm(wStream* s, BYTE* li, UINT16 tpktlength)
 {
-	BYTE code;
-	size_t position;
+	BYTE code = 0;
+	size_t position = 0;
 	size_t bytes_read = 0;
 
 	/* save the position to determine the number of bytes read */
@@ -246,14 +247,18 @@ BOOL tpdu_write_data(wStream* s)
 
 BOOL tpdu_read_data(wStream* s, UINT16* LI, UINT16 tpktlength)
 {
-	BYTE code;
-	BYTE li;
+	BYTE code = 0;
+	BYTE li = 0;
 
 	if (!tpdu_read_header(s, &code, &li, tpktlength))
 		return FALSE;
 
 	if (code != X224_TPDU_DATA)
+	{
+		WLog_ERR(TAG, "tpdu got code 0x%02" PRIx8 " expected X224_TPDU_DATA [0x%02x]", code,
+		         X224_TPDU_DATA);
 		return FALSE;
+	}
 
 	*LI = li;
 

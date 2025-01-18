@@ -26,7 +26,7 @@
 #include <wayland-client.h>
 #include <stdbool.h>
 
-#if __GNUC__ >= 4
+#if defined(__GNUC__) && (__GNUC__ >= 4)
 #define UWAC_API __attribute__((visibility("default")))
 #else
 #define UWAC_API
@@ -261,6 +261,7 @@ struct uwac_key_event
 	uint32_t raw_key;
 	uint32_t sym;
 	bool pressed;
+	bool repeated;
 };
 typedef struct uwac_key_event UwacKeyEvent;
 
@@ -457,7 +458,7 @@ extern "C"
 	 *
 	 * @param display the display to attach the window to
 	 * @param width the width of the window
-	 * @param height the heigh of the window
+	 * @param height the height of the window
 	 * @param format format to use for the SHM surface
 	 * @return the created UwacWindow, NULL if something failed (use UwacDisplayGetLastError() to
 	 *know more about this)
@@ -642,7 +643,7 @@ extern "C"
 
 	/**
 	 * @brief UwacSeatSetMouseCursor Sets the specified image as the new mouse cursor.
-	 *                               Special values: If data == NULL && lenght == 0
+	 *                               Special values: If data == NULL && length == 0
 	 *                               the cursor is hidden, if data == NULL && length != 0
 	 *                               the default system cursor is used.
 	 *

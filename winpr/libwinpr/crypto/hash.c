@@ -28,13 +28,20 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/core_names.h>
+#endif
 #endif
 
 #ifdef WITH_MBEDTLS
-#include <mbedtls/md4.h>
+#ifdef MBEDTLS_MD5_C
 #include <mbedtls/md5.h>
+#endif
 #include <mbedtls/sha1.h>
 #include <mbedtls/md.h>
+#if MBEDTLS_VERSION_MAJOR < 3
+#define mbedtls_md_info_from_ctx(_ctx) (_ctx->md_info)
+#endif
 #endif
 
 #if defined(WITH_INTERNAL_MD4)
@@ -45,6 +52,9 @@
 #include "md5.h"
 #include "hmac_md5.h"
 #endif
+
+#include "../log.h"
+#define TAG WINPR_TAG("crypto.hash")
 
 /**
  * HMAC
@@ -71,14 +81,6 @@ mbedtls_md_type_t winpr_mbedtls_get_md_type(int md)
 
 	switch (md)
 	{
-		case WINPR_MD_MD2:
-			type = MBEDTLS_MD_MD2;
-			break;
-
-		case WINPR_MD_MD4:
-			type = MBEDTLS_MD_MD4;
-			break;
-
 		case WINPR_MD_MD5:
 			type = MBEDTLS_MD_MD5;
 			break;
@@ -101,10 +103,6 @@ mbedtls_md_type_t winpr_mbedtls_get_md_type(int md)
 
 		case WINPR_MD_SHA512:
 			type = MBEDTLS_MD_SHA512;
-			break;
-
-		case WINPR_MD_RIPEMD160:
-			type = MBEDTLS_MD_RIPEMD160;
 			break;
 	}
 
@@ -165,7 +163,11 @@ struct winpr_hmac_ctx_private_st
 	WINPR_HMAC_MD5_CTX hmac_md5;
 #endif
 #if defined(WITH_OPENSSL)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	EVP_MAC_CTX* xhmac;
+#else
 	HMAC_CTX* hmac;
+#endif
 #endif
 #if defined(WITH_MBEDTLS)
 	mbedtls_md_context_t hmac;
@@ -174,7 +176,7 @@ struct winpr_hmac_ctx_private_st
 
 WINPR_HMAC_CTX* winpr_HMAC_New(void)
 {
-	WINPR_HMAC_CTX* ctx = calloc(1, sizeof(WINPR_HMAC_CTX));
+	WINPR_HMAC_CTX* ctx = (WINPR_HMAC_CTX*)calloc(1, sizeof(WINPR_HMAC_CTX));
 	if (!ctx)
 		return NULL;
 #if defined(WITH_OPENSSL)
@@ -185,11 +187,17 @@ WINPR_HMAC_CTX* winpr_HMAC_New(void)
 		goto fail;
 
 	HMAC_CTX_init(ctx->hmac);
-#else
-
+#elif OPENSSL_VERSION_NUMBER < 0x30000000L
 	if (!(ctx->hmac = HMAC_CTX_new()))
 		goto fail;
-
+#else
+	EVP_MAC* emac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+	if (!emac)
+		goto fail;
+	ctx->xhmac = EVP_MAC_CTX_new(emac);
+	EVP_MAC_free(emac);
+	if (!ctx->xhmac)
+		goto fail;
 #endif
 #elif defined(WITH_MBEDTLS)
 	mbedtls_md_init(&ctx->hmac);
@@ -197,11 +205,14 @@ WINPR_HMAC_CTX* winpr_HMAC_New(void)
 	return ctx;
 
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	winpr_HMAC_Free(ctx);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
-BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const BYTE* key, size_t keylen)
+BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const void* key, size_t keylen)
 {
 	WINPR_ASSERT(ctx);
 
@@ -218,6 +229,19 @@ BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const BYTE* key, siz
 	}
 
 #if defined(WITH_OPENSSL)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	char* hash = WINPR_CAST_CONST_PTR_AWAY(winpr_md_type_to_string(md), char*);
+
+	if (!ctx->xhmac)
+		return FALSE;
+
+	const char* param_name = OSSL_MAC_PARAM_DIGEST;
+	const OSSL_PARAM param[] = { OSSL_PARAM_construct_utf8_string(param_name, hash, 0),
+		                         OSSL_PARAM_construct_end() };
+
+	if (EVP_MAC_init(ctx->xhmac, key, keylen, param) == 1)
+		return TRUE;
+#else
 	HMAC_CTX* hmac = ctx->hmac;
 	const EVP_MD* evp = winpr_openssl_get_evp_md(md);
 
@@ -236,6 +260,7 @@ BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const BYTE* key, siz
 		return TRUE;
 
 #endif
+#endif
 #elif defined(WITH_MBEDTLS)
 	mbedtls_md_context_t* hmac = &ctx->hmac;
 	mbedtls_md_type_t md_type = winpr_mbedtls_get_md_type(md);
@@ -244,7 +269,7 @@ BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const BYTE* key, siz
 	if (!md_info || !hmac)
 		return FALSE;
 
-	if (hmac->md_info != md_info)
+	if (mbedtls_md_info_from_ctx(hmac) != md_info)
 	{
 		mbedtls_md_free(hmac); /* can be called at any time after mbedtls_md_init */
 
@@ -259,7 +284,7 @@ BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const BYTE* key, siz
 	return FALSE;
 }
 
-BOOL winpr_HMAC_Update(WINPR_HMAC_CTX* ctx, const BYTE* input, size_t ilen)
+BOOL winpr_HMAC_Update(WINPR_HMAC_CTX* ctx, const void* input, size_t ilen)
 {
 	WINPR_ASSERT(ctx);
 
@@ -275,6 +300,10 @@ BOOL winpr_HMAC_Update(WINPR_HMAC_CTX* ctx, const BYTE* input, size_t ilen)
 	}
 
 #if defined(WITH_OPENSSL)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	if (EVP_MAC_update(ctx->xhmac, input, ilen) == 1)
+		return TRUE;
+#else
 	HMAC_CTX* hmac = ctx->hmac;
 #if (OPENSSL_VERSION_NUMBER < 0x10000000L) || \
     (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2070000fL)
@@ -284,7 +313,7 @@ BOOL winpr_HMAC_Update(WINPR_HMAC_CTX* ctx, const BYTE* input, size_t ilen)
 
 	if (HMAC_Update(hmac, input, ilen) == 1)
 		return TRUE;
-
+#endif
 #endif
 #elif defined(WITH_MBEDTLS)
 	mbedtls_md_context_t* mdctx = &ctx->hmac;
@@ -296,7 +325,7 @@ BOOL winpr_HMAC_Update(WINPR_HMAC_CTX* ctx, const BYTE* input, size_t ilen)
 	return FALSE;
 }
 
-BOOL winpr_HMAC_Final(WINPR_HMAC_CTX* ctx, BYTE* output, size_t olen)
+BOOL winpr_HMAC_Final(WINPR_HMAC_CTX* ctx, void* output, size_t olen)
 {
 	WINPR_ASSERT(ctx);
 
@@ -314,6 +343,11 @@ BOOL winpr_HMAC_Final(WINPR_HMAC_CTX* ctx, BYTE* output, size_t olen)
 	}
 
 #if defined(WITH_OPENSSL)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	const int rc = EVP_MAC_final(ctx->xhmac, output, NULL, olen);
+	if (rc == 1)
+		return TRUE;
+#else
 	HMAC_CTX* hmac = ctx->hmac;
 #if (OPENSSL_VERSION_NUMBER < 0x10000000L) || \
     (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2070000fL)
@@ -324,6 +358,7 @@ BOOL winpr_HMAC_Final(WINPR_HMAC_CTX* ctx, BYTE* output, size_t olen)
 	if (HMAC_Final(hmac, output, NULL) == 1)
 		return TRUE;
 
+#endif
 #endif
 #elif defined(WITH_MBEDTLS)
 	mbedtls_md_context_t* mdctx = &ctx->hmac;
@@ -341,6 +376,9 @@ void winpr_HMAC_Free(WINPR_HMAC_CTX* ctx)
 		return;
 
 #if defined(WITH_OPENSSL)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	EVP_MAC_CTX_free(ctx->xhmac);
+#else
 	HMAC_CTX* hmac = ctx->hmac;
 
 	if (hmac)
@@ -353,7 +391,7 @@ void winpr_HMAC_Free(WINPR_HMAC_CTX* ctx)
 		HMAC_CTX_free(hmac);
 #endif
 	}
-
+#endif
 #elif defined(WITH_MBEDTLS)
 	mbedtls_md_context_t* hmac = &ctx->hmac;
 
@@ -365,8 +403,8 @@ void winpr_HMAC_Free(WINPR_HMAC_CTX* ctx)
 	free(ctx);
 }
 
-BOOL winpr_HMAC(WINPR_MD_TYPE md, const BYTE* key, size_t keylen, const BYTE* input, size_t ilen,
-                BYTE* output, size_t olen)
+BOOL winpr_HMAC(WINPR_MD_TYPE md, const void* key, size_t keylen, const void* input, size_t ilen,
+                void* output, size_t olen)
 {
 	BOOL result = FALSE;
 	WINPR_HMAC_CTX* ctx = winpr_HMAC_New();
@@ -438,7 +476,10 @@ WINPR_DIGEST_CTX* winpr_Digest_New(void)
 	return ctx;
 
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	winpr_Digest_Free(ctx);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -452,7 +493,10 @@ static BOOL winpr_Digest_Init_Internal(WINPR_DIGEST_CTX* ctx, const EVP_MD* evp)
 		return FALSE;
 
 	if (EVP_DigestInit_ex(mdctx, evp, NULL) != 1)
+	{
+		WLog_ERR(TAG, "Failed to initialize digest %s", winpr_md_type_to_string(ctx->md));
 		return FALSE;
+	}
 
 	return TRUE;
 }
@@ -468,7 +512,7 @@ static BOOL winpr_Digest_Init_Internal(WINPR_DIGEST_CTX* ctx, WINPR_MD_TYPE md)
 	if (!md_info)
 		return FALSE;
 
-	if (mdctx->md_info != md_info)
+	if (mbedtls_md_info_from_ctx(mdctx) != md_info)
 	{
 		mbedtls_md_free(mdctx); /* can be called at any time after mbedtls_md_init */
 
@@ -487,21 +531,37 @@ BOOL winpr_Digest_Init_Allow_FIPS(WINPR_DIGEST_CTX* ctx, WINPR_MD_TYPE md)
 {
 	WINPR_ASSERT(ctx);
 
+	ctx->md = md;
+	switch (md)
+	{
+		case WINPR_MD_MD5:
+#if defined(WITH_INTERNAL_MD5)
+			winpr_MD5_Init(&ctx->md5);
+			return TRUE;
+#else
+			break;
+#endif
+		default:
+			WLog_ERR(TAG, "Invalid FIPS digest %s requested", winpr_md_type_to_string(md));
+			return FALSE;
+	}
+
 #if defined(WITH_OPENSSL)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#if !defined(WITH_INTERNAL_MD5)
+	if (md == WINPR_MD_MD5)
+	{
+		EVP_MD* md5 = EVP_MD_fetch(NULL, "MD5", "fips=no");
+		BOOL rc = winpr_Digest_Init_Internal(ctx, md5);
+		EVP_MD_free(md5);
+		return rc;
+	}
+#endif
+#endif
 	const EVP_MD* evp = winpr_openssl_get_evp_md(md);
-
-	/* Only MD5 is supported for FIPS allow override */
-	if (md != WINPR_MD_MD5)
-		return FALSE;
-
 	EVP_MD_CTX_set_flags(ctx->mdctx, EVP_MD_CTX_FLAG_NON_FIPS_ALLOW);
 	return winpr_Digest_Init_Internal(ctx, evp);
 #elif defined(WITH_MBEDTLS)
-
-	/* Only MD5 is supported for FIPS allow override */
-	if (md != WINPR_MD_MD5)
-		return FALSE;
-
 	return winpr_Digest_Init_Internal(ctx, md);
 #endif
 }
@@ -535,7 +595,7 @@ BOOL winpr_Digest_Init(WINPR_DIGEST_CTX* ctx, WINPR_MD_TYPE md)
 #endif
 }
 
-BOOL winpr_Digest_Update(WINPR_DIGEST_CTX* ctx, const BYTE* input, size_t ilen)
+BOOL winpr_Digest_Update(WINPR_DIGEST_CTX* ctx, const void* input, size_t ilen)
 {
 	WINPR_ASSERT(ctx);
 
@@ -571,7 +631,7 @@ BOOL winpr_Digest_Update(WINPR_DIGEST_CTX* ctx, const BYTE* input, size_t ilen)
 	return TRUE;
 }
 
-BOOL winpr_Digest_Final(WINPR_DIGEST_CTX* ctx, BYTE* output, size_t olen)
+BOOL winpr_Digest_Final(WINPR_DIGEST_CTX* ctx, void* output, size_t olen)
 {
 	WINPR_ASSERT(ctx);
 
@@ -612,6 +672,52 @@ BOOL winpr_Digest_Final(WINPR_DIGEST_CTX* ctx, BYTE* output, size_t olen)
 	return FALSE;
 }
 
+BOOL winpr_DigestSign_Init(WINPR_DIGEST_CTX* ctx, WINPR_MD_TYPE md, void* key)
+{
+	WINPR_ASSERT(ctx);
+
+#if defined(WITH_OPENSSL)
+	const EVP_MD* evp = winpr_openssl_get_evp_md(md);
+	if (!evp)
+		return FALSE;
+
+	const int rdsi = EVP_DigestSignInit(ctx->mdctx, NULL, evp, NULL, key);
+	if (rdsi <= 0)
+		return FALSE;
+	return TRUE;
+#else
+	return FALSE;
+#endif
+}
+
+BOOL winpr_DigestSign_Update(WINPR_DIGEST_CTX* ctx, const void* input, size_t ilen)
+{
+	WINPR_ASSERT(ctx);
+
+#if defined(WITH_OPENSSL)
+	EVP_MD_CTX* mdctx = ctx->mdctx;
+
+	if (EVP_DigestSignUpdate(mdctx, input, ilen) != 1)
+		return FALSE;
+	return TRUE;
+#else
+	return FALSE;
+#endif
+}
+
+BOOL winpr_DigestSign_Final(WINPR_DIGEST_CTX* ctx, void* output, size_t* piolen)
+{
+	WINPR_ASSERT(ctx);
+
+#if defined(WITH_OPENSSL)
+	EVP_MD_CTX* mdctx = ctx->mdctx;
+
+	return EVP_DigestSignFinal(mdctx, output, piolen) == 1;
+#else
+	return FALSE;
+#endif
+}
+
 void winpr_Digest_Free(WINPR_DIGEST_CTX* ctx)
 {
 	if (!ctx)
@@ -638,7 +744,7 @@ void winpr_Digest_Free(WINPR_DIGEST_CTX* ctx)
 	free(ctx);
 }
 
-BOOL winpr_Digest_Allow_FIPS(WINPR_MD_TYPE md, const BYTE* input, size_t ilen, BYTE* output,
+BOOL winpr_Digest_Allow_FIPS(WINPR_MD_TYPE md, const void* input, size_t ilen, void* output,
                              size_t olen)
 {
 	BOOL result = FALSE;
@@ -662,7 +768,7 @@ out:
 	return result;
 }
 
-BOOL winpr_Digest(WINPR_MD_TYPE md, const BYTE* input, size_t ilen, BYTE* output, size_t olen)
+BOOL winpr_Digest(WINPR_MD_TYPE md, const void* input, size_t ilen, void* output, size_t olen)
 {
 	BOOL result = FALSE;
 	WINPR_DIGEST_CTX* ctx = winpr_Digest_New();

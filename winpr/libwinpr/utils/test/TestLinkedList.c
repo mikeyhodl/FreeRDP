@@ -5,12 +5,10 @@
 
 int TestLinkedList(int argc, char* argv[])
 {
-	int count;
-	wLinkedList* list;
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
 
-	list = LinkedList_New();
+	wLinkedList* list = LinkedList_New();
 	if (!list)
 		return -1;
 
@@ -20,11 +18,11 @@ int TestLinkedList(int argc, char* argv[])
 		return -1;
 	if (!LinkedList_AddLast(list, (void*)(size_t)3))
 		return -1;
-	count = LinkedList_Count(list);
+	size_t count = LinkedList_Count(list);
 
 	if (count != 3)
 	{
-		printf("LinkedList_Count: expected 3, actual: %d\n", count);
+		printf("LinkedList_Count: expected 3, actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -43,7 +41,7 @@ int TestLinkedList(int argc, char* argv[])
 
 	if (count != 1)
 	{
-		printf("LinkedList_Count: expected 1, actual: %d\n", count);
+		printf("LinkedList_Count: expected 1, actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -62,7 +60,7 @@ int TestLinkedList(int argc, char* argv[])
 
 	if (count != 0)
 	{
-		printf("LinkedList_Count: expected 0, actual: %d\n", count);
+		printf("LinkedList_Count: expected 0, actual: %" PRIuz "\n", count);
 		return -1;
 	}
 
@@ -76,7 +74,7 @@ int TestLinkedList(int argc, char* argv[])
 
 	if (count != 3)
 	{
-		printf("LinkedList_Count: expected 3, actual: %d\n", count);
+		printf("LinkedList_Count: expected 3, actual: %" PRIuz "\n", count);
 		return -1;
 	}
 

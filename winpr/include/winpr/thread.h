@@ -178,7 +178,13 @@ extern "C"
 	DECLSPEC_NORETURN WINPR_API VOID ExitProcess(UINT uExitCode);
 	WINPR_API BOOL GetExitCodeProcess(HANDLE hProcess, LPDWORD lpExitCode);
 
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
+
 	WINPR_API HANDLE _GetCurrentProcess(void);
+
+	WINPR_PRAGMA_DIAG_POP
+
 	WINPR_API DWORD GetCurrentProcessId(void);
 
 	WINPR_API BOOL TerminateProcess(HANDLE hProcess, UINT uExitCode);
@@ -194,23 +200,55 @@ extern "C"
 #endif
 
 	/* Thread */
+#define THREAD_MODE_BACKGROUND_BEGIN 0x00010000 /** @since version 3.6.0 */
+#define THREAD_MODE_BACKGROUND_END 0x00020000   /** @since version 3.6.0 */
+
+	/** @defgroup THREAD_PRIORITY THREAD_PRIORITY
+	 *  @brief Known THREAD_PRIORITY values
+	 *  @since version 3.6.0
+	 *  @{
+	 */
+#define THREAD_PRIORITY_ABOVE_NORMAL 1   /** @since version 3.6.0 */
+#define THREAD_PRIORITY_BELOW_NORMAL -1  /** @since version 3.6.0 */
+#define THREAD_PRIORITY_HIGHEST 2        /** @since version 3.6.0 */
+#define THREAD_PRIORITY_IDLE -15         /** @since version 3.6.0 */
+#define THREAD_PRIORITY_LOWEST -2        /** @since version 3.6.0 */
+#define THREAD_PRIORITY_NORMAL 0         /** @since version 3.6.0 */
+#define THREAD_PRIORITY_TIME_CRITICAL 15 /** @since version 3.6.0 */
+	                                     /** @} */
+
+	/**
+	 *  @brief Change the thread priority
+	 *
+	 *  @param hThread the thhread handle to manipulate
+	 *  @param nPriority The priority to set, see @ref THREAD_PRIORITY
+	 *  @return \b TRUE for success, \b FALSE otherwise
+	 *  @since version 3.6.0
+	 */
+	WINPR_API BOOL SetThreadPriority(HANDLE hThread, int nPriority);
 
 #define CREATE_SUSPENDED 0x00000004
 #define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
 
-	WINPR_API HANDLE CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize,
+	WINPR_ATTR_MALLOC(CloseHandle, 1)
+	WINPR_API HANDLE CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, size_t dwStackSize,
 	                              LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter,
 	                              DWORD dwCreationFlags, LPDWORD lpThreadId);
 
+	WINPR_ATTR_MALLOC(CloseHandle, 1)
 	WINPR_API HANDLE CreateRemoteThread(HANDLE hProcess, LPSECURITY_ATTRIBUTES lpThreadAttributes,
-	                                    SIZE_T dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress,
+	                                    size_t dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress,
 	                                    LPVOID lpParameter, DWORD dwCreationFlags,
 	                                    LPDWORD lpThreadId);
 
 	WINPR_API VOID ExitThread(DWORD dwExitCode);
 	WINPR_API BOOL GetExitCodeThread(HANDLE hThread, LPDWORD lpExitCode);
 
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
 	WINPR_API HANDLE _GetCurrentThread(void);
+	WINPR_PRAGMA_DIAG_POP
+
 	WINPR_API DWORD GetCurrentThreadId(void);
 
 	typedef void (*PAPCFUNC)(ULONG_PTR Parameter);
@@ -240,8 +278,13 @@ extern "C"
 /*
  * GetCurrentProcess / GetCurrentThread cause a conflict on Mac OS X
  */
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
+
 #define _GetCurrentProcess GetCurrentProcess
 #define _GetCurrentThread GetCurrentThread
+
+WINPR_PRAGMA_DIAG_POP
 
 #endif
 

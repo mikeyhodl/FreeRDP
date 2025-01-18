@@ -32,6 +32,7 @@
 #include <winpr/stream.h>
 #include <winpr/sysinfo.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/server/echo.h>
 #include <freerdp/channels/echo.h>
 #include <freerdp/channels/log.h>
@@ -60,9 +61,9 @@ typedef struct
  */
 static UINT echo_server_open_channel(echo_server* echo)
 {
-	DWORD Error;
-	HANDLE hEvent;
-	DWORD StartTick;
+	DWORD Error = 0;
+	HANDLE hEvent = NULL;
+	DWORD StartTick = 0;
 	DWORD BytesReturned = 0;
 	PULONG pSessionId = NULL;
 
@@ -92,7 +93,7 @@ static UINT echo_server_open_channel(echo_server* echo)
 
 		if (echo->echo_channel)
 		{
-			UINT32 channelId;
+			UINT32 channelId = 0;
 			BOOL status = TRUE;
 
 			channelId = WTSChannelGetIdByHandle(echo->echo_channel);
@@ -121,16 +122,16 @@ static UINT echo_server_open_channel(echo_server* echo)
 
 static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 {
-	wStream* s;
-	void* buffer;
-	DWORD nCount;
+	wStream* s = NULL;
+	void* buffer = NULL;
+	DWORD nCount = 0;
 	HANDLE events[8];
 	BOOL ready = FALSE;
-	HANDLE ChannelEvent;
+	HANDLE ChannelEvent = NULL;
 	DWORD BytesReturned = 0;
 	echo_server* echo = (echo_server*)arg;
-	UINT error;
-	DWORD status;
+	UINT error = 0;
+	DWORD status = 0;
 
 	if ((error = echo_server_open_channel(echo)))
 	{
@@ -154,7 +155,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -218,7 +219,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 	if (!s)
 	{
 		WLog_ERR(TAG, "Stream_New failed!");
-		WTSVirtualChannelClose(echo->echo_channel);
+		(void)WTSVirtualChannelClose(echo->echo_channel);
 		ExitThread(ERROR_NOT_ENOUGH_MEMORY);
 		return ERROR_NOT_ENOUGH_MEMORY;
 	}
@@ -238,7 +239,12 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 			break;
 
 		Stream_SetPosition(s, 0);
-		WTSVirtualChannelRead(echo->echo_channel, 0, NULL, 0, &BytesReturned);
+		if (!WTSVirtualChannelRead(echo->echo_channel, 0, NULL, 0, &BytesReturned))
+		{
+			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
+			error = ERROR_INTERNAL_ERROR;
+			break;
+		}
 
 		if (BytesReturned < 1)
 			continue;
@@ -250,7 +256,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 			break;
 		}
 
-		if (WTSVirtualChannelRead(echo->echo_channel, 0, (PCHAR)Stream_Buffer(s),
+		if (WTSVirtualChannelRead(echo->echo_channel, 0, Stream_BufferAs(s, char),
 		                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 		{
 			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -258,8 +264,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 			break;
 		}
 
-		IFCALLRET(echo->context.Response, error, &echo->context, (BYTE*)Stream_Buffer(s),
-		          BytesReturned);
+		IFCALLRET(echo->context.Response, error, &echo->context, Stream_Buffer(s), BytesReturned);
 
 		if (error)
 		{
@@ -269,7 +274,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 	}
 
 	Stream_Free(s, TRUE);
-	WTSVirtualChannelClose(echo->echo_channel);
+	(void)WTSVirtualChannelClose(echo->echo_channel);
 	echo->echo_channel = NULL;
 out:
 
@@ -301,7 +306,7 @@ static UINT echo_server_open(echo_server_context* context)
 		if (!(echo->thread = CreateThread(NULL, 0, echo_server_thread_func, (void*)echo, 0, NULL)))
 		{
 			WLog_ERR(TAG, "CreateEvent failed!");
-			CloseHandle(echo->stopEvent);
+			(void)CloseHandle(echo->stopEvent);
 			echo->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -322,7 +327,7 @@ static UINT echo_server_close(echo_server_context* context)
 
 	if (echo->thread)
 	{
-		SetEvent(echo->stopEvent);
+		(void)SetEvent(echo->stopEvent);
 
 		if (WaitForSingleObject(echo->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -331,8 +336,8 @@ static UINT echo_server_close(echo_server_context* context)
 			return error;
 		}
 
-		CloseHandle(echo->thread);
-		CloseHandle(echo->stopEvent);
+		(void)CloseHandle(echo->thread);
+		(void)CloseHandle(echo->stopEvent);
 		echo->thread = NULL;
 		echo->stopEvent = NULL;
 	}
@@ -356,7 +361,7 @@ static BOOL echo_server_request(echo_server_context* context, const BYTE* buffer
 
 echo_server_context* echo_server_context_new(HANDLE vcm)
 {
-	echo_server* echo;
+	echo_server* echo = NULL;
 	echo = (echo_server*)calloc(1, sizeof(echo_server));
 
 	if (echo)

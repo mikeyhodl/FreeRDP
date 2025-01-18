@@ -29,23 +29,22 @@ static BOOL test_YCoCgRToRGB_8u_AC4R_func(UINT32 width, UINT32 height)
 	BYTE* out_sse = NULL;
 	BYTE* in = NULL;
 	BYTE* out_c = NULL;
-	UINT32 i, x;
 	const UINT32 srcStride = width * 4;
 	const UINT32 size = srcStride * height;
 	const UINT32 formats[] = { PIXEL_FORMAT_ARGB32, PIXEL_FORMAT_ABGR32, PIXEL_FORMAT_RGBA32,
 		                       PIXEL_FORMAT_RGBX32, PIXEL_FORMAT_BGRA32, PIXEL_FORMAT_BGRX32 };
 	PROFILER_DEFINE(genericProf)
 	PROFILER_DEFINE(optProf)
-	in = winpr_aligned_recalloc(NULL, 1, size, 16);
-	out_c = winpr_aligned_recalloc(NULL, 1, size, 16);
-	out_sse = winpr_aligned_recalloc(NULL, 1, size, 16);
+	in = winpr_aligned_calloc(1, size, 16);
+	out_c = winpr_aligned_calloc(1, size, 16);
+	out_sse = winpr_aligned_calloc(1, size, 16);
 
 	if (!in || !out_c || !out_sse)
 		goto fail;
 
 	winpr_RAND(in, size);
 
-	for (x = 0; x < sizeof(formats) / sizeof(formats[0]); x++)
+	for (size_t x = 0; x < sizeof(formats) / sizeof(formats[0]); x++)
 	{
 		const UINT32 format = formats[x];
 		const UINT32 dstStride = width * FreeRDPGetBytesPerPixel(format);
@@ -53,31 +52,33 @@ static BOOL test_YCoCgRToRGB_8u_AC4R_func(UINT32 width, UINT32 height)
 		PROFILER_CREATE(genericProf, "YCoCgRToRGB_8u_AC4R-GENERIC")
 		PROFILER_CREATE(optProf, "YCoCgRToRGB_8u_AC4R-OPT")
 		PROFILER_ENTER(genericProf)
-		status = generic->YCoCgToRGB_8u_AC4R(in, srcStride, out_c, format, dstStride, width, height,
-		                                     2, TRUE);
+		status = generic->YCoCgToRGB_8u_AC4R(in, WINPR_ASSERTING_INT_CAST(int, srcStride), out_c,
+		                                     format, WINPR_ASSERTING_INT_CAST(int, dstStride),
+		                                     width, height, 2, TRUE);
 		PROFILER_EXIT(genericProf)
 
 		if (status != PRIMITIVES_SUCCESS)
 			goto loop_fail;
 
 		PROFILER_ENTER(optProf)
-		status = optimized->YCoCgToRGB_8u_AC4R(in, srcStride, out_sse, format, dstStride, width,
-		                                       height, 2, TRUE);
+		status = optimized->YCoCgToRGB_8u_AC4R(
+		    in, WINPR_ASSERTING_INT_CAST(int, srcStride), out_sse, format,
+		    WINPR_ASSERTING_INT_CAST(int, dstStride), width, height, 2, TRUE);
 		PROFILER_EXIT(optProf)
 
 		if (status != PRIMITIVES_SUCCESS)
 			goto loop_fail;
 
-		if (memcmp(out_c, out_sse, dstStride * height) != 0)
+		if (memcmp(out_c, out_sse, 1ULL * dstStride * height) != 0)
 		{
-			for (i = 0; i < width * height; ++i)
+			for (size_t i = 0; i < 1ull * width * height; ++i)
 			{
 				const UINT32 c = FreeRDPReadColor(out_c + 4 * i, format);
 				const UINT32 sse = FreeRDPReadColor(out_sse + 4 * i, format);
 
 				if (c != sse)
 				{
-					printf("optimized->YCoCgRToRGB FAIL[%s] [%" PRIu32 "]: 0x%08" PRIx32
+					printf("optimized->YCoCgRToRGB FAIL[%s] [%" PRIuz "]: 0x%08" PRIx32
 					       " -> C 0x%08" PRIx32 " vs optimized 0x%08" PRIx32 "\n",
 					       formatName, i, in[i + 1], c, sse);
 					status = -1;
@@ -116,21 +117,20 @@ int TestPrimitivesYCoCg(int argc, char* argv[])
 	/* Random resolution tests */
 	if (argc < 2)
 	{
-		UINT32 x;
-
-		for (x = 0; x < 10; x++)
+		for (UINT32 x = 0; x < 10; x++)
 		{
-			UINT32 w, h;
+			UINT32 w = 0;
+			UINT32 h = 0;
 
 			do
 			{
-				winpr_RAND((BYTE*)&w, sizeof(w));
+				winpr_RAND(&w, sizeof(w));
 				w %= 2048 / 4;
 			} while (w < 16);
 
 			do
 			{
-				winpr_RAND((BYTE*)&h, sizeof(h));
+				winpr_RAND(&h, sizeof(h));
 				h %= 2048 / 4;
 			} while (h < 16);
 

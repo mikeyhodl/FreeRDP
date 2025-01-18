@@ -18,7 +18,7 @@
  */
 
 #include <winpr/config.h>
-
+#include <winpr/cast.h>
 #include <winpr/shell.h>
 
 /**
@@ -32,7 +32,7 @@
 
 #include <winpr/crt.h>
 
-#ifdef HAVE_UNISTD_H
+#ifdef WINPR_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -45,14 +45,9 @@
 
 BOOL GetUserProfileDirectoryA(HANDLE hToken, LPSTR lpProfileDir, LPDWORD lpcchSize)
 {
-	char* buf;
-	int buflen;
-	int status;
-	DWORD cchDirSize;
-	struct passwd pwd;
+	struct passwd pwd = { 0 };
 	struct passwd* pw = NULL;
-	WINPR_ACCESS_TOKEN* token;
-	token = (WINPR_ACCESS_TOKEN*)hToken;
+	WINPR_ACCESS_TOKEN* token = (WINPR_ACCESS_TOKEN*)hToken;
 
 	if (!AccessTokenIsValid(hToken))
 		return FALSE;
@@ -63,17 +58,18 @@ BOOL GetUserProfileDirectoryA(HANDLE hToken, LPSTR lpProfileDir, LPDWORD lpcchSi
 		return FALSE;
 	}
 
-	buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
-
-	if (buflen == -1)
+	long buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+	if (buflen < 0)
 		buflen = 8196;
 
-	buf = (char*)malloc(buflen);
+	const size_t s = 1ULL + (size_t)buflen;
+	char* buf = calloc(s, sizeof(char));
 
 	if (!buf)
 		return FALSE;
 
-	status = getpwnam_r(token->Username, &pwd, buf, buflen, &pw);
+	const int status =
+	    getpwnam_r(token->Username, &pwd, buf, WINPR_ASSERTING_INT_CAST(size_t, buflen), &pw);
 
 	if ((status != 0) || !pw)
 	{
@@ -82,28 +78,34 @@ BOOL GetUserProfileDirectoryA(HANDLE hToken, LPSTR lpProfileDir, LPDWORD lpcchSi
 		return FALSE;
 	}
 
-	cchDirSize = strlen(pw->pw_dir) + 1;
+	const size_t cchDirSize = strlen(pw->pw_dir) + 1;
+	if (cchDirSize > UINT32_MAX)
+	{
+		SetLastError(ERROR_INVALID_PARAMETER);
+		free(buf);
+		return FALSE;
+	}
 
 	if (!lpProfileDir || (*lpcchSize < cchDirSize))
 	{
-		*lpcchSize = cchDirSize;
+		*lpcchSize = (UINT32)cchDirSize;
 		SetLastError(ERROR_INSUFFICIENT_BUFFER);
 		free(buf);
 		return FALSE;
 	}
 
 	ZeroMemory(lpProfileDir, *lpcchSize);
-	sprintf_s(lpProfileDir, *lpcchSize, "%s", pw->pw_dir);
-	*lpcchSize = cchDirSize;
+	(void)sprintf_s(lpProfileDir, *lpcchSize, "%s", pw->pw_dir);
+	*lpcchSize = (UINT32)cchDirSize;
 	free(buf);
 	return TRUE;
 }
 
 BOOL GetUserProfileDirectoryW(HANDLE hToken, LPWSTR lpProfileDir, LPDWORD lpcchSize)
 {
-	BOOL bStatus;
-	DWORD cchSizeA;
-	LPSTR lpProfileDirA;
+	BOOL bStatus = 0;
+	DWORD cchSizeA = 0;
+	LPSTR lpProfileDirA = NULL;
 
 	if (!lpcchSize)
 	{
@@ -129,7 +131,8 @@ BOOL GetUserProfileDirectoryW(HANDLE hToken, LPWSTR lpProfileDir, LPDWORD lpcchS
 
 	if (bStatus)
 	{
-		MultiByteToWideChar(CP_ACP, 0, lpProfileDirA, cchSizeA, lpProfileDir, *lpcchSize);
+		SSIZE_T size = ConvertUtf8NToWChar(lpProfileDirA, cchSizeA, lpProfileDir, *lpcchSize);
+		bStatus = size >= 0;
 	}
 
 	if (lpProfileDirA)

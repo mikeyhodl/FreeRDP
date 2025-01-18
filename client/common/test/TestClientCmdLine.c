@@ -8,32 +8,31 @@
 
 typedef BOOL (*validate_settings_pr)(rdpSettings* settings);
 
-#define printref() printf("%s:%d: in function %-40s:", __FILE__, __LINE__, __FUNCTION__)
+#define printref() printf("%s:%d: in function %-40s:", __FILE__, __LINE__, __func__)
 
-#define TEST_ERROR(format, ...)                 \
-	do                                          \
-	{                                           \
-		fprintf(stderr, format, ##__VA_ARGS__); \
-		printref();                             \
-		printf(format, ##__VA_ARGS__);          \
-		fflush(stdout);                         \
+#define TEST_ERROR(format, ...)                       \
+	do                                                \
+	{                                                 \
+		(void)fprintf(stderr, format, ##__VA_ARGS__); \
+		printref();                                   \
+		(void)printf(format, ##__VA_ARGS__);          \
+		(void)fflush(stdout);                         \
 	} while (0)
 
-#define TEST_FAILURE(format, ...)      \
-	do                                 \
-	{                                  \
-		printref();                    \
-		printf(" FAILURE ");           \
-		printf(format, ##__VA_ARGS__); \
-		fflush(stdout);                \
+#define TEST_FAILURE(format, ...)            \
+	do                                       \
+	{                                        \
+		printref();                          \
+		(void)printf(" FAILURE ");           \
+		(void)printf(format, ##__VA_ARGS__); \
+		(void)fflush(stdout);                \
 	} while (0)
 
 static void print_test_title(int argc, char** argv)
 {
-	int i;
 	printf("Running test:");
 
-	for (i = 0; i < argc; i++)
+	for (int i = 0; i < argc; i++)
 	{
 		printf(" %s", argv[i]);
 	}
@@ -44,10 +43,13 @@ static void print_test_title(int argc, char** argv)
 static INLINE BOOL testcase(const char* name, char** argv, size_t argc, int expected_return,
                             validate_settings_pr validate_settings)
 {
-	int status;
+	int status = 0;
 	BOOL valid_settings = TRUE;
 	rdpSettings* settings = freerdp_settings_new(0);
-	print_test_title(argc, argv);
+
+	WINPR_ASSERT(argc <= INT_MAX);
+
+	print_test_title((int)argc, argv);
 
 	if (!settings)
 	{
@@ -55,7 +57,7 @@ static INLINE BOOL testcase(const char* name, char** argv, size_t argc, int expe
 		return FALSE;
 	}
 
-	status = freerdp_client_settings_parse_command_line(settings, argc, argv, FALSE);
+	status = freerdp_client_settings_parse_command_line(settings, (int)argc, argv, FALSE);
 
 	if (validate_settings)
 	{
@@ -90,7 +92,7 @@ static BOOL check_settings_smartcard_no_redirection(rdpSettings* settings)
 {
 	BOOL result = TRUE;
 
-	if (settings->RedirectSmartCards)
+	if (freerdp_settings_get_bool(settings, FreeRDP_RedirectSmartCards))
 	{
 		TEST_FAILURE("Expected RedirectSmartCards = FALSE,  but RedirectSmartCards = TRUE!\n");
 		result = FALSE;
@@ -117,6 +119,7 @@ typedef struct
 	} modified_arguments[8];
 } test;
 
+// NOLINTBEGIN(bugprone-suspicious-missing-comma)
 static const test tests[] = {
 	{ COMMAND_LINE_STATUS_PRINT_HELP,
 	  check_settings_smartcard_no_redirection,
@@ -192,11 +195,11 @@ static const test tests[] = {
 	  check_settings_smartcard_no_redirection,
 	  { "testfreerdp", "/list:monitor", 0 },
 	  { { 0 } } },
-	{ COMMAND_LINE_ERROR,
+	{ 0,
 	  check_settings_smartcard_no_redirection,
 	  { "testfreerdp", "/sound", "/drive:media:" DRIVE_REDIRECT_PATH, "/v:test.freerdp.com", 0 },
 	  { { 0 } } },
-	{ COMMAND_LINE_ERROR,
+	{ 0,
 	  check_settings_smartcard_no_redirection,
 	  { "testfreerdp", "/sound", "/drive:media,/foo/bar/blabla", "/v:test.freerdp.com", 0 },
 	  { { 0 } } },
@@ -209,13 +212,13 @@ static const test tests[] = {
 	},
 #endif
 };
+// NOLINTEND(bugprone-suspicious-missing-comma)
 
 static void check_modified_arguments(const test* test, char** command_line, int* rc)
 {
-	int k;
-	const char* expected_argument;
+	const char* expected_argument = NULL;
 
-	for (k = 0; (expected_argument = test->modified_arguments[k].expected_value); k++)
+	for (int k = 0; (expected_argument = test->modified_arguments[k].expected_value); k++)
 	{
 		int index = test->modified_arguments[k].index;
 		char* actual_argument = command_line[index];
@@ -225,7 +228,7 @@ static void check_modified_arguments(const test* test, char** command_line, int*
 			printref();
 			printf("Failure: overridden argument %d is %s but it should be %s\n", index,
 			       actual_argument, expected_argument);
-			fflush(stdout);
+			(void)fflush(stdout);
 			*rc = -1;
 		}
 	}
@@ -234,18 +237,16 @@ static void check_modified_arguments(const test* test, char** command_line, int*
 int TestClientCmdLine(int argc, char* argv[])
 {
 	int rc = 0;
-	size_t i;
 
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
-	for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++)
+	for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++)
 	{
 		const test* current = &tests[i];
 		int failure = 0;
 		char** command_line = string_list_copy(current->command_line);
 
-		if (!testcase(__FUNCTION__, command_line,
-		              string_list_length((const char* const*)command_line),
+		if (!testcase(__func__, command_line, string_list_length((const char* const*)command_line),
 		              current->expected_status, current->validate_settings))
 		{
 			TEST_FAILURE("parsing arguments.\n");

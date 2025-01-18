@@ -21,6 +21,7 @@
 #include <winpr/input.h>
 #include <winpr/sysinfo.h>
 
+#include <freerdp/server/server-common.h>
 #include <freerdp/codec/color.h>
 #include <freerdp/codec/region.h>
 #include <freerdp/log.h>
@@ -61,12 +62,8 @@ static BOOL mac_shadow_input_keyboard_event(rdpShadowSubsystem* subsystem, rdpSh
 	if (extended)
 		vkcode |= KBDEXT;
 
-	keycode = GetKeycodeFromVirtualKeyCode(vkcode, KEYCODE_TYPE_APPLE);
+	keycode = GetKeycodeFromVirtualKeyCode(vkcode, WINPR_KEYCODE_TYPE_APPLE);
 
-	if (keycode < 8)
-		return TRUE;
-
-	keycode -= 8;
 	source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
 
 	if (flags & KBD_FLAGS_DOWN)
@@ -275,7 +272,6 @@ static int mac_shadow_capture_stop(macShadowSubsystem* subsystem)
 
 static int mac_shadow_capture_get_dirty_region(macShadowSubsystem* subsystem)
 {
-	size_t index;
 	size_t numRects;
 	const CGRect* rects;
 	RECTANGLE_16 invalidRect;
@@ -286,7 +282,7 @@ static int mac_shadow_capture_get_dirty_region(macShadowSubsystem* subsystem)
 	if (!numRects)
 		return -1;
 
-	for (index = 0; index < numRects; index++)
+	for (size_t index = 0; index < numRects; index++)
 	{
 		invalidRect.left = (UINT16)rects[index].origin.x;
 		invalidRect.top = (UINT16)rects[index].origin.y;
@@ -314,7 +310,6 @@ static int freerdp_image_copy_from_retina(BYTE* pDstData, DWORD DstFormat, int n
 {
 	BYTE* pSrcPixel;
 	BYTE* pDstPixel;
-	int x, y;
 	int nSrcPad;
 	int nDstPad;
 	int srcBitsPerPixel;
@@ -338,9 +333,9 @@ static int freerdp_image_copy_from_retina(BYTE* pDstData, DWORD DstFormat, int n
 	pSrcPixel = &pSrcData[(nYSrc * nSrcStep) + (nXSrc * 4)];
 	pDstPixel = &pDstData[(nYDst * nDstStep) + (nXDst * 4)];
 
-	for (y = 0; y < nHeight; y++)
+	for (int y = 0; y < nHeight; y++)
 	{
-		for (x = 0; x < nWidth; x++)
+		for (int x = 0; x < nWidth; x++)
 		{
 			UINT32 R, G, B;
 			UINT32 color;
@@ -410,9 +405,9 @@ static void (^mac_capture_stream_handler)(
 	  }
 	  else
 	  {
-		  freerdp_image_copy(surface->data, surface->format, surface->scanline, x, y, width, height,
-			                 pSrcData, PIXEL_FORMAT_BGRX32, nSrcStep, x, y, NULL,
-			                 FREERDP_FLIP_NONE);
+		  freerdp_image_copy_no_overlap(surface->data, surface->format, surface->scanline, x, y,
+			                            width, height, pSrcData, PIXEL_FORMAT_BGRX32, nSrcStep, x,
+			                            y, NULL, FREERDP_FLIP_NONE);
 	  }
 	  LeaveCriticalSection(&(surface->lock));
 
@@ -564,11 +559,11 @@ static DWORD WINAPI mac_shadow_subsystem_thread(LPVOID arg)
 	return 0;
 }
 
-static int mac_shadow_enum_monitors(MONITOR_DEF* monitors, int maxMonitors)
+static UINT32 mac_shadow_enum_monitors(MONITOR_DEF* monitors, UINT32 maxMonitors)
 {
 	int index;
 	size_t wide, high;
-	int numMonitors = 0;
+	UINT32 numMonitors = 0;
 	MONITOR_DEF* monitor;
 	CGDirectDisplayID displayId;
 	displayId = CGMainDisplayID();
@@ -587,16 +582,19 @@ static int mac_shadow_enum_monitors(MONITOR_DEF* monitors, int maxMonitors)
 	return numMonitors;
 }
 
-static int mac_shadow_subsystem_init(macShadowSubsystem* subsystem)
+static int mac_shadow_subsystem_init(rdpShadowSubsystem* rdpsubsystem)
 {
+	macShadowSubsystem* subsystem = (macShadowSubsystem*)rdpsubsystem;
 	g_Subsystem = subsystem;
+
 	mac_shadow_detect_monitors(subsystem);
 	mac_shadow_capture_init(subsystem);
 	return 1;
 }
 
-static int mac_shadow_subsystem_uninit(macShadowSubsystem* subsystem)
+static int mac_shadow_subsystem_uninit(rdpShadowSubsystem* rdpsubsystem)
 {
+	macShadowSubsystem* subsystem = (macShadowSubsystem*)rdpsubsystem;
 	if (!subsystem)
 		return -1;
 
@@ -609,8 +607,9 @@ static int mac_shadow_subsystem_uninit(macShadowSubsystem* subsystem)
 	return 1;
 }
 
-static int mac_shadow_subsystem_start(macShadowSubsystem* subsystem)
+static int mac_shadow_subsystem_start(rdpShadowSubsystem* rdpsubsystem)
 {
+	macShadowSubsystem* subsystem = (macShadowSubsystem*)rdpsubsystem;
 	HANDLE thread;
 
 	if (!subsystem)
@@ -627,7 +626,7 @@ static int mac_shadow_subsystem_start(macShadowSubsystem* subsystem)
 	return 1;
 }
 
-static int mac_shadow_subsystem_stop(macShadowSubsystem* subsystem)
+static int mac_shadow_subsystem_stop(rdpShadowSubsystem* subsystem)
 {
 	if (!subsystem)
 		return -1;
@@ -635,7 +634,7 @@ static int mac_shadow_subsystem_stop(macShadowSubsystem* subsystem)
 	return 1;
 }
 
-static void mac_shadow_subsystem_free(macShadowSubsystem* subsystem)
+static void mac_shadow_subsystem_free(rdpShadowSubsystem* subsystem)
 {
 	if (!subsystem)
 		return;
@@ -644,10 +643,9 @@ static void mac_shadow_subsystem_free(macShadowSubsystem* subsystem)
 	free(subsystem);
 }
 
-static macShadowSubsystem* mac_shadow_subsystem_new(void)
+static rdpShadowSubsystem* mac_shadow_subsystem_new(void)
 {
-	macShadowSubsystem* subsystem;
-	subsystem = (macShadowSubsystem*)calloc(1, sizeof(macShadowSubsystem));
+	macShadowSubsystem* subsystem = calloc(1, sizeof(macShadowSubsystem));
 
 	if (!subsystem)
 		return NULL;
@@ -657,17 +655,26 @@ static macShadowSubsystem* mac_shadow_subsystem_new(void)
 	subsystem->common.UnicodeKeyboardEvent = mac_shadow_input_unicode_keyboard_event;
 	subsystem->common.MouseEvent = mac_shadow_input_mouse_event;
 	subsystem->common.ExtendedMouseEvent = mac_shadow_input_extended_mouse_event;
-	return subsystem;
+	return &subsystem->common;
 }
 
-FREERDP_API int Mac_ShadowSubsystemEntry(RDP_SHADOW_ENTRY_POINTS* pEntryPoints)
+FREERDP_API const char* ShadowSubsystemName(void)
 {
-	pEntryPoints->New = (pfnShadowSubsystemNew)mac_shadow_subsystem_new;
-	pEntryPoints->Free = (pfnShadowSubsystemFree)mac_shadow_subsystem_free;
-	pEntryPoints->Init = (pfnShadowSubsystemInit)mac_shadow_subsystem_init;
-	pEntryPoints->Uninit = (pfnShadowSubsystemInit)mac_shadow_subsystem_uninit;
-	pEntryPoints->Start = (pfnShadowSubsystemStart)mac_shadow_subsystem_start;
-	pEntryPoints->Stop = (pfnShadowSubsystemStop)mac_shadow_subsystem_stop;
-	pEntryPoints->EnumMonitors = (pfnShadowEnumMonitors)mac_shadow_enum_monitors;
+	return "Mac";
+}
+
+FREERDP_API int ShadowSubsystemEntry(RDP_SHADOW_ENTRY_POINTS* pEntryPoints)
+{
+	char name[] = "mac shadow subsystem";
+	char* arg[] = { name };
+
+	freerdp_server_warn_unmaintained(ARRAYSIZE(arg), arg);
+	pEntryPoints->New = mac_shadow_subsystem_new;
+	pEntryPoints->Free = mac_shadow_subsystem_free;
+	pEntryPoints->Init = mac_shadow_subsystem_init;
+	pEntryPoints->Uninit = mac_shadow_subsystem_uninit;
+	pEntryPoints->Start = mac_shadow_subsystem_start;
+	pEntryPoints->Stop = mac_shadow_subsystem_stop;
+	pEntryPoints->EnumMonitors = mac_shadow_enum_monitors;
 	return 1;
 }

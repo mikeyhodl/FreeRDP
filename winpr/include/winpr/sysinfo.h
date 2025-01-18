@@ -31,8 +31,9 @@ extern "C"
 {
 #endif
 
-#ifndef _WIN32
-
+#ifdef _WIN32
+#include <winnt.h>
+#else
 #define PROCESSOR_ARCHITECTURE_INTEL 0
 #define PROCESSOR_ARCHITECTURE_MIPS 1
 #define PROCESSOR_ARCHITECTURE_ALPHA 2
@@ -47,6 +48,7 @@ extern "C"
 #define PROCESSOR_ARCHITECTURE_NEUTRAL 11
 #define PROCESSOR_ARCHITECTURE_ARM64 12
 #define PROCESSOR_ARCHITECTURE_MIPS64 13
+#define PROCESSOR_ARCHITECTURE_E2K 14
 #define PROCESSOR_ARCHITECTURE_UNKNOWN 0xFFFF
 
 #define PROCESSOR_INTEL_386 386
@@ -83,8 +85,8 @@ extern "C"
 			{
 				WORD wProcessorArchitecture;
 				WORD wReserved;
-			};
-		};
+			} DUMMYSTRUCTNAME;
+		} DUMMYUNIONNAME;
 
 		DWORD dwPageSize;
 		LPVOID lpMinimumApplicationAddress;
@@ -100,6 +102,7 @@ extern "C"
 	WINPR_API void GetSystemInfo(LPSYSTEM_INFO lpSystemInfo);
 	WINPR_API void GetNativeSystemInfo(LPSYSTEM_INFO lpSystemInfo);
 
+#if defined(WITH_WINPR_DEPRECATED)
 	typedef struct
 	{
 		DWORD dwOSVersionInfoSize;
@@ -181,6 +184,7 @@ extern "C"
 #define VER_SUITE_STORAGE_SERVER 0x00002000
 #define VER_SUITE_TERMINAL 0x00000010
 #define VER_SUITE_WH_SERVER 0x00008000
+#endif
 
 #define VER_NT_DOMAIN_CONTROLLER 0x0000002
 #define VER_NT_SERVER 0x0000003
@@ -224,6 +228,19 @@ extern "C"
 #define PF_ARM_64BIT_LOADSTORE_ATOMIC 25
 #define PF_ARM_EXTERNAL_CACHE_AVAILABLE 26
 #define PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE 27
+#define PF_SSSE3_INSTRUCTIONS_AVAILABLE 36          /** @since version 3.3.0 */
+#define PF_SSE4_1_INSTRUCTIONS_AVAILABLE 37         /** @since version 3.3.0 */
+#define PF_SSE4_2_INSTRUCTIONS_AVAILABLE 38         /** @since version 3.3.0 */
+#define PF_AVX_INSTRUCTIONS_AVAILABLE 39            /** @since version 3.3.0 */
+#define PF_AVX2_INSTRUCTIONS_AVAILABLE 40           /** @since version 3.3.0 */
+#define PF_AVX512F_INSTRUCTIONS_AVAILABLE 41        /** @since version 3.3.0 */
+#define PF_ARM_V8_INSTRUCTIONS_AVAILABLE 29         /** @since version 3.3.0 */
+#define PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE 30  /** @since version 3.3.0 */
+#define PF_ARM_V8_CRC32_INSTRUCTIONS_AVAILABLE 31   /** @since version 3.3.0 */
+#define PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE 34 /** @since version 3.3.0 */
+#define PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE 43     /** @since version 3.3.0 */
+#define PF_ARM_V83_JSCVT_INSTRUCTIONS_AVAILABLE 44  /** @since version 3.3.0 */
+#define PF_ARM_V83_LRCPC_INSTRUCTIONS_AVAILABLE 45  /** @since version 3.3.0 */
 
 #define PF_ARM_V4 0x80000001
 #define PF_ARM_V5 0x80000002
@@ -262,6 +279,7 @@ extern "C"
 
 #if !defined(_WIN32) || defined(_UWP)
 
+#if defined(WITH_WINPR_DEPRECATED)
 	WINPR_API BOOL GetVersionExA(LPOSVERSIONINFOA lpVersionInformation);
 	WINPR_API BOOL GetVersionExW(LPOSVERSIONINFOW lpVersionInformation);
 
@@ -271,6 +289,7 @@ extern "C"
 #define GetVersionEx GetVersionExA
 #endif
 
+#endif
 #endif
 
 #if !defined(_WIN32) || defined(_UWP)
@@ -317,6 +336,26 @@ extern "C"
 
 #endif
 
+#define WINPR_TIME_NS_TO_S(ns) ((ns) / 1000000000ull) /** @since version 3.4.0 */
+#define WINPR_TIME_NS_TO_MS(ns) ((ns) / 1000000ull)   /** @since version 3.4.0 */
+#define WINPR_TIME_NS_TO_US(ns) ((ns) / 1000ull)      /** @since version 3.4.0 */
+
+#define WINPR_TIME_NS_REM_NS(ns) ((ns) % 1000000000ull)               /** @since version 3.4.0 */
+#define WINPR_TIME_NS_REM_US(ns) (WINPR_TIME_NS_REM_NS(ns) / 1000ull) /** @since version 3.4.0 */
+#define WINPR_TIME_NS_REM_MS(ns) (WINPR_TIME_NS_REM_US(ns) / 1000ull) /** @since version 3.4.0 */
+
+	/** @brief get current tick count in nano second resolution
+	 *   @since version 3.4.0
+	 *   @return The tick count in nanosecond resolution since a undefined reference data
+	 */
+	WINPR_API UINT64 winpr_GetTickCount64NS(void);
+
+	/** @brief the the current time in nano second resolution
+	 *  @since version 3.4.0
+	 *  @return The nano seconds since 1.1.1970
+	 */
+	WINPR_API UINT64 winpr_GetUnixTimeNS(void);
+
 	WINPR_API DWORD GetTickCountPrecise(void);
 
 	WINPR_API BOOL IsProcessorFeaturePresentEx(DWORD ProcessorFeature);
@@ -337,6 +376,7 @@ extern "C"
 #define PF_EX_ARM_IDIVA 13
 #define PF_EX_ARM_IDIVT 14
 #define PF_EX_AVX_PCLMULQDQ 15
+#define PF_EX_AVX512F 16
 
 /*
  * some "aliases" for the standard defines

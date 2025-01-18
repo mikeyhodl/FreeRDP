@@ -30,10 +30,10 @@
 #include <winpr/thread.h>
 #include <winpr/stream.h>
 #include <winpr/sysinfo.h>
-#include <winpr/stream.h>
 
-#include <freerdp/server/ainput.h>
+#include <freerdp/freerdp.h>
 #include <freerdp/channels/ainput.h>
+#include <freerdp/server/ainput.h>
 #include <freerdp/channels/log.h>
 
 #include "../common/ainput_common.h"
@@ -88,9 +88,9 @@ static BOOL ainput_server_is_open(ainput_server_context* context)
  */
 static UINT ainput_server_open_channel(ainput_server* ainput)
 {
-	DWORD Error;
-	HANDLE hEvent;
-	DWORD StartTick;
+	DWORD Error = 0;
+	HANDLE hEvent = NULL;
+	DWORD StartTick = 0;
 	DWORD BytesReturned = 0;
 	PULONG pSessionId = NULL;
 
@@ -130,7 +130,7 @@ static UINT ainput_server_open_channel(ainput_server* ainput)
 
 		if (ainput->ainput_channel)
 		{
-			UINT32 channelId;
+			UINT32 channelId = 0;
 			BOOL status = TRUE;
 
 			channelId = WTSChannelGetIdByHandle(ainput->ainput_channel);
@@ -157,8 +157,8 @@ static UINT ainput_server_open_channel(ainput_server* ainput)
 
 static UINT ainput_server_send_version(ainput_server* ainput)
 {
-	ULONG written;
-	wStream* s;
+	ULONG written = 0;
+	wStream* s = NULL;
 
 	WINPR_ASSERT(ainput);
 
@@ -176,8 +176,8 @@ static UINT ainput_server_send_version(ainput_server* ainput)
 	Stream_Write_UINT32(s, AINPUT_VERSION_MAJOR); /* Version (4 bytes) */
 	Stream_Write_UINT32(s, AINPUT_VERSION_MINOR); /* Version (4 bytes) */
 
-	WINPR_ASSERT(Stream_GetPosition(s) <= ULONG_MAX);
-	if (!WTSVirtualChannelWrite(ainput->ainput_channel, (PCHAR)Stream_Buffer(s),
+	WINPR_ASSERT(Stream_GetPosition(s) <= UINT32_MAX);
+	if (!WTSVirtualChannelWrite(ainput->ainput_channel, Stream_BufferAs(s, char),
 	                            (ULONG)Stream_GetPosition(s), &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
@@ -190,8 +190,10 @@ static UINT ainput_server_send_version(ainput_server* ainput)
 static UINT ainput_server_recv_mouse_event(ainput_server* ainput, wStream* s)
 {
 	UINT error = CHANNEL_RC_OK;
-	UINT64 flags, time;
-	INT32 x, y;
+	UINT64 flags = 0;
+	UINT64 time = 0;
+	INT32 x = 0;
+	INT32 y = 0;
 	char buffer[128] = { 0 };
 
 	WINPR_ASSERT(ainput);
@@ -205,8 +207,8 @@ static UINT ainput_server_recv_mouse_event(ainput_server* ainput, wStream* s)
 	Stream_Read_INT32(s, x);
 	Stream_Read_INT32(s, y);
 
-	WLog_VRB(TAG, "[%s] received: time=0x%08" PRIx64 ", flags=%s, %" PRId32 "x%" PRId32,
-	         __FUNCTION__, time, ainput_flags_to_string(flags, buffer, sizeof(buffer)), x, y);
+	WLog_VRB(TAG, "received: time=0x%08" PRIx64 ", flags=%s, %" PRId32 "x%" PRId32, time,
+	         ainput_flags_to_string(flags, buffer, sizeof(buffer)), x, y);
 	IFCALLRET(ainput->context.MouseEvent, error, &ainput->context, time, flags, x, y);
 
 	return error;
@@ -224,7 +226,7 @@ static HANDLE ainput_server_get_channel_handle(ainput_server* ainput)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -234,11 +236,11 @@ static HANDLE ainput_server_get_channel_handle(ainput_server* ainput)
 
 static DWORD WINAPI ainput_server_thread_func(LPVOID arg)
 {
-	DWORD nCount;
+	DWORD nCount = 0;
 	HANDLE events[2] = { 0 };
 	ainput_server* ainput = (ainput_server*)arg;
 	UINT error = CHANNEL_RC_OK;
-	DWORD status;
+	DWORD status = 0;
 
 	WINPR_ASSERT(ainput);
 
@@ -290,7 +292,7 @@ static DWORD WINAPI ainput_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(ainput->ainput_channel);
+	(void)WTSVirtualChannelClose(ainput->ainput_channel);
 	ainput->ainput_channel = NULL;
 
 	if (error && ainput->context.rdpcontext)
@@ -325,7 +327,7 @@ static UINT ainput_server_open(ainput_server_context* context)
 		if (!ainput->thread)
 		{
 			WLog_ERR(TAG, "CreateEvent failed!");
-			CloseHandle(ainput->stopEvent);
+			(void)CloseHandle(ainput->stopEvent);
 			ainput->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -349,7 +351,7 @@ static UINT ainput_server_close(ainput_server_context* context)
 
 	if (!ainput->externalThread && ainput->thread)
 	{
-		SetEvent(ainput->stopEvent);
+		(void)SetEvent(ainput->stopEvent);
 
 		if (WaitForSingleObject(ainput->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -358,8 +360,8 @@ static UINT ainput_server_close(ainput_server_context* context)
 			return error;
 		}
 
-		CloseHandle(ainput->thread);
-		CloseHandle(ainput->stopEvent);
+		(void)CloseHandle(ainput->thread);
+		(void)CloseHandle(ainput->stopEvent);
 		ainput->thread = NULL;
 		ainput->stopEvent = NULL;
 	}
@@ -367,7 +369,7 @@ static UINT ainput_server_close(ainput_server_context* context)
 	{
 		if (ainput->state != AINPUT_INITIAL)
 		{
-			WTSVirtualChannelClose(ainput->ainput_channel);
+			(void)WTSVirtualChannelClose(ainput->ainput_channel);
 			ainput->ainput_channel = NULL;
 			ainput->state = AINPUT_INITIAL;
 		}
@@ -414,7 +416,10 @@ ainput_server_context* ainput_server_context_new(HANDLE vcm)
 		goto fail;
 	return &ainput->context;
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	ainput_server_context_free(&ainput->context);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
@@ -431,11 +436,12 @@ void ainput_server_context_free(ainput_server_context* context)
 
 static UINT ainput_process_message(ainput_server* ainput)
 {
-	BOOL rc;
+	BOOL rc = 0;
 	UINT error = ERROR_INTERNAL_ERROR;
-	ULONG BytesReturned, ActualBytesReturned;
-	UINT16 MessageId;
-	wStream* s;
+	ULONG BytesReturned = 0;
+	ULONG ActualBytesReturned = 0;
+	UINT16 MessageId = 0;
+	wStream* s = NULL;
 
 	WINPR_ASSERT(ainput);
 	WINPR_ASSERT(ainput->ainput_channel);
@@ -461,7 +467,7 @@ static UINT ainput_process_message(ainput_server* ainput)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(ainput->ainput_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(ainput->ainput_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &ActualBytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -570,7 +576,7 @@ UINT ainput_server_context_poll_int(ainput_server_context* context)
 			break;
 
 		default:
-			WLog_ERR(TAG, "AINPUT chanel is in invalid state %d", ainput->state);
+			WLog_ERR(TAG, "AINPUT channel is in invalid state %d", ainput->state);
 			break;
 	}
 

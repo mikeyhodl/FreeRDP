@@ -49,40 +49,55 @@ static const char* strsignal(int signum)
 }
 #endif
 
+// NOLINTBEGIN(bugprone-signal-handler,cert-msc54-cpp,cert-sig30-c)
 static void cleanup_handler(int signum)
 {
-	printf("\n");
-	WLog_INFO(TAG, "[%s]: caught signal %s [%d], starting cleanup...", __FUNCTION__,
-	          strsignal(signum), signum);
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
+	WLog_INFO(TAG, "caught signal %s [%d], starting cleanup...", strsignal(signum), signum);
 
 	WLog_INFO(TAG, "stopping all connections.");
 	pf_server_stop(server);
 }
+// NOLINTEND(bugprone-signal-handler,cert-msc54-cpp,cert-sig30-c)
 
 static void pf_server_register_signal_handlers(void)
 {
-	signal(SIGINT, cleanup_handler);
-	signal(SIGTERM, cleanup_handler);
+	(void)signal(SIGINT, cleanup_handler);
+	(void)signal(SIGTERM, cleanup_handler);
 #ifndef _WIN32
-	signal(SIGQUIT, cleanup_handler);
-	signal(SIGKILL, cleanup_handler);
+	(void)signal(SIGQUIT, cleanup_handler);
+	(void)signal(SIGKILL, cleanup_handler);
 #endif
 }
 
-static WINPR_NORETURN(void usage(const char* app))
+static int usage(const char* app)
 {
 	printf("Usage:\n");
 	printf("%s -h                               Display this help text.\n", app);
 	printf("%s --help                           Display this help text.\n", app);
+	printf("%s --buildconfig                    Print the build configuration.\n", app);
 	printf("%s <config ini file>                Start the proxy with <config.ini>\n", app);
 	printf("%s --dump-config <config ini file>  Create a template <config.ini>\n", app);
-	exit(0);
+	printf("%s -v                               Print out binary version.\n", app);
+	printf("%s --version                        Print out binary version.\n", app);
+	return 0;
+}
+
+static int version(const char* app)
+{
+	printf("%s version %s", app, freerdp_get_version_string());
+	return 0;
+}
+
+static int buildconfig(const char* app)
+{
+	printf("This is FreeRDP version %s (%s)\n", FREERDP_VERSION_FULL, FREERDP_GIT_REVISION);
+	printf("%s", freerdp_get_build_config());
+	return 0;
 }
 
 int main(int argc, char* argv[])
 {
-	proxyConfig* config = NULL;
-	char* config_path = "config.ini";
 	int status = -1;
 
 	pf_server_register_signal_handlers();
@@ -93,27 +108,57 @@ int main(int argc, char* argv[])
 	WLog_DBG(TAG, "\tBuild config: %s", freerdp_get_build_config());
 
 	if (argc < 2)
-		usage(argv[0]);
-
 	{
-		const char* arg = argv[1];
-
-		if (_stricmp(arg, "-h") == 0)
-			usage(argv[0]);
-		else if (_stricmp(arg, "--help") == 0)
-			usage(argv[0]);
-		else if (_stricmp(arg, "--dump-config") == 0)
-		{
-			if (argc <= 2)
-				usage(argv[0]);
-			pf_server_config_dump(argv[2]);
-			status = 0;
-			goto fail;
-		}
-		config_path = argv[1];
+		status = usage(argv[0]);
+		goto fail;
 	}
 
-	config = pf_server_config_load_file(config_path);
+	const char* arg = argv[1];
+
+	if (_stricmp(arg, "-h") == 0)
+	{
+		status = usage(argv[0]);
+		goto fail;
+	}
+	else if (_stricmp(arg, "--help") == 0)
+	{
+		status = usage(argv[0]);
+		goto fail;
+	}
+	else if (_stricmp(arg, "--buildconfig") == 0)
+	{
+		status = buildconfig(argv[0]);
+		goto fail;
+	}
+	else if (_stricmp(arg, "--dump-config") == 0)
+	{
+		if (argc != 3)
+		{
+			status = usage(argv[0]);
+			goto fail;
+		}
+		status = pf_server_config_dump(argv[2]) ? 0 : -1;
+		goto fail;
+	}
+	else if (_stricmp(arg, "-v") == 0)
+	{
+		status = version(argv[0]);
+		goto fail;
+	}
+	else if (_stricmp(arg, "--version") == 0)
+	{
+		status = version(argv[0]);
+		goto fail;
+	}
+
+	const char* config_path = argv[1];
+	if (argc != 2)
+	{
+		status = usage(argv[0]);
+		goto fail;
+	}
+
+	proxyConfig* config = pf_server_config_load_file(config_path);
 	if (!config)
 		goto fail;
 

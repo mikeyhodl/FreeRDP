@@ -32,25 +32,32 @@
 
 #define ZGFX_SEGMENTED_MAXSIZE 65535
 
-typedef struct S_ZGFX_CONTEXT ZGFX_CONTEXT;
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	FREERDP_API int zgfx_decompress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize,
-	                                BYTE** ppDstData, UINT32* pDstSize, UINT32 flags);
-	FREERDP_API int zgfx_compress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize,
-	                              BYTE** ppDstData, UINT32* pDstSize, UINT32* pFlags);
-	FREERDP_API int zgfx_compress_to_stream(ZGFX_CONTEXT* zgfx, wStream* sDst,
-	                                        const BYTE* pUncompressed, UINT32 uncompressedSize,
-	                                        UINT32* pFlags);
+	typedef struct S_ZGFX_CONTEXT ZGFX_CONTEXT;
 
-	FREERDP_API void zgfx_context_reset(ZGFX_CONTEXT* zgfx, BOOL flush);
+	FREERDP_API int zgfx_decompress(ZGFX_CONTEXT* WINPR_RESTRICT zgfx,
+	                                const BYTE* WINPR_RESTRICT pSrcData, UINT32 SrcSize,
+	                                BYTE** WINPR_RESTRICT ppDstData,
+	                                UINT32* WINPR_RESTRICT pDstSize, UINT32 flags);
+	FREERDP_API int zgfx_compress(ZGFX_CONTEXT* WINPR_RESTRICT zgfx,
+	                              const BYTE* WINPR_RESTRICT pSrcData, UINT32 SrcSize,
+	                              BYTE** WINPR_RESTRICT ppDstData, UINT32* pDstSize,
+	                              UINT32* WINPR_RESTRICT pFlags);
+	FREERDP_API int zgfx_compress_to_stream(ZGFX_CONTEXT* WINPR_RESTRICT zgfx,
+	                                        wStream* WINPR_RESTRICT sDst,
+	                                        const BYTE* WINPR_RESTRICT pUncompressed,
+	                                        UINT32 uncompressedSize, UINT32* WINPR_RESTRICT pFlags);
 
-	FREERDP_API ZGFX_CONTEXT* zgfx_context_new(BOOL Compressor);
+	FREERDP_API void zgfx_context_reset(ZGFX_CONTEXT* WINPR_RESTRICT zgfx, BOOL flush);
+
 	FREERDP_API void zgfx_context_free(ZGFX_CONTEXT* zgfx);
+
+	WINPR_ATTR_MALLOC(zgfx_context_free, 1)
+	FREERDP_API ZGFX_CONTEXT* zgfx_context_new(BOOL Compressor);
 
 #ifdef __cplusplus
 }

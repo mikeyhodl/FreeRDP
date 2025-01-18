@@ -1,5 +1,6 @@
 #include <winpr/crt.h>
 #include <winpr/print.h>
+#include <winpr/crypto.h>
 #include <winpr/stream.h>
 
 static BOOL TestStream_Verify(wStream* s, size_t mincap, size_t len, size_t pos)
@@ -10,15 +11,15 @@ static BOOL TestStream_Verify(wStream* s, size_t mincap, size_t len, size_t pos)
 		return FALSE;
 	}
 
-	if (Stream_Pointer(s) == NULL)
+	if (Stream_ConstPointer(s) == NULL)
 	{
 		printf("stream pointer is null\n");
 		return FALSE;
 	}
 
-	if (Stream_Pointer(s) < Stream_Buffer(s))
+	if (Stream_PointerAs(s, BYTE) < Stream_Buffer(s))
 	{
-		printf("stream pointer (%p) or buffer (%p) is invalid\n", (void*)Stream_Pointer(s),
+		printf("stream pointer (%p) or buffer (%p) is invalid\n", Stream_ConstPointer(s),
 		       (void*)Stream_Buffer(s));
 		return FALSE;
 	}
@@ -77,21 +78,22 @@ static BOOL TestStream_Verify(wStream* s, size_t mincap, size_t len, size_t pos)
 
 static BOOL TestStream_New(void)
 {
-	wStream* s = NULL;
 	/* Test creation of a 0-size stream with no buffer */
-	s = Stream_New(NULL, 0);
+	wStream* s = Stream_New(NULL, 0);
 
 	if (s)
 		return FALSE;
+	Stream_Free(s, TRUE);
 
 	return TRUE;
 }
 
-static BOOL TestStream_Static()
+static BOOL TestStream_Static(void)
 {
-	BYTE buffer[20];
-	wStream staticStream, *s = &staticStream;
-	UINT16 v;
+	BYTE buffer[20] = { 0 };
+	wStream staticStream = { 0 };
+	wStream* s = &staticStream;
+	UINT16 v = 0;
 	/* Test creation of a static stream */
 	Stream_StaticInit(s, buffer, sizeof(buffer));
 	Stream_Write_UINT16(s, 0xcab1);
@@ -123,42 +125,48 @@ static BOOL TestStream_Static()
 	if (v != 2)
 		return FALSE;
 
+	// Intentional warning as the stream is not allocated.
+	// Still, Stream_Free should not release such memory, therefore this statement
+	// is required to test that.
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	Stream_Free(s, TRUE);
+	WINPR_PRAGMA_DIAG_POP
 	return TRUE;
 }
 
 static BOOL TestStream_Create(size_t count, BOOL selfAlloc)
 {
-	size_t i, len, cap, pos;
+	size_t len = 0;
+	size_t cap = 0;
 	wStream* s = NULL;
 	void* buffer = NULL;
 
-	for (i = 0; i < count; i++)
+	for (size_t i = 0; i < count; i++)
 	{
 		len = cap = i + 1;
-		pos = 0;
 
 		if (selfAlloc)
 		{
 			if (!(buffer = malloc(cap)))
 			{
-				printf("%s: failed to allocate buffer of size %" PRIuz "\n", __FUNCTION__, cap);
+				printf("%s: failed to allocate buffer of size %" PRIuz "\n", __func__, cap);
 				goto fail;
 			}
 		}
 
 		if (!(s = Stream_New(selfAlloc ? buffer : NULL, len)))
 		{
-			printf("%s: Stream_New failed for stream #%" PRIuz "\n", __FUNCTION__, i);
+			printf("%s: Stream_New failed for stream #%" PRIuz "\n", __func__, i);
 			goto fail;
 		}
 
-		if (!TestStream_Verify(s, cap, len, pos))
+		if (!TestStream_Verify(s, cap, len, 0))
 		{
 			goto fail;
 		}
 
-		for (pos = 0; pos < len; pos++)
+		for (size_t pos = 0; pos < len; pos++)
 		{
 			Stream_SetPosition(s, pos);
 			Stream_SealLength(s);
@@ -171,11 +179,11 @@ static BOOL TestStream_Create(size_t count, BOOL selfAlloc)
 
 		if (selfAlloc)
 		{
-			memset(buffer, i % 256, cap);
+			memset(buffer, (BYTE)(i % 256), cap);
 
-			if (memcmp(buffer, Stream_Buffer(s), cap))
+			if (memcmp(buffer, Stream_Buffer(s), cap) != 0)
 			{
-				printf("%s: buffer memory corruption\n", __FUNCTION__);
+				printf("%s: buffer memory corruption\n", __func__);
 				goto fail;
 			}
 		}
@@ -198,17 +206,16 @@ fail:
 
 static BOOL TestStream_Extent(UINT32 maxSize)
 {
-	UINT32 i;
 	wStream* s = NULL;
 	BOOL result = FALSE;
 
 	if (!(s = Stream_New(NULL, 1)))
 	{
-		printf("%s: Stream_New failed\n", __FUNCTION__);
+		printf("%s: Stream_New failed\n", __func__);
 		return FALSE;
 	}
 
-	for (i = 1; i < maxSize; i++)
+	for (UINT32 i = 1; i < maxSize; i++)
 	{
 		if (i % 2)
 		{
@@ -226,7 +233,7 @@ static BOOL TestStream_Extent(UINT32 maxSize)
 
 		if (!TestStream_Verify(s, i, i, i))
 		{
-			printf("%s: failed to verify stream in iteration %" PRIu32 "\n", __FUNCTION__, i);
+			printf("%s: failed to verify stream in iteration %" PRIu32 "\n", __func__, i);
 			goto fail;
 		}
 	}
@@ -244,52 +251,211 @@ fail:
 
 #define Stream_Peek_UINT8_BE Stream_Peek_UINT8
 #define Stream_Read_UINT8_BE Stream_Read_UINT8
+#define Stream_Peek_Get_UINT8_BE Stream_Peek_Get_UINT8
+#define Stream_Get_UINT8_BE Stream_Get_UINT8
 #define Stream_Peek_INT8_BE Stream_Peek_INT8
+#define Stream_Peek_Get_INT8_BE Stream_Peek_Get_INT8
 #define Stream_Read_INT8_BE Stream_Read_INT8
+#define Stream_Get_INT8_BE Stream_Get_INT8
 
-#define TestStream_PeekAndRead(_s, _r, _t)                             \
-	do                                                                 \
-	{                                                                  \
-		_t _a, _b;                                                     \
-		size_t _i;                                                     \
-		BYTE* _p = Stream_Buffer(_s);                                  \
-		Stream_SetPosition(_s, 0);                                     \
-		Stream_Peek_##_t(_s, _a);                                      \
-		Stream_Read_##_t(_s, _b);                                      \
-		if (_a != _b)                                                  \
-		{                                                              \
-			printf("%s: test1 " #_t "_LE failed\n", __FUNCTION__);     \
-			_r = FALSE;                                                \
-		}                                                              \
-		for (_i = 0; _i < sizeof(_t); _i++)                            \
-		{                                                              \
-			if (((_a >> (_i * 8)) & 0xFF) != _p[_i])                   \
-			{                                                          \
-				printf("%s: test2 " #_t "_LE failed\n", __FUNCTION__); \
-				_r = FALSE;                                            \
-				break;                                                 \
-			}                                                          \
-		}                                                              \
-		/* printf("a: 0x%016llX\n", a); */                             \
-		Stream_SetPosition(_s, 0);                                     \
-		Stream_Peek_##_t##_BE(_s, _a);                                 \
-		Stream_Read_##_t##_BE(_s, _b);                                 \
-		if (_a != _b)                                                  \
-		{                                                              \
-			printf("%s: test1 " #_t "_BE failed\n", __FUNCTION__);     \
-			_r = FALSE;                                                \
-		}                                                              \
-		for (_i = 0; _i < sizeof(_t); _i++)                            \
-		{                                                              \
-			if (((_a >> (_i * 8)) & 0xFF) != _p[sizeof(_t) - _i - 1])  \
-			{                                                          \
-				printf("%s: test2 " #_t "_BE failed\n", __FUNCTION__); \
-				_r = FALSE;                                            \
-				break;                                                 \
-			}                                                          \
-		}                                                              \
-		/* printf("a: 0x%016llX\n", a); */                             \
+#define TestStream_PeekAndRead(_s, _r, _t)                            \
+	do                                                                \
+	{                                                                 \
+		_t _a = 0;                                                    \
+		_t _b = 0;                                                    \
+		BYTE* _p = Stream_Buffer(_s);                                 \
+		Stream_SetPosition(_s, 0);                                    \
+		Stream_Peek_##_t(_s, _a);                                     \
+		Stream_Read_##_t(_s, _b);                                     \
+		if (_a != _b)                                                 \
+		{                                                             \
+			printf("%s: test1 " #_t "_LE failed\n", __func__);        \
+			(_r) = FALSE;                                             \
+		}                                                             \
+		Stream_Rewind(_s, sizeof(_t));                                \
+		const _t _d = Stream_Peek_Get_##_t(_s);                       \
+		const _t _c = Stream_Get_##_t(_s);                            \
+		if (_c != _d)                                                 \
+		{                                                             \
+			printf("%s: test1 " #_t "_LE failed\n", __func__);        \
+			(_r) = FALSE;                                             \
+		}                                                             \
+		for (size_t _i = 0; _i < sizeof(_t); _i++)                    \
+		{                                                             \
+			if (((_a >> (_i * 8)) & 0xFF) != _p[_i])                  \
+			{                                                         \
+				printf("%s: test2 " #_t "_LE failed\n", __func__);    \
+				(_r) = FALSE;                                         \
+				break;                                                \
+			}                                                         \
+		}                                                             \
+		/* printf("a: 0x%016llX\n", a); */                            \
+		Stream_SetPosition(_s, 0);                                    \
+		Stream_Peek_##_t##_BE(_s, _a);                                \
+		Stream_Read_##_t##_BE(_s, _b);                                \
+		if (_a != _b)                                                 \
+		{                                                             \
+			printf("%s: test1 " #_t "_BE failed\n", __func__);        \
+			(_r) = FALSE;                                             \
+		}                                                             \
+		Stream_Rewind(_s, sizeof(_t));                                \
+		const _t _e = Stream_Peek_Get_##_t##_BE(_s);                  \
+		const _t _f = Stream_Get_##_t##_BE(_s);                       \
+		if (_e != _f)                                                 \
+		{                                                             \
+			printf("%s: test1 " #_t "_BE failed\n", __func__);        \
+			(_r) = FALSE;                                             \
+		}                                                             \
+		for (size_t _i = 0; _i < sizeof(_t); _i++)                    \
+		{                                                             \
+			if (((_a >> (_i * 8)) & 0xFF) != _p[sizeof(_t) - _i - 1]) \
+			{                                                         \
+				printf("%s: test2 " #_t "_BE failed\n", __func__);    \
+				(_r) = FALSE;                                         \
+				break;                                                \
+			}                                                         \
+		}                                                             \
+		/* printf("a: 0x%016llX\n", a); */                            \
 	} while (0)
+
+static BOOL TestStream_WriteAndRead(UINT64 value)
+{
+	union
+	{
+		UINT8 u8;
+		UINT16 u16;
+		UINT32 u32;
+		UINT64 u64;
+		INT8 i8;
+		INT16 i16;
+		INT32 i32;
+		INT64 i64;
+	} val;
+	val.u64 = value;
+
+	wStream* s = Stream_New(NULL, 1024);
+	if (!s)
+		return FALSE;
+	BOOL rc = FALSE;
+
+	{
+		Stream_Write_UINT8(s, val.u8);
+		Stream_Rewind_UINT8(s);
+		const UINT8 ru8 = Stream_Get_UINT8(s);
+		Stream_Rewind_UINT8(s);
+		if (val.u8 != ru8)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT16(s, val.u16);
+		Stream_Rewind_UINT16(s);
+		const UINT16 ru = Stream_Get_UINT16(s);
+		Stream_Rewind_UINT16(s);
+		if (val.u16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT16_BE(s, val.u16);
+		Stream_Rewind_UINT16(s);
+		const UINT16 ru = Stream_Get_UINT16_BE(s);
+		Stream_Rewind_UINT16(s);
+		if (val.u16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT32(s, val.u32);
+		Stream_Rewind_UINT32(s);
+		const UINT32 ru = Stream_Get_UINT32(s);
+		Stream_Rewind_UINT32(s);
+		if (val.u32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT32_BE(s, val.u32);
+		Stream_Rewind_UINT32(s);
+		const UINT32 ru = Stream_Get_UINT32_BE(s);
+		Stream_Rewind_UINT32(s);
+		if (val.u32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT64(s, val.u64);
+		Stream_Rewind_UINT64(s);
+		const UINT64 ru = Stream_Get_UINT64(s);
+		Stream_Rewind_UINT64(s);
+		if (val.u64 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT64_BE(s, val.u64);
+		Stream_Rewind_UINT64(s);
+		const UINT64 ru = Stream_Get_UINT64_BE(s);
+		Stream_Rewind_UINT64(s);
+		if (val.u64 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT8(s, val.i8);
+		Stream_Rewind(s, 1);
+		const INT8 ru8 = Stream_Get_INT8(s);
+		Stream_Rewind(s, 1);
+		if (val.i8 != ru8)
+			goto fail;
+	}
+	{
+		Stream_Write_INT16(s, val.i16);
+		Stream_Rewind(s, 2);
+		const INT16 ru = Stream_Get_INT16(s);
+		Stream_Rewind(s, 2);
+		if (val.i16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT16_BE(s, val.i16);
+		Stream_Rewind(s, 2);
+		const INT16 ru = Stream_Get_INT16_BE(s);
+		Stream_Rewind(s, 2);
+		if (val.i16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT32(s, val.i32);
+		Stream_Rewind(s, 4);
+		const INT32 ru = Stream_Get_INT32(s);
+		Stream_Rewind(s, 4);
+		if (val.i32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT32_BE(s, val.i32);
+		Stream_Rewind(s, 4);
+		const INT32 ru = Stream_Get_INT32_BE(s);
+		Stream_Rewind(s, 4);
+		if (val.i32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT64(s, val.i64);
+		Stream_Rewind(s, 8);
+		const INT64 ru = Stream_Get_INT64(s);
+		Stream_Rewind(s, 8);
+		if (val.i64 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT64_BE(s, val.i64);
+		Stream_Rewind(s, 8);
+		const INT64 ru = Stream_Get_INT64_BE(s);
+		Stream_Rewind(s, 8);
+		if (val.i64 != ru)
+			goto fail;
+	}
+
+	rc = TRUE;
+fail:
+	Stream_Free(s, TRUE);
+	return rc;
+}
 
 static BOOL TestStream_Reading(void)
 {
@@ -299,7 +465,7 @@ static BOOL TestStream_Reading(void)
 
 	if (!(s = Stream_New(src, sizeof(src))))
 	{
-		printf("%s: Stream_New failed\n", __FUNCTION__);
+		printf("%s: Stream_New failed\n", __func__);
 		return FALSE;
 	}
 
@@ -318,10 +484,10 @@ static BOOL TestStream_Reading(void)
 static BOOL TestStream_Write(void)
 {
 	BOOL rc = FALSE;
-	UINT8 u8;
-	UINT16 u16;
-	UINT32 u32;
-	UINT64 u64;
+	UINT8 u8 = 0;
+	UINT16 u16 = 0;
+	UINT32 u32 = 0;
+	UINT64 u64 = 0;
 	const BYTE data[] = "someteststreamdata";
 	wStream* s = Stream_New(NULL, 100);
 
@@ -500,7 +666,6 @@ out:
 
 static BOOL TestStream_Zero(void)
 {
-	UINT32 x;
 	BOOL rc = FALSE;
 	const BYTE data[] = "someteststreamdata";
 	wStream* s = Stream_New(NULL, sizeof(data));
@@ -523,7 +688,7 @@ static BOOL TestStream_Zero(void)
 	if (s->pointer != s->buffer + 5)
 		goto out;
 
-	if (memcmp(Stream_Pointer(s), data + 5, sizeof(data) - 5) != 0)
+	if (memcmp(Stream_ConstPointer(s), data + 5, sizeof(data) - 5) != 0)
 		goto out;
 
 	Stream_SetPosition(s, 0);
@@ -531,9 +696,9 @@ static BOOL TestStream_Zero(void)
 	if (s->pointer != s->buffer)
 		goto out;
 
-	for (x = 0; x < 5; x++)
+	for (UINT32 x = 0; x < 5; x++)
 	{
-		UINT8 val;
+		UINT8 val = 0;
 		Stream_Read_UINT8(s, val);
 
 		if (val != 0)
@@ -571,7 +736,7 @@ static BOOL TestStream_Fill(void)
 	if (s->pointer != s->buffer + sizeof(fill))
 		goto out;
 
-	if (memcmp(Stream_Pointer(s), data + sizeof(fill), sizeof(data) - sizeof(fill)) != 0)
+	if (memcmp(Stream_ConstPointer(s), data + sizeof(fill), sizeof(data) - sizeof(fill)) != 0)
 		goto out;
 
 	Stream_SetPosition(s, 0);
@@ -579,7 +744,7 @@ static BOOL TestStream_Fill(void)
 	if (s->pointer != s->buffer)
 		goto out;
 
-	if (memcmp(Stream_Pointer(s), fill, sizeof(fill)) != 0)
+	if (memcmp(Stream_ConstPointer(s), fill, sizeof(fill)) != 0)
 		goto out;
 
 	rc = TRUE;
@@ -679,5 +844,15 @@ int TestStream(int argc, char* argv[])
 	if (!TestStream_Static())
 		return 12;
 
+	if (!TestStream_WriteAndRead(0x1234567890abcdef))
+		return 13;
+
+	for (size_t x = 0; x < 10; x++)
+	{
+		UINT64 val = 0;
+		winpr_RAND(&val, sizeof(val));
+		if (!TestStream_WriteAndRead(val))
+			return 14;
+	}
 	return 0;
 }

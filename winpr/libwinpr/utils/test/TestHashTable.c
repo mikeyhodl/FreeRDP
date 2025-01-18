@@ -14,9 +14,9 @@ static char* val3 = "val3";
 static int test_hash_table_pointer(void)
 {
 	int rc = -1;
-	size_t count;
-	char* value;
-	wHashTable* table;
+	size_t count = 0;
+	char* value = NULL;
+	wHashTable* table = NULL;
 	table = HashTable_New(TRUE);
 
 	if (!table)
@@ -150,8 +150,8 @@ fail:
 static int test_hash_table_string(void)
 {
 	int rc = -1;
-	size_t count;
-	char* value;
+	size_t count = 0;
+	char* value = NULL;
 	wHashTable* table = HashTable_New(TRUE);
 
 	if (!table)
@@ -288,8 +288,8 @@ fail:
 typedef struct
 {
 	wHashTable* table;
-	int strlenCounter;
-	int foreachCalls;
+	size_t strlenCounter;
+	size_t foreachCalls;
 
 	BOOL test3error;
 } ForeachData;
@@ -322,6 +322,8 @@ static BOOL foreachFn3(const void* key, void* value, void* arg)
 	ForeachData d2;
 
 	WINPR_UNUSED(value);
+	WINPR_ASSERT(keyStr);
+
 	if (strcmp(keyStr, "key1") == 0)
 	{
 		/* when we pass on key1, let's remove key2 and check that the value is not
@@ -368,7 +370,7 @@ static BOOL foreachFn3(const void* key, void* value, void* arg)
 static int test_hash_foreach(void)
 {
 	ForeachData foreachData;
-	wHashTable* table;
+	wHashTable* table = NULL;
 	int retCode = 0;
 
 	foreachData.table = table = HashTable_New(TRUE);

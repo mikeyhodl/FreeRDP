@@ -25,69 +25,67 @@ if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW)
 endif()
 
-set(${MODULE_PREFIX}_SRCS
-	client.c
-	client_rails.c
-	cmdline.c
-	file.c
-	geometry.c
-	smartcard_cli.c)
+set(SRCS
+    client.c
+    cmdline.c
+    cmdline.h
+    file.c
+    client_cliprdr_file.c
+    geometry.c
+    smartcard_cli.c
+)
 
 foreach(FREERDP_CHANNELS_CLIENT_SRC ${FREERDP_CHANNELS_CLIENT_SRCS})
-	get_filename_component(NINC ${FREERDP_CHANNELS_CLIENT_SRC} PATH)
-	include_directories(${NINC})
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} "${FREERDP_CHANNELS_CLIENT_SRC}")
+  get_filename_component(NINC ${FREERDP_CHANNELS_CLIENT_SRC} PATH)
+  include_directories(${NINC})
+  list(APPEND SRCS "${FREERDP_CHANNELS_CLIENT_SRC}")
 endforeach()
 
-
-# On windows create dll version information.
-# Vendor, product and year are already set in top level CMakeLists.txt
-if (WIN32 AND BUILD_SHARED_LIBS)
-  set (RC_VERSION_MAJOR ${FREERDP_VERSION_MAJOR})
-  set (RC_VERSION_MINOR ${FREERDP_VERSION_MINOR})
-  set (RC_VERSION_BUILD ${FREERDP_VERSION_REVISION})
-  set (RC_VERSION_FILE "${CMAKE_SHARED_LIBRARY_PREFIX}${MODULE_NAME}${FREERDP_API_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}" )
-
-  configure_file(
-    ${PROJECT_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/version.rc
-    @ONLY)
-
-  set ( ${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-endif()
-
-add_library(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
-
-set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${MODULE_NAME}${FREERDP_API_VERSION})
-include_directories(${OPENSSL_INCLUDE_DIR})
-if (WITH_LIBRARY_VERSIONING)
-  set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${FREERDP_VERSION} SOVERSION ${FREERDP_API_VERSION})
-endif()
-
-list(APPEND ${MODULE_PREFIX}_LIBS freerdp winpr)
-
-target_link_libraries(${MODULE_NAME} PRIVATE ${FREERDP_CHANNELS_CLIENT_LIBS})
-if(OPENBSD)
-	target_link_libraries(${MODULE_NAME} PUBLIC ${${MODULE_PREFIX}_LIBS} sndio)
+if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+  set(OPT_FUSE_DEFAULT ON)
 else()
-	target_link_libraries(${MODULE_NAME} PUBLIC ${${MODULE_PREFIX}_LIBS})
+  set(OPT_FUSE_DEFAULT OFF)
 endif()
 
+option(WITH_FUSE "Build clipboard with FUSE file copy support" ${OPT_FUSE_DEFAULT})
+if(WITH_FUSE)
+  find_package(PkgConfig REQUIRED)
+
+  pkg_check_modules(FUSE3 REQUIRED fuse3)
+  include_directories(SYSTEM ${FUSE3_INCLUDE_DIRS})
+  add_compile_definitions(WITH_FUSE)
+  list(APPEND LIBS ${FUSE3_LIBRARIES})
+
+  add_compile_definitions(_FILE_OFFSET_BITS=64)
+endif()
+
+include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+
+addtargetwithresourcefile(${MODULE_NAME} FALSE "${FREERDP_VERSION}" SRCS)
+
+list(APPEND LIBS freerdp winpr)
+
+include(CheckLibraryExists)
+check_library_exists(m lround "" HAVE_LIB_M)
+if(HAVE_LIB_M)
+  list(APPEND LIBS m)
+endif()
+
+target_include_directories(${MODULE_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
+target_link_libraries(${MODULE_NAME} PRIVATE ${FREERDP_CHANNELS_CLIENT_LIBS})
+target_link_libraries(${MODULE_NAME} PUBLIC ${LIBS})
 
 install(TARGETS ${MODULE_NAME} COMPONENT libraries EXPORT FreeRDP-ClientTargets
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-if (WITH_DEBUG_SYMBOLS AND MSVC AND BUILD_SHARED_LIBS)
-	get_target_property(OUTPUT_FILENAME ${MODULE_NAME} OUTPUT_NAME)
-	install(FILES ${CMAKE_PDB_BINARY_DIR}/${OUTPUT_FILENAME}.pdb DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT symbols)
-endif()
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Client/Common")
 
-if(BUILD_TESTING)
-	add_subdirectory(test)
+if(BUILD_TESTING_INTERNAL OR BUILD_TESTING)
+  add_subdirectory(test)
 endif()
 
-export_complex_library(LIBNAME ${MODULE_NAME})
+if(WITH_MANPAGES)
+  add_subdirectory(man)
+endif()

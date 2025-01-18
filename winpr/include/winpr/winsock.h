@@ -20,9 +20,13 @@
 #ifndef WINPR_WINSOCK_H
 #define WINPR_WINSOCK_H
 
+#include <winpr/platform.h>
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 #include <winpr/windows.h>
+
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
 
 #ifdef _WIN32
 
@@ -181,14 +185,13 @@ struct sockaddr_in6_old
 typedef union sockaddr_gen
 {
 	struct sockaddr Address;
-	struct sockaddr_in AddressIn;
+	struct sockaddr_in AddressIn; /* codespell:ignore addressin */
 	struct sockaddr_in6_old AddressIn6;
+
 } sockaddr_gen;
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wreserved-id-macro"
-#endif
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_ID_MACRO
 
 #define _IFF_UP 0x00000001
 #define _IFF_BROADCAST 0x00000002
@@ -196,9 +199,7 @@ typedef union sockaddr_gen
 #define _IFF_POINTTOPOINT 0x00000008
 #define _IFF_MULTICAST 0x00000010
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+WINPR_PRAGMA_DIAG_POP
 
 typedef struct
 {
@@ -300,10 +301,12 @@ extern "C"
 	WINPR_API void WSASetLastError(int iError);
 	WINPR_API int WSAGetLastError(void);
 
+	WINPR_API BOOL WSACloseEvent(HANDLE hEvent);
+
+	WINPR_ATTR_MALLOC(WSACloseEvent, 1)
 	WINPR_API HANDLE WSACreateEvent(void);
 	WINPR_API BOOL WSASetEvent(HANDLE hEvent);
 	WINPR_API BOOL WSAResetEvent(HANDLE hEvent);
-	WINPR_API BOOL WSACloseEvent(HANDLE hEvent);
 
 	WINPR_API int WSAEventSelect(SOCKET s, WSAEVENT hEventObject, LONG lNetworkEvents);
 
@@ -349,8 +352,10 @@ extern "C"
 	WINPR_API struct hostent* _gethostbyaddr(const char* addr, int len, int type);
 	WINPR_API struct hostent* _gethostbyname(const char* name);
 	WINPR_API int _gethostname(char* name, int namelen);
-	WINPR_API struct servent* _getservbyport(int port, const char* proto);
-	WINPR_API struct servent* _getservbyname(const char* name, const char* proto);
+	WINPR_API struct servent* /* codespell:ignore servent */ _getservbyport(int port,
+	                                                                        const char* proto);
+	WINPR_API struct servent* /* codespell:ignore servent */ _getservbyname(const char* name,
+	                                                                        const char* proto);
 	WINPR_API struct protoent* _getprotobynumber(int number);
 	WINPR_API struct protoent* _getprotobyname(const char* name);
 
@@ -365,5 +370,7 @@ extern "C"
 #endif
 
 #endif /* _WIN32 */
+
+WINPR_PRAGMA_DIAG_POP
 
 #endif /* WINPR_WINSOCK_H */

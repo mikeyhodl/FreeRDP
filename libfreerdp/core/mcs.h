@@ -33,9 +33,6 @@ typedef struct rdp_mcs rdpMcs;
 #include <winpr/stream.h>
 #include <winpr/wtsapi.h>
 
-#define MCS_BASE_CHANNEL_ID 1001
-#define MCS_GLOBAL_CHANNEL_ID 1003
-
 enum MCS_Result
 {
 	MCS_Result_successful = 0,
@@ -158,7 +155,7 @@ struct rdp_mcs
 #define MCS_TYPE_CONNECT_RESPONSE 0x66
 
 const char* mcs_domain_pdu_string(DomainMCSPDU pdu);
-BOOL mcs_server_apply_to_settings(const rdpMcs* msc, rdpSettings* settings);
+BOOL mcs_server_apply_to_settings(const rdpMcs* mcs, rdpSettings* settings);
 
 FREERDP_LOCAL BOOL mcs_recv_connect_initial(rdpMcs* mcs, wStream* s);
 FREERDP_LOCAL BOOL mcs_recv_connect_response(rdpMcs* mcs, wStream* s);
@@ -182,7 +179,9 @@ FREERDP_LOCAL BOOL mcs_write_domain_mcspdu_header(wStream* s, DomainMCSPDU domai
 
 FREERDP_LOCAL BOOL mcs_client_begin(rdpMcs* mcs);
 
-FREERDP_LOCAL rdpMcs* mcs_new(rdpTransport* transport);
 FREERDP_LOCAL void mcs_free(rdpMcs* mcs);
+
+WINPR_ATTR_MALLOC(mcs_free, 1)
+FREERDP_LOCAL rdpMcs* mcs_new(rdpTransport* transport);
 
 #endif /* FREERDP_LIB_CORE_MCS_H */

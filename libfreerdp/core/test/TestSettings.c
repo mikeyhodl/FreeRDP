@@ -6,17 +6,26 @@
 #include <freerdp/codecs.h>
 
 #include "settings_property_lists.h"
+#include "../settings.h"
 
 static BOOL log_result(BOOL value, const char* fkt)
 {
-	fprintf(stderr, "TestSettings [%s] returned %s\n", fkt, value ? "TRUE" : "FALSE");
+	(void)fprintf(stderr, "TestSettings [%s] returned %s\n", fkt, value ? "TRUE" : "FALSE");
+	return value;
+}
+
+static BOOL log_result_case(BOOL value, const char* fkt, size_t testcase)
+{
+	(void)fprintf(stderr, "TestSettings [%s] testcase %" PRIuz " returned %s\n", fkt, testcase,
+	              value ? "TRUE" : "FALSE");
 	return value;
 }
 
 static BOOL compare(const ADDIN_ARGV* got, const ADDIN_ARGV* expect)
 {
-	int x;
 	BOOL rc = TRUE;
+	if (!got && !expect)
+		return FALSE;
 	if (!got && expect)
 		return FALSE;
 	if (got && !expect)
@@ -24,7 +33,7 @@ static BOOL compare(const ADDIN_ARGV* got, const ADDIN_ARGV* expect)
 	if (got->argc != expect->argc)
 		return FALSE;
 
-	for (x = 0; x < expect->argc; x++)
+	for (int x = 0; x < expect->argc; x++)
 	{
 		if (strcmp(got->argv[x], expect->argv[x]) != 0)
 			rc = FALSE;
@@ -35,16 +44,16 @@ static BOOL compare(const ADDIN_ARGV* got, const ADDIN_ARGV* expect)
 static BOOL test_dyn_channels(void)
 {
 	BOOL rc = FALSE;
-	BOOL test;
-	UINT32 u32;
+	BOOL test = 0;
+	UINT32 u32 = 0;
 	rdpSettings* settings = freerdp_settings_new(0);
 	const char* argv1[] = { "foobar" };
 	ADDIN_ARGV* args1 = NULL;
-	const ADDIN_ARGV* cmp1;
+	const ADDIN_ARGV* cmp1 = NULL;
 	const char* argv2[] = { "gaga", "abba", "foo" };
 	ADDIN_ARGV* args2 = NULL;
-	const ADDIN_ARGV* cmp2;
-	const ADDIN_ARGV* got;
+	const ADDIN_ARGV* cmp2 = NULL;
+	const ADDIN_ARGV* got = NULL;
 
 	if (!settings)
 		goto fail;
@@ -135,16 +144,16 @@ fail:
 static BOOL test_static_channels(void)
 {
 	BOOL rc = FALSE;
-	BOOL test;
-	UINT32 u32;
+	BOOL test = 0;
+	UINT32 u32 = 0;
 	rdpSettings* settings = freerdp_settings_new(0);
 	const char* argv1[] = { "foobar" };
 	ADDIN_ARGV* args1 = NULL;
-	const ADDIN_ARGV* cmp1;
+	const ADDIN_ARGV* cmp1 = NULL;
 	const char* argv2[] = { "gaga", "abba", "foo" };
 	ADDIN_ARGV* args2 = NULL;
-	const ADDIN_ARGV* cmp2;
-	const ADDIN_ARGV* got;
+	const ADDIN_ARGV* cmp2 = NULL;
+	const ADDIN_ARGV* got = NULL;
 
 	if (!settings)
 		goto fail;
@@ -235,7 +244,7 @@ fail:
 static BOOL test_copy(void)
 {
 	BOOL rc = FALSE;
-	wLog* log = WLog_Get(__FUNCTION__);
+	wLog* log = WLog_Get(__func__);
 	rdpSettings* settings = freerdp_settings_new(0);
 	rdpSettings* copy = freerdp_settings_clone(settings);
 	rdpSettings* modified = freerdp_settings_clone(settings);
@@ -261,7 +270,7 @@ fail:
 static BOOL test_helpers(void)
 {
 	BOOL rc = FALSE;
-	UINT32 flags;
+	UINT32 flags = 0;
 	rdpSettings* settings = freerdp_settings_new(0);
 	if (!settings)
 		goto fail;
@@ -304,19 +313,19 @@ static BOOL format_uint(char* buffer, size_t size, UINT64 value, UINT16 intType,
 	switch (intType)
 	{
 		case 0:
-			_snprintf(buffer, size, "%" PRIu64, lvalue);
+			(void)_snprintf(buffer, size, "%" PRIu64, lvalue);
 			return TRUE;
 		case 1:
-			_snprintf(buffer, size, "0x%" PRIx64, lvalue);
+			(void)_snprintf(buffer, size, "0x%" PRIx64, lvalue);
 			return TRUE;
 		case 2:
 			if (max < UINT64_MAX)
-				_snprintf(buffer, size, "%" PRIu64, max + 1);
+				(void)_snprintf(buffer, size, "%" PRIu64, max + 1);
 			else
-				_snprintf(buffer, size, "too large a number");
+				(void)_snprintf(buffer, size, "too large a number");
 			return FALSE;
 		default:
-			_snprintf(buffer, size, "not a number value");
+			(void)_snprintf(buffer, size, "not a number value");
 			return FALSE;
 	}
 }
@@ -326,16 +335,16 @@ static BOOL print_negative(char* buffer, size_t size, INT64 value, INT64 min)
 	switch (min)
 	{
 		case INT16_MIN:
-			_snprintf(buffer, size, "%" PRId16, (INT16)value);
+			(void)_snprintf(buffer, size, "%" PRId16, (INT16)value);
 			return FALSE;
 		case INT32_MIN:
-			_snprintf(buffer, size, "%" PRId32, (INT32)value);
+			(void)_snprintf(buffer, size, "%" PRId32, (INT32)value);
 			return FALSE;
 		case INT64_MIN:
-			_snprintf(buffer, size, "%" PRId64, (INT64)value);
+			(void)_snprintf(buffer, size, "%" PRId64, value);
 			return FALSE;
 		default:
-			_snprintf(buffer, size, "too small a number");
+			(void)_snprintf(buffer, size, "too small a number");
 			return FALSE;
 	}
 }
@@ -344,23 +353,23 @@ static BOOL print_xpositive(char* buffer, size_t size, INT64 value, INT64 max)
 {
 	if (value < 0)
 	{
-		_snprintf(buffer, size, "%" PRId64, value);
+		(void)_snprintf(buffer, size, "%" PRId64, value);
 		return TRUE;
 	}
 
 	switch (max)
 	{
 		case INT16_MAX:
-			_snprintf(buffer, size, "%" PRIx16, (INT16)value);
+			(void)_snprintf(buffer, size, "%" PRIx16, (INT16)value);
 			return FALSE;
 		case INT32_MAX:
-			_snprintf(buffer, size, "%" PRIx32, (INT32)value);
+			(void)_snprintf(buffer, size, "%" PRIx32, (INT32)value);
 			return FALSE;
 		case INT64_MAX:
-			_snprintf(buffer, size, "%" PRIx64, (INT64)value);
+			(void)_snprintf(buffer, size, "%" PRIx64, value);
 			return FALSE;
 		default:
-			_snprintf(buffer, size, "too small a number");
+			(void)_snprintf(buffer, size, "too small a number");
 			return FALSE;
 	}
 }
@@ -373,25 +382,25 @@ static BOOL format_int(char* buffer, size_t size, INT64 value, UINT16 intType, I
 	switch (intType)
 	{
 		case 0:
-			_snprintf(buffer, size, "%" PRId64, lvalue);
+			(void)_snprintf(buffer, size, "%" PRId64, lvalue);
 			return TRUE;
 		case 1:
 			print_xpositive(buffer, size, lvalue, max);
 			return TRUE;
 		case 2:
 			if (max < INT64_MAX)
-				_snprintf(buffer, size, "%" PRId64, max + 1);
+				(void)_snprintf(buffer, size, "%" PRId64, max + 1);
 			else
-				_snprintf(buffer, size, "too large a number");
+				(void)_snprintf(buffer, size, "too large a number");
 			return FALSE;
 		case 3:
 			if (min < INT64_MIN)
 				print_negative(buffer, size, min - 1, INT64_MIN);
 			else
-				_snprintf(buffer, size, "too small a number");
+				(void)_snprintf(buffer, size, "too small a number");
 			return FALSE;
 		default:
-			_snprintf(buffer, size, "not a number value");
+			(void)_snprintf(buffer, size, "not a number value");
 			return FALSE;
 	}
 }
@@ -402,37 +411,37 @@ static BOOL format_bool(char* buffer, size_t size, UINT16 intType)
 	switch (intType)
 	{
 		case 0:
-			_snprintf(buffer, size, "FALSE");
+			(void)_snprintf(buffer, size, "FALSE");
 			return TRUE;
 		case 1:
-			_snprintf(buffer, size, "FaLsE");
+			(void)_snprintf(buffer, size, "FaLsE");
 			return TRUE;
 		case 2:
-			_snprintf(buffer, size, "False");
+			(void)_snprintf(buffer, size, "False");
 			return TRUE;
 		case 3:
-			_snprintf(buffer, size, "false");
+			(void)_snprintf(buffer, size, "false");
 			return TRUE;
 		case 4:
-			_snprintf(buffer, size, "falseentry");
+			(void)_snprintf(buffer, size, "falseentry");
 			return FALSE;
 		case 5:
-			_snprintf(buffer, size, "TRUE");
+			(void)_snprintf(buffer, size, "TRUE");
 			return TRUE;
 		case 6:
-			_snprintf(buffer, size, "TrUe");
+			(void)_snprintf(buffer, size, "TrUe");
 			return TRUE;
 		case 7:
-			_snprintf(buffer, size, "True");
+			(void)_snprintf(buffer, size, "True");
 			return TRUE;
 		case 8:
-			_snprintf(buffer, size, "true");
+			(void)_snprintf(buffer, size, "true");
 			return TRUE;
 		case 9:
-			_snprintf(buffer, size, "someentry");
+			(void)_snprintf(buffer, size, "someentry");
 			return FALSE;
 		default:
-			_snprintf(buffer, size, "ok");
+			(void)_snprintf(buffer, size, "ok");
 			return FALSE;
 	}
 }
@@ -442,8 +451,9 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 	int test_rounds = 100;
 	BOOL res = FALSE;
 	rdpSettings* settings = NULL;
-	SSIZE_T rc, tkey, type;
-	size_t x;
+	SSIZE_T rc = 0;
+	SSIZE_T tkey = 0;
+	SSIZE_T type = 0;
 	const size_t clear_keys[] = { FreeRDP_RdpServerCertificate,
 		                          FreeRDP_RdpServerRsaKey,
 		                          FreeRDP_RedirectionPassword,
@@ -470,7 +480,7 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 		                          FreeRDP_ReceivedCapabilities,
 		                          FreeRDP_OrderSupport,
 		                          FreeRDP_MonitorIds };
-	const char* name = freerdp_settings_get_name_for_key(key);
+	const char* name = freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 	if (!name)
 	{
 		printf("[%s] missing name for key %" PRIuz "\n", stype, key);
@@ -494,7 +504,7 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 		printf("[%s] missing reverse type for key %s [%" PRIuz "]\n", stype, name, key);
 		return FALSE;
 	}
-	rc = freerdp_settings_get_type_for_key(key);
+	rc = freerdp_settings_get_type_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 	if (rc < 0)
 	{
 		printf("[%s] missing reverse name for key %s [%" PRIuz "]\n", stype, name, key);
@@ -514,10 +524,10 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 		printf("[%s] freerdp_settings_new failed\n", stype);
 		goto fail;
 	}
-	for (x = 0; x < ARRAYSIZE(clear_keys); x++)
+	for (size_t x = 0; x < ARRAYSIZE(clear_keys); x++)
 	{
 		const size_t id = clear_keys[x];
-		const char* foo = freerdp_settings_get_name_for_key(id);
+		const char* foo = freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, id));
 		if (!freerdp_settings_set_pointer_len(settings, id, NULL, 0))
 		{
 			printf("[%s] freerdp_settings_set_pointer_len(%s, NULL, 0) failed\n", stype, foo);
@@ -527,7 +537,8 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 	do
 	{
 		UINT16 intEntryType = 0;
-		BOOL expect, have;
+		BOOL expect = 0;
+		BOOL have = 0;
 		char value[8192] = { 0 };
 		union
 		{
@@ -571,7 +582,7 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 				break;
 			case RDP_SETTINGS_TYPE_STRING:
 				expect = TRUE;
-				_snprintf(value, sizeof(value), "somerandomstring");
+				(void)_snprintf(value, sizeof(value), "somerandomstring");
 				break;
 			case RDP_SETTINGS_TYPE_POINTER:
 				expect = FALSE;
@@ -717,7 +728,6 @@ fail:
 
 static BOOL check_device_type(void)
 {
-	size_t x;
 	struct test_entry
 	{
 		int expect;
@@ -765,7 +775,7 @@ static BOOL check_device_type(void)
 		{ -3, 0x123, 4, args },
 	};
 	BOOL rc = TRUE;
-	for (x = 0; x < ARRAYSIZE(tests); x++)
+	for (size_t x = 0; x < ARRAYSIZE(tests); x++)
 	{
 		const struct test_entry* cur = &tests[x];
 		int got = check_device_type_arg(cur->type, cur->count, cur->args);
@@ -777,7 +787,6 @@ static BOOL check_device_type(void)
 
 static BOOL check_offsets(rdpSettings* settings, size_t id, size_t min, size_t max, BOOL checkPtr)
 {
-	size_t x;
 	BOOL rc = TRUE;
 
 	WINPR_ASSERT(settings);
@@ -785,7 +794,7 @@ static BOOL check_offsets(rdpSettings* settings, size_t id, size_t min, size_t m
 	if (!freerdp_settings_get_pointer(settings, id))
 		return FALSE;
 
-	for (x = min; x < max; x++)
+	for (size_t x = min; x < max; x++)
 	{
 		const void* ptr = freerdp_settings_get_pointer_array(settings, id, x);
 		if (!ptr && checkPtr)
@@ -797,13 +806,11 @@ static BOOL check_offsets(rdpSettings* settings, size_t id, size_t min, size_t m
 static BOOL test_write_offsets(rdpSettings* settings, size_t id, size_t elementSize, size_t min,
                                size_t max)
 {
-	size_t x;
-
 	WINPR_ASSERT(settings);
 
-	for (x = min; x < max; x++)
+	for (size_t x = min; x < max; x++)
 	{
-		const void* ptr;
+		const void* ptr = NULL;
 		char buffer[8192] = { 0 };
 
 		winpr_RAND(buffer, sizeof(buffer));
@@ -829,12 +836,8 @@ static BOOL test_pointer_array(void)
 		size_t size;
 		size_t elementSize;
 	};
-	size_t x;
 	const struct pointer_test_case tests[] = {
 		{ FALSE, FALSE, FreeRDP_DeviceArray, FreeRDP_DeviceArraySize, 32, sizeof(RDPDR_DEVICE*) },
-		{ FALSE, FALSE, FreeRDP_TargetNetAddresses, FreeRDP_TargetNetAddressCount, 33,
-		  sizeof(char*) },
-		{ FALSE, FALSE, FreeRDP_TargetNetPorts, FreeRDP_TargetNetAddressCount, 33, sizeof(UINT32) },
 		{ FALSE, FALSE, FreeRDP_StaticChannelArray, FreeRDP_StaticChannelArraySize, 32,
 		  sizeof(ADDIN_ARGV*) },
 		{ FALSE, FALSE, FreeRDP_DynamicChannelArray, FreeRDP_DynamicChannelArraySize, 33,
@@ -852,7 +855,7 @@ static BOOL test_pointer_array(void)
 		  sizeof(rdpMonitor) },
 		{ TRUE, TRUE, FreeRDP_ClientTimeZone, -1, 1, sizeof(TIME_ZONE_INFORMATION) },
 		{ FALSE, FALSE, FreeRDP_RdpServerCertificate, -1, 1, sizeof(rdpCertificate*) },
-		//{ FALSE, FALSE, FreeRDP_RdpServerRsaKey, -1, 1, sizeof(rdpRsaKey*) },
+		//{ FALSE, FALSE, FreeRDP_RdpServerRsaKey, -1, 1, sizeof(rdpPrivateKey*) },
 		{ TRUE, TRUE, FreeRDP_RedirectionPassword, FreeRDP_RedirectionPasswordLength, 42,
 		  sizeof(char) },
 		{ TRUE, TRUE, FreeRDP_RedirectionTsvUrl, FreeRDP_RedirectionTsvUrlLength, 42,
@@ -870,7 +873,7 @@ static BOOL test_pointer_array(void)
 	if (!settings)
 		goto fail;
 
-	for (x = 0; x < ARRAYSIZE(tests); x++)
+	for (size_t x = 0; x < ARRAYSIZE(tests); x++)
 	{
 		const struct pointer_test_case* cur = &tests[x];
 		if (!freerdp_settings_set_pointer_len(settings, cur->id, NULL, cur->size))
@@ -934,10 +937,554 @@ fail:
 	freerdp_settings_free(settings);
 	return log_result(rc, __func__);
 }
+
+struct validity_test_case
+{
+	BOOL expected;
+	size_t count;
+	const rdpMonitor* monitors;
+};
+
+static BOOL prepare_monitor_array(rdpSettings* settings, const struct validity_test_case* testcase)
+{
+	WINPR_ASSERT(settings);
+	WINPR_ASSERT(testcase);
+
+	const size_t count = freerdp_settings_get_uint32(settings, FreeRDP_MonitorDefArraySize);
+	if (count < testcase->count)
+	{
+		(void)fprintf(stderr, "MonitorDefArraySize=%" PRIuz ", but testcase requires %" PRIuz "\n",
+		              count, testcase->count);
+		return FALSE;
+	}
+	for (size_t x = 0; x < testcase->count; x++)
+	{
+		const rdpMonitor* monitor = &testcase->monitors[x];
+		if (!freerdp_settings_set_pointer_array(settings, FreeRDP_MonitorDefArray, x, monitor))
+			return FALSE;
+	}
+	return freerdp_settings_set_uint32(settings, FreeRDP_MonitorCount, testcase->count);
+}
+
+static BOOL test_validity_check(void)
+{
+	BOOL rc = FALSE;
+	rdpSettings* settings = freerdp_settings_new(0);
+	if (!settings)
+		goto fail;
+
+	const rdpMonitor single_monitor_valid[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor single_monitor_invalid_1[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 192,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor single_monitor_invalid_2[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 192,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor single_monitor_invalid_3[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 192,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor single_monitor_invalid_4[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 192,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor multi_monitor_valid[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 1920,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 0,
+		  .y = 1080,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = -1920,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 0,
+		  .y = -1080,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 3840,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 5760,
+		  .y = -1079,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 7680,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 7680,
+		  .y = 1080,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 7680,
+		  .y = -1080,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 7680,
+		  .y = -2160,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 9599,
+		  .y = -3240,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+	};
+	const rdpMonitor multi_monitor_invalid_1[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 1920,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor multi_monitor_invalid_2[] = {
+		{ .x = 1,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 1920,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor multi_monitor_invalid_3[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 1921,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+	const rdpMonitor multi_monitor_invalid_4[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 1919,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+
+	const rdpMonitor multi_monitor_valid_2[] = {
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 3840,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 1920,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+
+	const rdpMonitor multi_monitor_valid_3[] = {
+		{ .x = 1920,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = TRUE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 3840,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } },
+		{ .x = 0,
+		  .y = 0,
+		  .width = 1920,
+		  .height = 1080,
+		  .is_primary = FALSE,
+		  .orig_screen = 0,
+		  .attributes = { .physicalWidth = 100,
+		                  .physicalHeight = 100,
+		                  .orientation = ORIENTATION_PREFERENCE_LANDSCAPE,
+		                  .desktopScaleFactor = 100,
+		                  .deviceScaleFactor = 100 } }
+	};
+
+	const struct validity_test_case tests[] = {
+		{ TRUE, ARRAYSIZE(single_monitor_valid), single_monitor_valid },
+		{ FALSE, ARRAYSIZE(single_monitor_invalid_1), single_monitor_invalid_1 },
+		{ FALSE, ARRAYSIZE(single_monitor_invalid_2), single_monitor_invalid_2 },
+		{ FALSE, ARRAYSIZE(single_monitor_invalid_3), single_monitor_invalid_3 },
+		{ FALSE, ARRAYSIZE(single_monitor_invalid_4), single_monitor_invalid_4 },
+		{ TRUE, ARRAYSIZE(multi_monitor_valid), multi_monitor_valid },
+		{ FALSE, ARRAYSIZE(multi_monitor_invalid_1), multi_monitor_invalid_1 },
+		{ FALSE, ARRAYSIZE(multi_monitor_invalid_2), multi_monitor_invalid_2 },
+		{ FALSE, ARRAYSIZE(multi_monitor_invalid_3), multi_monitor_invalid_3 },
+		{ FALSE, ARRAYSIZE(multi_monitor_invalid_4), multi_monitor_invalid_4 },
+		{ TRUE, ARRAYSIZE(multi_monitor_valid_2), multi_monitor_valid_2 },
+		{ TRUE, ARRAYSIZE(multi_monitor_valid_3), multi_monitor_valid_3 }
+	};
+
+	rc = TRUE;
+	for (size_t x = 0; x < ARRAYSIZE(tests); x++)
+	{
+		const struct validity_test_case* cur = &tests[x];
+
+		if (!prepare_monitor_array(settings, cur))
+			rc = log_result_case(FALSE, __func__, x);
+		else
+		{
+#if defined(BUILD_TESTING_INTERNAL)
+			const BOOL res = freerdp_settings_check_client_after_preconnect(settings);
+#else
+			const BOOL res = cur->expected;
+#endif
+			if (res != cur->expected)
+			{
+				rc = log_result_case(FALSE, __func__, x);
+			}
+		}
+	}
+
+fail:
+	freerdp_settings_free(settings);
+	return log_result(rc, __func__);
+}
+
+static BOOL test_string_null(rdpSettings* settings, FreeRDP_Settings_Keys_String id)
+{
+	if (!freerdp_settings_set_string(settings, id, NULL))
+		return FALSE;
+
+	const char* chk = freerdp_settings_get_string(settings, id);
+	return (chk == NULL);
+}
+
+static BOOL test_string_check(rdpSettings* settings, FreeRDP_Settings_Keys_String id,
+                              const char* string, size_t len)
+{
+	const char* chk = freerdp_settings_get_string(settings, id);
+	if (!chk)
+		return FALSE;
+
+	const size_t clen = strnlen(chk, len + 1);
+
+	/* set strings must always be '\0' terminated */
+	if (clen != len)
+		return FALSE;
+
+	/* Strings must match comparison */
+	if (strncmp(string, chk, clen) != 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+static BOOL test_string_check_reset(rdpSettings* settings, FreeRDP_Settings_Keys_String id,
+                                    const char* string, size_t len)
+{
+	return test_string_check(settings, id, string, len) && test_string_null(settings, id);
+}
+
+static BOOL test_string_set_readback(rdpSettings* settings, FreeRDP_Settings_Keys_String id,
+                                     const char* string, size_t len)
+{
+	WINPR_ASSERT(len > 3);
+
+	BOOL rc = FALSE;
+	WCHAR* wstr = NULL;
+
+	const size_t slen = strnlen(string, len);
+	if (!freerdp_settings_set_string_len(settings, id, string, slen - 1))
+		goto fail;
+
+	if (!test_string_check_reset(settings, id, string, slen - 1))
+		goto fail;
+
+	if (!freerdp_settings_set_string(settings, id, string))
+		goto fail;
+
+	size_t wlen = 0;
+	wstr = freerdp_settings_get_string_as_utf16(settings, id, &wlen);
+	if (!wstr || (wlen != slen))
+		goto fail;
+
+	if (!test_string_check_reset(settings, id, string, slen))
+		goto fail;
+
+	if (!freerdp_settings_set_string_from_utf16N(settings, id, wstr, slen - 1))
+		goto fail;
+
+	if (!test_string_check(settings, id, string, slen - 1))
+		goto fail;
+
+	if (!freerdp_settings_set_string_from_utf16(settings, id, wstr))
+		goto fail;
+
+	if (!test_string_check(settings, id, string, slen))
+		goto fail;
+
+	rc = TRUE;
+fail:
+	free(wstr);
+	return rc;
+}
+
+static BOOL test_string_len(rdpSettings* settings)
+{
+	BOOL rc = FALSE;
+
+	const char user[] = "abcdefg";
+	if (!test_string_set_readback(settings, FreeRDP_Username, user, sizeof(user)))
+		goto fail;
+
+	const char pwd[] = "xyz";
+	if (!test_string_set_readback(settings, FreeRDP_Password, pwd, sizeof(pwd)))
+		goto fail;
+
+	const char domain[] = "foobar";
+	if (!test_string_set_readback(settings, FreeRDP_Domain, domain, sizeof(domain)))
+		goto fail;
+
+	rc = TRUE;
+fail:
+	return rc;
+}
+
 int TestSettings(int argc, char* argv[])
 {
 	int rc = -1;
-	size_t x;
 	rdpSettings* settings = NULL;
 	rdpSettings* cloned = NULL;
 	rdpSettings* cloned2 = NULL;
@@ -956,6 +1503,8 @@ int TestSettings(int argc, char* argv[])
 		goto fail;
 	if (!test_pointer_array())
 		goto fail;
+	if (!test_validity_check())
+		goto fail;
 
 	settings = freerdp_settings_new(0);
 
@@ -965,9 +1514,7 @@ int TestSettings(int argc, char* argv[])
 		return -1;
 	}
 
-	if (!freerdp_settings_set_string(settings, FreeRDP_Username, "abcdefg"))
-		goto fail;
-	if (!freerdp_settings_set_string(settings, FreeRDP_Password, "xyz"))
+	if (!test_string_len(settings))
 		goto fail;
 
 	cloned = freerdp_settings_clone(settings);
@@ -977,10 +1524,11 @@ int TestSettings(int argc, char* argv[])
 
 #if defined(have_bool_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(bool_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(bool_list_indices); x++)
 	{
 		const size_t key = bool_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const BOOL val = freerdp_settings_get_bool(settings, key);
 		const BOOL cval = freerdp_settings_get_bool(cloned, key);
 		if (val != cval)
@@ -997,7 +1545,7 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_int16_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(int16_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(int16_list_indices); x++)
 	{
 		const size_t key = int16_list_indices[x];
 		const char* name = freerdp_settings_get_name_for_key(key);
@@ -1017,10 +1565,11 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_uint16_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(uint16_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(uint16_list_indices); x++)
 	{
 		const size_t key = uint16_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const UINT16 val = freerdp_settings_get_uint16(settings, key);
 		const UINT16 cval = freerdp_settings_get_uint16(cloned, key);
 		if (val != cval)
@@ -1037,10 +1586,11 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_uint32_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(uint32_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(uint32_list_indices); x++)
 	{
 		const size_t key = uint32_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const UINT32 val = freerdp_settings_get_uint32(settings, key);
 		const UINT32 cval = freerdp_settings_get_uint32(cloned, key);
 		if (val != cval)
@@ -1057,10 +1607,11 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_int32_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(int32_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(int32_list_indices); x++)
 	{
 		const size_t key = int32_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const INT32 val = freerdp_settings_get_int32(settings, key);
 		const INT32 cval = freerdp_settings_get_int32(cloned, key);
 		if (val != cval)
@@ -1077,10 +1628,11 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_uint64_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(uint64_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(uint64_list_indices); x++)
 	{
 		const size_t key = uint64_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const UINT64 val = freerdp_settings_get_uint64(settings, key);
 		const UINT64 cval = freerdp_settings_get_uint64(cloned, key);
 		if (val != cval)
@@ -1097,7 +1649,7 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_int64_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(int64_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(int64_list_indices); x++)
 	{
 		const size_t key = int64_list_indices[x];
 		const char* name = freerdp_settings_get_name_for_key(key);
@@ -1117,12 +1669,13 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_string_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(string_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(string_list_indices); x++)
 	{
 		const size_t key = string_list_indices[x];
 		const char val[] = "test-string";
-		const char* res;
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* res = NULL;
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const char* oval = freerdp_settings_get_string(settings, key);
 		const char* cval = freerdp_settings_get_string(cloned, key);
 		if ((oval != cval) && (strcmp(oval, cval) != 0))
@@ -1142,7 +1695,7 @@ int TestSettings(int argc, char* argv[])
 #endif
 #if defined(have_pointer_list_indices)
 
-	for (x = 0; x < ARRAYSIZE(pointer_list_indices); x++)
+	for (size_t x = 0; x < ARRAYSIZE(pointer_list_indices); x++)
 	{
 		const size_t key = pointer_list_indices[x];
 		const void* val = freerdp_settings_get_pointer(settings, key);
